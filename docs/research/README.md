@@ -16,3 +16,5 @@ Prices, limits and version numbers are as of 2026-10-06 and will drift. Re-verif
 | [06-legal-and-risk.md](06-legal-and-risk.md) | Legal, policy and platform risk | 18 | 3 |
 | [07-gtm-and-pricing.md](07-gtm-and-pricing.md) | Go-to-market and pricing | 17 | 3 |
 | [08-critique-gaps-and-contradictions.md](08-critique-gaps-and-contradictions.md) | Completeness critique: gaps, contradictions, risks | 16 gaps | n/a |
+| [09-design-panel.md](09-design-panel.md) | Design panel: proposals, scores, verdicts | 3 proposals | 3 judges |
+| [appendix-design-synthesis.md](appendix-design-synthesis.md) | The panel's synthesised spec (superseded by PLAN.md where they differ) | n/a | n/a |

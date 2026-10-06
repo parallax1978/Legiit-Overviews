@@ -8,7 +8,7 @@ Conventions: `id` is a UUID primary key; timestamps are `timestamptz`; JSON colu
 
 **location** — `code int PK` (DataForSEO location_code), `name`, `country_iso char(2)`, `timezone text` (IANA), `kind enum('country','region','city')`. Seeded from DataForSEO's locations endpoint; v1 exposes countries only.
 
-**capture_series** — `id`, `normalized_query text`, `gl char(2)`, `hl text`, `location_code int FK`, `device enum('desktop','mobile')`, `provider enum('dataforseo','serpapi')`, `timezone text`, `cadence_max smallint` (max renders per day any subscriber pays for), `week_one_until date` (double-render window), `is_canary bool default false`, `status enum('active','paused')`, `aio_language text`, `created_at`, `last_present_at`. `UNIQUE (normalized_query, gl, hl, location_code, device, provider)`.
+**capture_series** — `id`, `normalized_query text`, `gl char(2)`, `hl text`, `location_code int FK`, `device enum('desktop','mobile')`, `provider enum('dataforseo','serpapi')`, `timezone text`, `cadence_max smallint` (max renders per day any subscriber pays for, maintained by trigger), `subscriber_count int default 0`, `week_one_until date` (double-render window), `is_canary bool default false`, `status enum('active','paused')`, `aio_language text`, `created_at`, `last_present_at`. `UNIQUE (normalized_query, gl, hl, location_code, device, provider)`.
 
 **capture_attempt** — `id`, `series_id FK`, `capture_day date` (in the series timezone), `slot_index smallint`, `attempt_no smallint`, `provider`, `provider_task_id text`, `idempotency_key text UNIQUE` (= `${series_id}:${capture_day}:${slot_index}`), `status enum('pending','submitted','received','missed','failed_over')`, `cost_usd numeric(10,6)`, `submitted_at`, `received_at`.
 
@@ -44,7 +44,9 @@ Conventions: `id` is a UUID primary key; timestamps are `timestamptz`; JSON colu
 
 **external_identity** — `id`, `organization_id`, `user_id`, `provider enum('legiit','google')`, `external_id text`, `linked_at`. Reserved; empty in v1.
 
-**tracked_query** — `id`, `organization_id`, `series_id FK`, `label text`, `own_domain text null`, `own_url text null`, `brand_terms text[]`, `competitor_domains text[]`, `status enum('watching','confirmed','active','paused')`, `cadence_tier enum('starter','pro','playbook')`, `published_at timestamptz null`, `created_at`. `UNIQUE (organization_id, series_id)`.
+**series_subscription** — `series_id FK`, `tracked_query_id FK`, `organization_id`, `cadence smallint`. `PRIMARY KEY (series_id, tracked_query_id)`. A Pro query on desktop and mobile subscribes to two series. Triggers keep `capture_series.cadence_max = max(cadence)` over subscribers and a `subscriber_count`; a series with zero subscribers and `is_canary = false` becomes `paused`.
+
+**tracked_query** — `id`, `organization_id`, `label text`, `own_domain text null`, `own_url text null`, `brand_terms text[]`, `competitor_domains text[]`, `status enum('watching','confirmed','active','paused')`, `cadence_tier enum('starter','pro','playbook')`, `published_at timestamptz null`, `playbook_expires_at timestamptz null`, `created_at`. Series are linked through `series_subscription`; `UNIQUE (organization_id, label)`.
 
 **analysis_run** — `id`, `organization_id`, `tracked_query_id FK`, `kind enum('preliminary','seven_day','weekly','post_publish')`, `window_start`, `window_end`, `n_days smallint`, `n_renders smallint`, `metrics jsonb`, `coverage_matrix jsonb null`, `model_versions jsonb`, `cost_usd numeric(10,6)`, `status enum('queued','running','done','failed')`, `created_at`.
 

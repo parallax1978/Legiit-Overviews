@@ -39,7 +39,7 @@ Denominators are renders, never days. A render is a `snapshot` row whose status 
 
 **Section citations** = for each citing block that references the customer's URL, the page section (heading path) whose embedding is the nearest at cosine at or above 0.8; counts per section over the window; blocks under the threshold go to an "unmatched" bucket.
 
-**Win and loss events** = `first_seen` when the URL is cited for the first time; `lost` when it is absent from at least 3 consecutive present renders after having been cited; `regained` on the next citation after a loss; `brand_mention` when a brand term appears in the answer text without a URL match. Loss events inside an open `model_regime` window are recorded with `suppressed_by_regime = true` and do not email.
+**Win and loss events** = `first_seen` when the URL is cited for the first time (event and email immediately, match level shown); `lost` when the URL is absent from every present render on 2 consecutive capture-days after a `first_seen`, with at least 4 renders in that span, never from a single absent render; `regained` on the next citation after a loss; `brand_mention` when a brand term appears in the answer text without a URL match. Every email states n and the confidence label. Loss events inside an open `model_regime` window are recorded with `suppressed_by_regime = true` and do not email; the dashboard shows the platform-event banner and one platform-event email goes to each affected org. The 14-day and 28-day rolling survival rates are shown beside the 7-day figure.
 
 ## Canary (product-owned)
 
