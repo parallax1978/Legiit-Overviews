@@ -1,10 +1,14 @@
 # Progress
 
-- [ ] 1. Supabase project and schema
-- [ ] 2. DataForSEO client and `add-query`
-- [ ] 3. Daily capture
-- [ ] 4. Reports
-- [ ] 5. App shell
-- [ ] 6. Query page
-- [ ] 7. Own-page tracking
-- [ ] 8. Billing
+- [ ] 1. Schema
+- [ ] 2. DataForSEO client and parser
+- [ ] 3. Add query
+- [ ] 4. Scheduled capture
+- [ ] 5. Extraction and matching
+- [ ] 6. Consolidation and accuracy
+- [ ] 7. Metrics
+- [ ] 8. Cited pages
+- [ ] 9. Matrix and brief
+- [ ] 10. App
+- [ ] 11. Tracking and draft scorer
+- [ ] 12. Platform events, alerts, billing
