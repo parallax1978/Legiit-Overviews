@@ -178,7 +178,7 @@ begin
     from pres p
     cross join lateral jsonb_to_recordset(
       case when jsonb_typeof(p.organic) = 'array' then p.organic else '[]'::jsonb end
-    ) as o(rank int, url_key text)
+    ) as o(rank numeric, url_key text)
     where o.url_key is not null and o.rank is not null
     group by p.id, o.url_key
   ),

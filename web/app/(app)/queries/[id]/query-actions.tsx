@@ -48,7 +48,6 @@ export function QueryActions({ id, keyword, status, resumeStatus }: QueryActions
       return;
     }
     router.replace("/queries");
-    router.refresh();
   }
 
   return (

@@ -130,6 +130,7 @@ Deno.test("extraction validates, reuses known claims and recurs like the scenari
   assert(sim.groups.length < 120, `claim groups ${sim.groups.length}`);
   const names = sim.entities.map((e) => e.name);
   for (const n of ["Jotform", "Typeform", "Google Forms", "Tally", "Tally Forms"]) assert(names.includes(n), `entity ${n}`);
+  assert(!names.some((n) => /^(pricing|integrations|compliance|logic and payments)$/i.test(n)), `criteria are not entities: ${names}`);
   const jot = sim.entities.find((e) => e.name === "Jotform")!;
   assert(jot.recommended.size / sim.present > 0.8, "Jotform is recommended");
   assert(jot.labels.has("best overall"), `Jotform labels ${[...jot.labels]}`);

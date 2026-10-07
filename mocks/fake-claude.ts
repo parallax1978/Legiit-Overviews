@@ -182,6 +182,19 @@ const STEP = /^(consider|check|compare|look for|choose|start|try|make sure|sign 
 const DEFINITION = /^(?:an?\s+)?[\w\s-]{2,40}?\s(?:is a|is an|are|refers to|means)\s/i;
 const CAMEL = /\b[A-Z][a-z]+[A-Z][A-Za-z0-9]+\b/g;
 const LIST_HEAD = /^([A-Z][\w.'&+ -]{1,40}?):\s+(.+)$/;
+const GENERIC_HEADS = new Set([
+  "pricing", "price", "cost", "integrations", "compliance", "security", "features", "support", "templates", "design",
+  "performance", "verdict", "pros", "cons", "pro", "con", "overview", "summary", "note", "tip", "free plan", "paid plans",
+  "best for", "ease of use", "automation", "reporting", "analytics", "customization", "mobile", "payments",
+]);
+
+/** Whether a list head ("Name: ...") reads as a product name rather than a criterion like "Pricing". */
+function isProductName(head: string): boolean {
+  const h = head.trim();
+  if (KNOWN_TOOLS.includes(h) || /^[A-Z][a-z]+[A-Z]/.test(h)) return true;
+  const words = h.split(/\s+/);
+  return words.length <= 4 && words.every((w) => /^[A-Z0-9]/.test(w)) && !GENERIC_HEADS.has(h.toLowerCase());
+}
 
 // ------------------------------------------------------------------ A. extract
 
@@ -196,7 +209,7 @@ function findEntities(text: string, names: string[]): Found[] {
   const sorted = [...new Set(names)].filter((n) => n.length > 1).sort((a, b) => b.length - a.length);
   const taken: Found[] = [];
   for (const name of sorted) {
-    const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escapeRe(name)})(?=$|[^\\p{L}\\p{N}])`, "giu");
+    const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escapeRe(name)})(?=$|[^\\p{L}\\p{N}])`, "gu");
     for (const m of text.matchAll(re)) {
       const start = m.index! + m[1].length;
       const end = start + m[2].length;
@@ -252,7 +265,7 @@ function entityLabel(segment: string): string | null {
 export function fakeExtract(input: ExtractInput): ExtractOutput {
   const sentences = (input.sentences ?? []).map((s) => ({ ...s, text: clean(s.text) }));
   const knownNames = input.known_entities.flatMap((e) => [e.name, ...e.aliases]);
-  const heads = sentences.filter((s) => s.kind === "list_item").map((s) => s.text.match(LIST_HEAD)?.[1]).filter((h): h is string => !!h && h.split(" ").length <= 4);
+  const heads = sentences.filter((s) => s.kind === "list_item").map((s) => s.text.match(LIST_HEAD)?.[1]).filter((h): h is string => !!h && isProductName(h));
   const camel = sentences.flatMap((s) => s.text.match(CAMEL) ?? []);
   const names = [...KNOWN_TOOLS, ...knownNames, ...heads, ...camel];
 
@@ -261,7 +274,8 @@ export function fakeExtract(input: ExtractInput): ExtractOutput {
   const created: { label: string; tokens: Set<string> }[] = [];
   const claims: ExtractOutput["claims"] = [];
   for (const s of sentences) {
-    if (s.kind === "heading" || s.text.endsWith("?") || wordList(s.text).length < 4) continue;
+    // Headings, questions and table rows are structure, not claims; rows still count for entities.
+    if (s.kind === "heading" || s.kind === "table_row" || s.text.endsWith("?") || wordList(s.text).length < 4) continue;
     const { text } = s.kind === "list_item" || s.kind === "expanded" ? fromListHead(s.text) : { text: s.text };
     for (const part of splitCompound(text, names)) {
       const tk = tokens(part);
@@ -285,7 +299,8 @@ export function fakeExtract(input: ExtractInput): ExtractOutput {
   for (const s of sentences) {
     if (s.kind === "heading") continue;
     const found = findEntities(s.text, names);
-    const head = s.text.match(LIST_HEAD)?.[1] ?? null;
+    const listHead = s.text.match(LIST_HEAD)?.[1] ?? null;
+    const head = listHead && isProductName(listHead) ? listHead : null;
     found.forEach((f, idx) => {
       const key = f.name.toLowerCase();
       const entry = byKey.get(key) ?? { name: f.name, recommended: false, label: null, sentences: new Set<number>() };
@@ -312,7 +327,7 @@ export function fakeExtract(input: ExtractInput): ExtractOutput {
   // Format labels from sentence kinds and wording.
   const labels = new Set<FormatLabel>();
   const items = sentences.filter((s) => s.kind === "list_item");
-  const headed = items.filter((s) => LIST_HEAD.test(s.text));
+  const headed = items.filter((s) => isProductName(s.text.match(LIST_HEAD)?.[1] ?? ""));
   const listHeading = sentences.find((s) => s.kind === "heading" && /\b(top|best)\b/i.test(s.text));
   if (items.length) {
     if (items.some((s) => /^\d+[.)]\s/.test(s.text)) || (headed.length >= 3 && listHeading)) labels.add("ranked_list");
@@ -417,7 +432,7 @@ export function fakePageTag(input: PageTagInput): PageTagOutput {
     if (title) topics.push(title.replace(/\s*[:|].*$/, "").trim());
   }
 
-  const heads = [...md.matchAll(/^[-*]\s+([A-Z][\w.'&+ -]{1,40}?):\s/gm)].map((m) => m[1]).filter((h) => h.split(" ").length <= 3 && !/^(pro|con|pricing|free plan)$/i.test(h));
+  const heads = [...md.matchAll(/^[-*]\s+([A-Z][\w.'&+ -]{1,40}?):\s/gm)].map((m) => m[1]).filter(isProductName);
   const camel = md.match(CAMEL) ?? [];
   const entities = findEntities(md, [...KNOWN_TOOLS, ...heads, ...camel])
     .map((f) => f.name)
@@ -427,13 +442,13 @@ export function fakePageTag(input: PageTagInput): PageTagOutput {
   const sentences = bodySentences(md);
   const evidence: PageTagOutput["evidence"] = [];
   const add = (kind: PageTagOutput["evidence"][number]["kind"], description: string, s: string) => {
-    if (evidence.length >= 8 || evidence.some((e) => e.excerpt === excerptOf(s))) return;
+    if (evidence.length >= 8 || evidence.filter((e) => e.kind === kind).length >= 2 || evidence.some((e) => e.excerpt === excerptOf(s))) return;
     evidence.push({ kind, description, excerpt: excerptOf(s) });
   };
   for (const s of sentences) {
     if (/\bwe (tested|built|set up|timed|compared)\b|\bin our testing\b/i.test(s)) add("test_result", "Describes a hands-on test the authors ran", s);
     else if (/\$\d/.test(s)) add("pricing", "States prices or plan limits", s);
-    else if (/\b\d(\.\d)? out of 5\b|\breviews?\b|\brated?\b/i.test(s)) add("review", "Cites user ratings or reviews", s);
+    else if (/\b\d(\.\d)? out of 5\b|\b(verified|user) reviews?\b|\bratings?\b/i.test(s)) add("review", "Cites user ratings or reviews", s);
     else if (/[“"][^”"]{8,}[”"]/.test(s)) add("quote", "Quotes a user or expert", s);
     else if (/\b\d[\d,.]*\+?\s?(%|percent|templates|integrations|apps|users|responses|submissions|entries|forms)\b/i.test(s)) add("spec", "Gives concrete numbers or limits", s);
   }

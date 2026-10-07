@@ -46,7 +46,7 @@ ${extra}
 }
 
 Deno.test("wordsBeforeAnswer finds the opening exactly or by shared words", () => {
-  assertEquals(wordsBeforeAnswer(topPage(), ANSWER), 12, "the byline line is 12 words; the title is a heading");
+  assertEquals(wordsBeforeAnswer(topPage(), ANSWER), 8, "the byline is 8 words (By Jane Doe Updated on March 3 2026); the title is a heading");
   const paraphrase = "# Title\n\nSome intro here.\n\nFor most teams Jotform is the best form builder thanks to templates.\n";
   assertEquals(wordsBeforeAnswer(paraphrase, ANSWER), 3);
   assertEquals(wordsBeforeAnswer("Nothing relevant at all.", ANSWER), null);
@@ -206,7 +206,7 @@ Deno.test("score-draft: ownership, readiness, background scoring", async (t) => 
       assertEquals(r.subscores.format_match, 1);
       assertEquals(r.subscores.answer_first, 1);
       assertEquals(r.subscores.checklist, 1);
-      assertEquals(r.measures.words_before_answer, 12);
+      assertEquals(r.measures.words_before_answer, 8);
       assert(r.score >= 90, `score ${r.score}`);
       assertEquals(r.entities.map((e) => e.present), [true, true, true]);
       assertEquals(r.new_to_cite[0].status, "missing");

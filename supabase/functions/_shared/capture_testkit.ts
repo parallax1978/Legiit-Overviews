@@ -55,7 +55,7 @@ export function startStubDfs(opts: StubOptions = {}): StubDfs {
     if (result === "fail") return "fail" as const;
     return result === null
       ? { id: crypto.randomUUID(), status_code: status === 20000 ? 40501 : status, status_message: "Invalid Field.", data, result: null }
-      : { id: crypto.randomUUID(), status_code: 20000, status_message: "Ok.", data, result: [result] };
+      : { id: crypto.randomUUID(), status_code: 20000, status_message: "Ok.", data, result: [{ ...result, datetime: dfsNow() }] };
   };
 
   const server = Deno.serve({ port: 0, hostname: "127.0.0.1", onListen() {} }, async (req) => {
@@ -114,6 +114,11 @@ export function startStubDfs(opts: StubOptions = {}): StubDfs {
     count: (p: string) => calls.filter((c) => c.path === p).length,
     close: () => server.shutdown(),
   };
+}
+
+/** The current time in DataForSEO's datetime format, as a real SERP result carries it. */
+function dfsNow(): string {
+  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, " +00:00");
 }
 
 export const LIVE_PATH = "/v3/serp/google/organic/live/advanced";

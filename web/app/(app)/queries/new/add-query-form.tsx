@@ -115,7 +115,6 @@ export function AddQueryForm({ locations, initialKeyword }: AddQueryFormProps) {
       const shown = results.find((r) => r.overview_present || r.status === "tracking");
       if (shown) {
         router.push(`/queries/${shown.tracked_query_id}`);
-        router.refresh();
         return;
       }
       setWatching({ keyword: kw, response: data as AddQueryResponse });

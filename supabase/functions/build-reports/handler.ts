@@ -32,7 +32,8 @@ interface ReportRow {
   kind: string;
   window_start: string;
   window_end: string;
-  metrics: SeriesMetrics | null;
+  /** metrics->sources; null until the report's metrics are stored. */
+  sources: SourceMetric[] | null;
   page_urls: string[];
   page_details: PageDetail[] | null;
   created_at: string;
@@ -109,7 +110,7 @@ export async function buildReports(opts: BuildOptions = {}): Promise<BuildSummar
 
   // 2. Work through every report still at stage 'pages', oldest first.
   let query = db.from("reports")
-    .select("id, tracked_query_id, series_id, kind, window_start, window_end, metrics, page_urls, page_details, created_at, tracked_queries(own_url, own_url_key)")
+    .select("id, tracked_query_id, series_id, kind, window_start, window_end, sources:metrics->sources, page_urls, page_details, created_at, tracked_queries(own_url, own_url_key)")
     .eq("stage", "pages")
     .order("created_at", { ascending: true })
     .limit(200);
@@ -134,7 +135,7 @@ async function processReport(report: ReportRow, now: Date, budget: number, summa
   const age = now.getTime() - Date.parse(report.created_at);
 
   // Metrics at the window end.
-  if (!report.metrics) {
+  if (!report.sources) {
     const { data, error } = await db.rpc("series_metrics", {
       p_series_id: report.series_id, p_from: report.window_start, p_to: report.window_end,
     });
@@ -147,17 +148,18 @@ async function processReport(report: ReportRow, now: Date, budget: number, summa
       }
       return 0;
     }
-    report.metrics = data as SeriesMetrics;
+    const metrics = data as SeriesMetrics;
     must(
-      await db.from("reports").update({ metrics: report.metrics, renders: report.metrics.renders, updated_at: now.toISOString() }).eq("id", report.id),
+      await db.from("reports").update({ metrics, renders: metrics.renders, updated_at: now.toISOString() }).eq("id", report.id),
       "save metrics",
     );
+    report.sources = metrics.sources ?? [];
     summary.metrics++;
   }
 
   // Page selection, once.
   const tq = report.tracked_queries;
-  const { refs, shares } = selectPages(report.metrics.sources ?? [], { url: tq?.own_url ?? null, url_key: tq?.own_url_key ?? null });
+  const { refs, shares } = selectPages(report.sources ?? [], { url: tq?.own_url ?? null, url_key: tq?.own_url_key ?? null });
   if (!report.page_details) {
     report.page_urls = refs.map((r) => r.url_key);
     summary.selected++;

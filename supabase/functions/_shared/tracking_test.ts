@@ -118,6 +118,7 @@ Deno.test("a capture cited at exact_url creates one first_seen event and notific
     assertEquals(ev.map((e) => e.kind).sort(), ["brand_mention", "first_seen"]);
     const firstSeen = ev.find((e) => e.kind === "first_seen");
     assertEquals([firstSeen.level, firstSeen.quoted_heading, firstSeen.snapshot_id], ["exact_url", "Our top pick", first.snapshot_id]);
+    assertEquals(new Date(firstSeen.created_at).getTime(), new Date(now - 6 * HOUR).setMilliseconds(0), "timed at the render");
     let notes = await notifications(tq.id);
     const cites = notes.filter((n) => n.kind === "first_seen");
     assertEquals(cites.length, 1);
@@ -156,15 +157,17 @@ Deno.test("rematch rebuilds 28 days of matches with one history event", async ()
     await ingestAt(series.id, "synthetic-form-builders.json", new Date(now - 40 * 24 * HOUR));
     const absent = await ingestAt(series.id, "synthetic-absent.json", new Date(now - 5 * 24 * HOUR));
     const firstCited = await ingestAt(series.id, "synthetic-form-builders.json", new Date(now - 3 * 24 * HOUR));
-    await ingestAt(series.id, "synthetic-sections.json", new Date(now - 2 * 24 * HOUR));
+    // Cites jotform.com/help/...: the same host as the own page.
+    const sameHost = await ingestAt(series.id, "synthetic-sections.json", new Date(now - 2 * 24 * HOUR));
     const lastCited = await ingestAt(series.id, "synthetic-form-builders.json", new Date(now - 24 * HOUR));
     assertEquals(await events(tq.id), [], "no own page yet, so nothing matched");
 
     must(await db().from("tracked_queries").update({ own_url: OWN_URL, own_url_key: normalizeUrl(OWN_URL) }).eq("id", tq.id), "set url");
-    assertEquals(await rematch(tq.id), 2);
+    assertEquals(await rematch(tq.id), 3);
     const rows = must(await db().from("own_matches").select("snapshot_id, level").eq("tracked_query_id", tq.id), "rows") as any[];
     assertEquals(rows.length, 4, "four renders in the window");
     assertEquals(rows.filter((r) => r.level === "exact_url").map((r) => r.snapshot_id).sort(), [firstCited, lastCited].sort());
+    assertEquals(rows.find((r) => r.snapshot_id === sameHost).level, "same_host");
     assertEquals(rows.find((r) => r.snapshot_id === absent).level, null);
 
     const ev = await events(tq.id);
@@ -173,7 +176,7 @@ Deno.test("rematch rebuilds 28 days of matches with one history event", async ()
     assertEquals(new Date(ev[0].created_at).getTime(), new Date(now - 3 * 24 * HOUR).setMilliseconds(0));
     assertEquals((await notifications(tq.id)).length, 1);
 
-    assertEquals(await rematch(tq.id), 2);
+    assertEquals(await rematch(tq.id), 3);
     assertEquals((await events(tq.id)).length, 1);
     assertEquals((await notifications(tq.id)).length, 1);
 

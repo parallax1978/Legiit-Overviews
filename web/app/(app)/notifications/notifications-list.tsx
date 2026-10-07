@@ -83,7 +83,7 @@ export function NotificationsList({ initial, limit }: { initial: NotificationRow
       <PageHeader
         kicker="Inbox"
         title="Notifications"
-        meta={items.length ? `${plural(unread, "unread notification")}${items.length >= limit ? ` · latest ${limit}` : ""}` : "Alerts about your queries"}
+        meta={items.length ? `${unread ? plural(unread, "unread notification") : "All read"}${items.length >= limit ? ` · latest ${limit}` : ""}` : "Alerts about your queries"}
         actions={
           items.length > 0 && (
             <Button variant="secondary" onClick={() => void markAll()} disabled={unread === 0} loading={markingAll} iconLeft={<CheckIcon />}>

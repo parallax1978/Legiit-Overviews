@@ -7,7 +7,7 @@ const FOCUSABLE =
 
 /**
  * Wires modal behaviour to the returned ref while `open` (and `ready`, i.e. mounted) are true:
- * focuses the first control (skipping a leading close button), traps Tab inside, closes on Esc,
+ * focuses the [data-autofocus] element or the panel, traps Tab inside, closes on Esc,
  * locks page scroll, and returns focus to the previously focused element on close.
  */
 export function useModal<T extends HTMLElement>(open: boolean, ready: boolean, onClose: () => void): RefObject<T | null> {
@@ -24,7 +24,9 @@ export function useModal<T extends HTMLElement>(open: boolean, ready: boolean, o
 
     const focusables = () =>
       Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.getClientRects().length > 0);
-    const initial = panel.querySelector<HTMLElement>("[data-autofocus]") ?? focusables()[1] ?? focusables()[0] ?? panel;
+    // An element marked data-autofocus gets focus; otherwise the panel itself, so screen readers announce
+    // the dialog's title and Tab starts at the close button.
+    const initial = panel.querySelector<HTMLElement>("[data-autofocus]") ?? panel;
     initial.focus({ preventScroll: true });
 
     function onKeyDown(e: KeyboardEvent) {

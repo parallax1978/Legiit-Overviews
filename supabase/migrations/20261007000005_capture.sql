@@ -1,5 +1,5 @@
 -- Capture pipeline helpers. Each runs in one transaction so retries and duplicate deliveries are safe:
---   claim_due_captures      due series -> one pending capture each, next_capture_at advanced
+--   claim_due_captures      due series -> one pending capture each (latest passed slot), next_capture_at advanced
 --   mark_capture_submissions  records task_post outcomes for many captures at once
 --   ingest_snapshot         snapshot + sections + citations, same_as, capture received, watching -> tracking
 --   record_capture_failure  error snapshot at scheduled_at, capture error
@@ -14,6 +14,7 @@ language plpgsql set search_path = ''
 as $$
 declare
   r record;
+  v_slot timestamptz;
   v_capture uuid;
 begin
   for r in
@@ -26,17 +27,17 @@ begin
     limit p_limit
     for update of s skip locked
   loop
+    -- The latest slot that has passed (normally next_capture_at itself); whole 3-hour steps keep
+    -- each series on its own offset within the window, and a series that fell behind captures once.
+    v_slot := r.next_capture_at
+      + floor(extract(epoch from now() - r.next_capture_at) / 10800)::int * interval '3 hours';
     v_capture := null;
     insert into public.captures (series_id, scheduled_at, source, status)
-    values (r.id, r.next_capture_at, 'scheduled', 'pending')
+    values (r.id, v_slot, 'scheduled', 'pending')
     on conflict on constraint captures_series_id_scheduled_at_key do nothing
     returning id into v_capture;
 
-    -- Whole 3-hour steps keep each series on its own offset within the window.
-    update public.series
-    set next_capture_at = r.next_capture_at
-      + (floor(extract(epoch from now() - r.next_capture_at) / 10800)::int + 1) * interval '3 hours'
-    where id = r.id;
+    update public.series set next_capture_at = v_slot + interval '3 hours' where id = r.id;
 
     if v_capture is not null then
       capture_id := v_capture;
@@ -176,7 +177,7 @@ end $$;
 
 -- Events and notifications for one match. Callers decide the match is new; this decides which events
 -- it is: first_seen (none yet), regained (latest citation event is lost, from before this capture),
--- brand_mention (none yet). p_at is the event time (the capture time when replaying history).
+-- brand_mention (none yet). Events are timed at the render (the snapshot's captured_at) unless p_at is given.
 create or replace function public.own_match_events(
   p_tracked_query_id uuid,
   p_snapshot_id uuid,
@@ -184,7 +185,7 @@ create or replace function public.own_match_events(
   p_quoted_heading text,
   p_brand_name text,
   p_allow_regained boolean default true,
-  p_at timestamptz default now()
+  p_at timestamptz default null
 )
 returns text[]
 language plpgsql set search_path = ''
@@ -195,6 +196,7 @@ declare
   v_last_kind text;
   v_last_at timestamptz;
   v_captured timestamptz;
+  v_at timestamptz;
   v_kind text;
   v_level text;
   v_events text[] := '{}';
@@ -206,13 +208,15 @@ begin
     return v_events;
   end if;
 
+  select s.captured_at into v_captured from public.snapshots s where s.id = p_snapshot_id;
+  v_at := coalesce(p_at, v_captured, now());
+
   if p_level is not null then
     select e.kind, e.created_at into v_last_kind, v_last_at
     from public.citation_events e
     where e.tracked_query_id = p_tracked_query_id and e.kind in ('first_seen', 'lost', 'regained')
     order by e.created_at desc, e.id desc
     limit 1;
-    select s.captured_at into v_captured from public.snapshots s where s.id = p_snapshot_id;
     if not exists (
       select 1 from public.citation_events e where e.tracked_query_id = p_tracked_query_id and e.kind = 'first_seen'
     ) then
@@ -224,7 +228,7 @@ begin
     if v_kind is not null then
       v_level := replace(replace(p_level, '_url', ' URL'), '_', ' ');
       insert into public.citation_events (tracked_query_id, snapshot_id, kind, level, quoted_heading, created_at)
-      values (p_tracked_query_id, p_snapshot_id, v_kind, p_level, p_quoted_heading, p_at);
+      values (p_tracked_query_id, p_snapshot_id, v_kind, p_level, p_quoted_heading, v_at);
       insert into public.notifications (user_id, tracked_query_id, kind, title, body, link)
       values (
         v_user, p_tracked_query_id, v_kind,
@@ -243,7 +247,7 @@ begin
     select 1 from public.citation_events e where e.tracked_query_id = p_tracked_query_id and e.kind = 'brand_mention'
   ) then
     insert into public.citation_events (tracked_query_id, snapshot_id, kind, created_at)
-    values (p_tracked_query_id, p_snapshot_id, 'brand_mention', p_at);
+    values (p_tracked_query_id, p_snapshot_id, 'brand_mention', v_at);
     v_events := v_events || 'brand_mention'::text;
     -- notifications.kind does not list 'brand_mention' yet; the notification is skipped until it does.
     begin
