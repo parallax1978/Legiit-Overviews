@@ -2,12 +2,13 @@
 
 Legiit Overviews captures a Google AI Overview every 3 hours, extracts and counts what keeps showing up with evidence, reverse-engineers the cited pages, writes a brief, and tracks whether the user's page gets cited. Read `PLAN.md`; it is the spec.
 
-Stack: DataForSEO (data), Claude API (analysis), Supabase (database, auth, Storage, Edge Functions, Cron), Next.js on Vercel (app), Stripe (billing), Resend (email).
+Stack: DataForSEO (data), Claude API (analysis), Supabase (database, auth, Storage, Edge Functions, Cron), Next.js on Vercel (app in `web/`), Resend (email). Billing is not built yet; payments will be added later.
 
 ## How to work
 
 - Do the build steps in `PLAN.md` section 11 in order, one per session. Tick them in `docs/progress.md` when the step's check passes.
-- Edge Functions live in `supabase/functions/`, shared code in `supabase/functions/_shared/`, migrations in `supabase/migrations/`, the app in `app/`.
+- Edge Functions live in `supabase/functions/`, shared code in `supabase/functions/_shared/`, migrations in `supabase/migrations/`, the app in `web/`.
+- `docs/architecture.md` fixes the interfaces between modules (status flows, refs, RPCs, function requests). `docs/brand.md` is the design system; the app matches legiitkeywords.com.
 - If DataForSEO's real response differs from the plan, follow the real response and update `PLAN.md`.
 
 ## Rules

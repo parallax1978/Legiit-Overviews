@@ -1,0 +1,3336 @@
+{
+ "version": "0.1.20250526",
+ "status_code": 20000,
+ "status_message": "Ok.",
+ "time": "0.2489 sec.",
+ "cost": 0.000125,
+ "tasks_count": 1,
+ "tasks_error": 0,
+ "tasks": [
+  {
+   "id": "06021259-1535-0495-0000-ba2e85efc28e",
+   "status_code": 20000,
+   "status_message": "Ok.",
+   "time": "0.2044 sec.",
+   "cost": 0.000125,
+   "result_count": 1,
+   "path": [
+    "v3",
+    "on_page",
+    "content_parsing",
+    "live"
+   ],
+   "data": {
+    "api": "on_page",
+    "function": "content_parsing",
+    "url": "https://dataforseo.com/blog/a-versatile-alternative-to-google-trends-exploring-the-power-of-dataforseo-trends-api",
+    "markdown_view": true
+   },
+   "result": [
+    {
+     "crawl_progress": "finished",
+     "crawl_status": null,
+     "items_count": 1,
+     "items": [
+      {
+       "type": "content_parsing_element",
+       "fetch_time": "2025-06-02 06:59:10 +00:00",
+       "status_code": 200,
+       "page_content": {
+        "header": {
+         "primary_content": [
+          {
+           "text": "DATAFORSEO \u00bb Use Cases \u00bb A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+           "url": "https://dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/",
+             "anchor_text": "DATAFORSEO"
+            },
+            {
+             "url": "https://dataforseo.com/blog/category/use-cases",
+             "anchor_text": "Use Cases"
+            }
+           ]
+          }
+         ],
+         "secondary_content": [
+          {
+           "text": "API Docs",
+           "url": "https://docs.dataforseo.com/v3",
+           "urls": [
+            {
+             "url": "https://docs.dataforseo.com/v3",
+             "anchor_text": "API Docs"
+            }
+           ]
+          },
+          {
+           "text": "Top 1000 Websites By Ranking Keywords",
+           "url": "https://dataforseo.com/free-seo-stats/top-1000-websites",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/top-1000-websites",
+             "anchor_text": "Top 1000 Websites By Ranking Keywords"
+            }
+           ]
+          },
+          {
+           "text": "Top 1000 Keywords",
+           "url": "https://dataforseo.com/free-seo-stats/top-1000-keywords",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/top-1000-keywords",
+             "anchor_text": "Top 1000 Keywords"
+            }
+           ]
+          },
+          {
+           "text": "Top 1000 Websites By Domain Rank",
+           "url": "https://dataforseo.com/free-seo-stats/top-1000-websites-by-domain-rank",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/top-1000-websites-by-domain-rank",
+             "anchor_text": "Top 1000 Websites By Domain Rank"
+            }
+           ]
+          },
+          {
+           "text": "Top 1000 Websites By Traffic Trends",
+           "url": "https://dataforseo.com/free-seo-stats/top-1000-websites-by-traffic-trends",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/top-1000-websites-by-traffic-trends",
+             "anchor_text": "Top 1000 Websites By Traffic Trends"
+            }
+           ]
+          },
+          {
+           "text": "SERP Volatility Index",
+           "url": "https://dataforseo.com/free-seo-stats/serp-volatility-index",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/serp-volatility-index",
+             "anchor_text": "SERP Volatility Index"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Trends",
+           "url": "https://trends.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://trends.dataforseo.com/",
+             "anchor_text": "DataForSEO Trends"
+            }
+           ]
+          },
+          {
+           "text": "Mission and vision",
+           "url": "https://dataforseo.com/about-us",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/about-us",
+             "anchor_text": "Mission and vision"
+            }
+           ]
+          },
+          {
+           "text": "Our data",
+           "url": "https://dataforseo.com/our-data",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/our-data",
+             "anchor_text": "Our data"
+            }
+           ]
+          },
+          {
+           "text": "Ukrainian Bravery",
+           "url": "https://dataforseo.com/bravery",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/bravery",
+             "anchor_text": "Ukrainian Bravery"
+            }
+           ]
+          },
+          {
+           "text": "Status Page",
+           "url": "https://status.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://status.dataforseo.com/",
+             "anchor_text": "Status Page"
+            }
+           ]
+          },
+          {
+           "text": "AI Assistant",
+           "url": "https://chat.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://chat.dataforseo.com/",
+             "anchor_text": "AI Assistant"
+            }
+           ]
+          },
+          {
+           "text": "Contact us",
+           "url": "https://dataforseo.com/contact",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/contact",
+             "anchor_text": "Contact us"
+            }
+           ]
+          },
+          {
+           "text": "SERP API",
+           "url": "https://dataforseo.com/apis/serp-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/serp-api",
+             "anchor_text": "SERP API"
+            }
+           ]
+          },
+          {
+           "text": "Google Ads API",
+           "url": "https://dataforseo.com/apis/google-ads-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-ads-api",
+             "anchor_text": "Google Ads API"
+            }
+           ]
+          },
+          {
+           "text": "Google Trends API",
+           "url": "https://dataforseo.com/apis/google-trends-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-trends-api",
+             "anchor_text": "Google Trends API"
+            }
+           ]
+          },
+          {
+           "text": "Bing Ads API",
+           "url": "https://dataforseo.com/apis/bing-ads-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/bing-ads-api",
+             "anchor_text": "Bing Ads API"
+            }
+           ]
+          },
+          {
+           "text": "Clickstream Data API",
+           "url": "https://dataforseo.com/apis/clickstream-data-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/clickstream-data-api",
+             "anchor_text": "Clickstream Data API"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Trends API",
+           "url": "https://dataforseo.com/apis/dataforseo-trends-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/dataforseo-trends-api",
+             "anchor_text": "DataForSEO Trends API"
+            }
+           ]
+          },
+          {
+           "text": "Backlinks API",
+           "url": "https://dataforseo.com/apis/backlinks-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/backlinks-api",
+             "anchor_text": "Backlinks API"
+            }
+           ]
+          },
+          {
+           "text": "On-Page API",
+           "url": "https://dataforseo.com/apis/on-page-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/on-page-api",
+             "anchor_text": "On-Page API"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Labs API",
+           "url": "https://dataforseo.com/apis/dataforseo-labs-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/dataforseo-labs-api",
+             "anchor_text": "DataForSEO Labs API"
+            }
+           ]
+          },
+          {
+           "text": "Google Reviews API",
+           "url": "https://dataforseo.com/apis/google-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-reviews-api",
+             "anchor_text": "Google Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Google Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/google-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/google-reviews-api",
+             "anchor_text": "Google Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Google Shopping Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/google-shopping-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/google-shopping-api",
+             "anchor_text": "Google Shopping Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Trustpilot Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/trustpilot-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/trustpilot-reviews-api",
+             "anchor_text": "Trustpilot Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Amazon Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/amazon-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/amazon-reviews-api",
+             "anchor_text": "Amazon Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Tripadvisor Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/tripadvisor-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/tripadvisor-reviews-api",
+             "anchor_text": "Tripadvisor Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/google-play-store-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/google-play-store-reviews-api",
+             "anchor_text": "Google Play Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "App Store Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/app-store-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/app-store-reviews-api",
+             "anchor_text": "App Store Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Pinterest API",
+           "url": "https://dataforseo.com/apis/social-media-api/pinterest-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api/pinterest-api",
+             "anchor_text": "Pinterest API"
+            }
+           ]
+          },
+          {
+           "text": "Facebook API",
+           "url": "https://dataforseo.com/apis/social-media-api/facebook-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api/facebook-api",
+             "anchor_text": "Facebook API"
+            }
+           ]
+          },
+          {
+           "text": "Reddit API",
+           "url": "https://dataforseo.com/apis/social-media-api/reddit-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api/reddit-api",
+             "anchor_text": "Reddit API"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Store API",
+           "url": "https://dataforseo.com/apis/app-data-api/google-play-store-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/app-data-api/google-play-store-api",
+             "anchor_text": "Google Play Store API"
+            }
+           ]
+          },
+          {
+           "text": "App Store API",
+           "url": "https://dataforseo.com/apis/app-data-api/app-store",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/app-data-api/app-store",
+             "anchor_text": "App Store API"
+            }
+           ]
+          },
+          {
+           "text": "Google My Business API",
+           "url": "https://dataforseo.com/apis/business-data-api/google-my-business",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/google-my-business",
+             "anchor_text": "Google My Business API"
+            }
+           ]
+          },
+          {
+           "text": "Google Hotels API",
+           "url": "https://dataforseo.com/apis/business-data-api/google-hotels-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/google-hotels-api",
+             "anchor_text": "Google Hotels API"
+            }
+           ]
+          },
+          {
+           "text": "Trustpilot API",
+           "url": "https://dataforseo.com/apis/business-data-api/trustpilot-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/trustpilot-api",
+             "anchor_text": "Trustpilot API"
+            }
+           ]
+          },
+          {
+           "text": "Tripadvisor API",
+           "url": "https://dataforseo.com/apis/business-data-api/tripadvisor-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/tripadvisor-api",
+             "anchor_text": "Tripadvisor API"
+            }
+           ]
+          },
+          {
+           "text": "Business Listings API",
+           "url": "https://dataforseo.com/apis/business-data-api/business-listings-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/business-listings-api",
+             "anchor_text": "Business Listings API"
+            }
+           ]
+          },
+          {
+           "text": "Google Shopping",
+           "url": "https://dataforseo.com/apis/merchant-api-google-shopping",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/merchant-api-google-shopping",
+             "anchor_text": "Google Shopping"
+            }
+           ]
+          },
+          {
+           "text": "Domain Analytics API",
+           "url": "https://dataforseo.com/apis/domain-analytics-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/domain-analytics-api",
+             "anchor_text": "Domain Analytics API"
+            }
+           ]
+          },
+          {
+           "text": "Content Analysis API",
+           "url": "https://dataforseo.com/apis/content-analysis-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/content-analysis-api",
+             "anchor_text": "Content Analysis API"
+            }
+           ]
+          },
+          {
+           "text": "Content Generation API",
+           "url": "https://dataforseo.com/apis/content-generation-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/content-generation-api",
+             "anchor_text": "Content Generation API"
+            }
+           ]
+          },
+          {
+           "text": "Google Databases",
+           "url": "https://dataforseo.com/databases/google-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/google-databases",
+             "anchor_text": "Google Databases"
+            }
+           ]
+          },
+          {
+           "text": "Historical Google Databases",
+           "url": "https://dataforseo.com/databases/historical-google-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/historical-google-databases",
+             "anchor_text": "Historical Google Databases"
+            }
+           ]
+          },
+          {
+           "text": "Bing Databases",
+           "url": "https://dataforseo.com/databases/bing-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/bing-databases",
+             "anchor_text": "Bing Databases"
+            }
+           ]
+          },
+          {
+           "text": "Amazon Database",
+           "url": "https://dataforseo.com/databases/amazon-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/amazon-database",
+             "anchor_text": "Amazon Database"
+            }
+           ]
+          },
+          {
+           "text": "App Store Database",
+           "url": "https://dataforseo.com/databases/app-store-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/app-store-database",
+             "anchor_text": "App Store Database"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Database",
+           "url": "https://dataforseo.com/databases/google-play-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/google-play-database",
+             "anchor_text": "Google Play Database"
+            }
+           ]
+          },
+          {
+           "text": "Business Listings Database",
+           "url": "https://dataforseo.com/databases/business-listings-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/business-listings-database",
+             "anchor_text": "Business Listings Database"
+            }
+           ]
+          },
+          {
+           "text": "Domains\u2019 Whois & HTML Databases",
+           "url": "https://dataforseo.com/databases/whois-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/whois-database",
+             "anchor_text": "Domains\u2019 Whois & HTML Databases"
+            }
+           ]
+          },
+          {
+           "text": "Domains\u2019 Backlink Stats Database",
+           "url": "https://dataforseo.com/databases/backlink-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/backlink-database",
+             "anchor_text": "Domains\u2019 Backlink Stats Database"
+            }
+           ]
+          },
+          {
+           "text": "Google Sheets Connector",
+           "url": "https://dataforseo.com/google-sheets-connector",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/google-sheets-connector",
+             "anchor_text": "Google Sheets Connector"
+            }
+           ]
+          },
+          {
+           "text": "Make Integration",
+           "url": "https://dataforseo.com/make-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/make-integration",
+             "anchor_text": "Make Integration"
+            }
+           ]
+          },
+          {
+           "text": "Postman Integration",
+           "url": "https://dataforseo.com/postman-integrations",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/postman-integrations",
+             "anchor_text": "Postman Integration"
+            }
+           ]
+          },
+          {
+           "text": "Airtable Integration",
+           "url": "https://dataforseo.com/airtable-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/airtable-integration",
+             "anchor_text": "Airtable Integration"
+            }
+           ]
+          },
+          {
+           "text": "Zapier Integration",
+           "url": "https://dataforseo.com/zapier-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/zapier-integration",
+             "anchor_text": "Zapier Integration"
+            }
+           ]
+          },
+          {
+           "text": "n8n Integration",
+           "url": "https://dataforseo.com/n8n-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/n8n-integration",
+             "anchor_text": "n8n Integration"
+            }
+           ]
+          },
+          {
+           "text": "Pabbly integration",
+           "url": "https://dataforseo.com/pabbly-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/pabbly-integration",
+             "anchor_text": "Pabbly integration"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO MCP",
+           "url": "https://dataforseo.com/model-context-protocol",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/model-context-protocol",
+             "anchor_text": "DataForSEO MCP"
+            }
+           ]
+          },
+          {
+           "text": "By industry",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "By company type",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "By application",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "API Documentation",
+           "url": "https://docs.dataforseo.com/v3",
+           "urls": [
+            {
+             "url": "https://docs.dataforseo.com/v3",
+             "anchor_text": "API Documentation"
+            }
+           ]
+          },
+          {
+           "text": "Help Center",
+           "url": "https://dataforseo.com/help-center",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/help-center",
+             "anchor_text": "Help Center"
+            }
+           ]
+          },
+          {
+           "text": "Product updates",
+           "url": "https://dataforseo.com/updates",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/updates",
+             "anchor_text": "Product updates"
+            }
+           ]
+          },
+          {
+           "text": "SERP features",
+           "url": "https://dataforseo.com/serp-features",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/serp-features",
+             "anchor_text": "SERP features"
+            }
+           ]
+          },
+          {
+           "text": "White papers",
+           "url": "https://dataforseo.com/whitepapers",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/whitepapers",
+             "anchor_text": "White papers"
+            }
+           ]
+          },
+          {
+           "text": "Try for free",
+           "url": "https://app.dataforseo.com/register",
+           "urls": [
+            {
+             "url": "https://app.dataforseo.com/register",
+             "anchor_text": "Try for free"
+            }
+           ]
+          },
+          {
+           "text": "SERP API",
+           "url": "https://dataforseo.com/apis/serp-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/serp-api",
+             "anchor_text": "SERP API"
+            }
+           ]
+          },
+          {
+           "text": "Google Ads API",
+           "url": "https://dataforseo.com/apis/google-ads-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-ads-api",
+             "anchor_text": "Google Ads API"
+            }
+           ]
+          },
+          {
+           "text": "Google Trends API",
+           "url": "https://dataforseo.com/apis/google-trends-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-trends-api",
+             "anchor_text": "Google Trends API"
+            }
+           ]
+          },
+          {
+           "text": "Bing Ads API",
+           "url": "https://dataforseo.com/apis/bing-ads-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/bing-ads-api",
+             "anchor_text": "Bing Ads API"
+            }
+           ]
+          },
+          {
+           "text": "Clickstream Data API",
+           "url": "https://dataforseo.com/apis/clickstream-data-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/clickstream-data-api",
+             "anchor_text": "Clickstream Data API"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Trends API",
+           "url": "https://dataforseo.com/apis/dataforseo-trends-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/dataforseo-trends-api",
+             "anchor_text": "DataForSEO Trends API"
+            }
+           ]
+          },
+          {
+           "text": "Backlinks API",
+           "url": "https://dataforseo.com/apis/backlinks-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/backlinks-api",
+             "anchor_text": "Backlinks API"
+            }
+           ]
+          },
+          {
+           "text": "On-Page API",
+           "url": "https://dataforseo.com/apis/on-page-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/on-page-api",
+             "anchor_text": "On-Page API"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Labs API",
+           "url": "https://dataforseo.com/apis/dataforseo-labs-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/dataforseo-labs-api",
+             "anchor_text": "DataForSEO Labs API"
+            }
+           ]
+          },
+          {
+           "text": "Google Reviews API",
+           "url": "https://dataforseo.com/apis/google-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-reviews-api",
+             "anchor_text": "Google Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Google Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/google-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/google-reviews-api",
+             "anchor_text": "Google Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Google Shopping Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/google-shopping-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/google-shopping-api",
+             "anchor_text": "Google Shopping Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Trustpilot Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/trustpilot-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/trustpilot-reviews-api",
+             "anchor_text": "Trustpilot Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Amazon Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/amazon-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/amazon-reviews-api",
+             "anchor_text": "Amazon Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Tripadvisor Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/tripadvisor-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/tripadvisor-reviews-api",
+             "anchor_text": "Tripadvisor Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/google-play-store-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/google-play-store-reviews-api",
+             "anchor_text": "Google Play Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "App Store Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/app-store-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/app-store-reviews-api",
+             "anchor_text": "App Store Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Pinterest API",
+           "url": "https://dataforseo.com/apis/social-media-api/pinterest-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api/pinterest-api",
+             "anchor_text": "Pinterest API"
+            }
+           ]
+          },
+          {
+           "text": "Facebook API",
+           "url": "https://dataforseo.com/apis/social-media-api/facebook-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api/facebook-api",
+             "anchor_text": "Facebook API"
+            }
+           ]
+          },
+          {
+           "text": "Reddit API",
+           "url": "https://dataforseo.com/apis/social-media-api/reddit-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api/reddit-api",
+             "anchor_text": "Reddit API"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Store API",
+           "url": "https://dataforseo.com/apis/app-data-api/google-play-store-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/app-data-api/google-play-store-api",
+             "anchor_text": "Google Play Store API"
+            }
+           ]
+          },
+          {
+           "text": "App Store API",
+           "url": "https://dataforseo.com/apis/app-data-api/app-store",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/app-data-api/app-store",
+             "anchor_text": "App Store API"
+            }
+           ]
+          },
+          {
+           "text": "Google My Business API",
+           "url": "https://dataforseo.com/apis/business-data-api/google-my-business",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/google-my-business",
+             "anchor_text": "Google My Business API"
+            }
+           ]
+          },
+          {
+           "text": "Google Hotels API",
+           "url": "https://dataforseo.com/apis/business-data-api/google-hotels-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/google-hotels-api",
+             "anchor_text": "Google Hotels API"
+            }
+           ]
+          },
+          {
+           "text": "Trustpilot API",
+           "url": "https://dataforseo.com/apis/business-data-api/trustpilot-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/trustpilot-api",
+             "anchor_text": "Trustpilot API"
+            }
+           ]
+          },
+          {
+           "text": "Tripadvisor API",
+           "url": "https://dataforseo.com/apis/business-data-api/tripadvisor-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/tripadvisor-api",
+             "anchor_text": "Tripadvisor API"
+            }
+           ]
+          },
+          {
+           "text": "Business Listings API",
+           "url": "https://dataforseo.com/apis/business-data-api/business-listings-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/business-listings-api",
+             "anchor_text": "Business Listings API"
+            }
+           ]
+          },
+          {
+           "text": "Google Shopping",
+           "url": "https://dataforseo.com/apis/merchant-api-google-shopping",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/merchant-api-google-shopping",
+             "anchor_text": "Google Shopping"
+            }
+           ]
+          },
+          {
+           "text": "Domain Analytics API",
+           "url": "https://dataforseo.com/apis/domain-analytics-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/domain-analytics-api",
+             "anchor_text": "Domain Analytics API"
+            }
+           ]
+          },
+          {
+           "text": "Content Analysis API",
+           "url": "https://dataforseo.com/apis/content-analysis-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/content-analysis-api",
+             "anchor_text": "Content Analysis API"
+            }
+           ]
+          },
+          {
+           "text": "Content Generation API",
+           "url": "https://dataforseo.com/apis/content-generation-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/content-generation-api",
+             "anchor_text": "Content Generation API"
+            }
+           ]
+          },
+          {
+           "text": "Google Databases",
+           "url": "https://dataforseo.com/databases/google-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/google-databases",
+             "anchor_text": "Google Databases"
+            }
+           ]
+          },
+          {
+           "text": "Historical Google Databases",
+           "url": "https://dataforseo.com/databases/historical-google-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/historical-google-databases",
+             "anchor_text": "Historical Google Databases"
+            }
+           ]
+          },
+          {
+           "text": "Bing Databases",
+           "url": "https://dataforseo.com/databases/bing-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/bing-databases",
+             "anchor_text": "Bing Databases"
+            }
+           ]
+          },
+          {
+           "text": "Amazon Database",
+           "url": "https://dataforseo.com/databases/amazon-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/amazon-database",
+             "anchor_text": "Amazon Database"
+            }
+           ]
+          },
+          {
+           "text": "App Store Database",
+           "url": "https://dataforseo.com/databases/app-store-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/app-store-database",
+             "anchor_text": "App Store Database"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Database",
+           "url": "https://dataforseo.com/databases/google-play-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/google-play-database",
+             "anchor_text": "Google Play Database"
+            }
+           ]
+          },
+          {
+           "text": "Business Listings Database",
+           "url": "https://dataforseo.com/databases/business-listings-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/business-listings-database",
+             "anchor_text": "Business Listings Database"
+            }
+           ]
+          },
+          {
+           "text": "Domains\u2019 Whois & HTML Databases",
+           "url": "https://dataforseo.com/databases/whois-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/whois-database",
+             "anchor_text": "Domains\u2019 Whois & HTML Databases"
+            }
+           ]
+          },
+          {
+           "text": "Domains\u2019 Backlink Stats Database",
+           "url": "https://dataforseo.com/databases/backlink-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/backlink-database",
+             "anchor_text": "Domains\u2019 Backlink Stats Database"
+            }
+           ]
+          },
+          {
+           "text": "Google Sheets Connector",
+           "url": "https://dataforseo.com/google-sheets-connector",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/google-sheets-connector",
+             "anchor_text": "Google Sheets Connector"
+            }
+           ]
+          },
+          {
+           "text": "Make Integration",
+           "url": "https://dataforseo.com/make-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/make-integration",
+             "anchor_text": "Make Integration"
+            }
+           ]
+          },
+          {
+           "text": "Postman Integration",
+           "url": "https://dataforseo.com/postman-integrations",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/postman-integrations",
+             "anchor_text": "Postman Integration"
+            }
+           ]
+          },
+          {
+           "text": "Airtable Integration",
+           "url": "https://dataforseo.com/airtable-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/airtable-integration",
+             "anchor_text": "Airtable Integration"
+            }
+           ]
+          },
+          {
+           "text": "Zapier Integration",
+           "url": "https://dataforseo.com/zapier-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/zapier-integration",
+             "anchor_text": "Zapier Integration"
+            }
+           ]
+          },
+          {
+           "text": "n8n Integration",
+           "url": "https://dataforseo.com/n8n-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/n8n-integration",
+             "anchor_text": "n8n Integration"
+            }
+           ]
+          },
+          {
+           "text": "Pabbly integration",
+           "url": "https://dataforseo.com/pabbly-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/pabbly-integration",
+             "anchor_text": "Pabbly integration"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO MCP",
+           "url": "https://dataforseo.com/model-context-protocol",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/model-context-protocol",
+             "anchor_text": "DataForSEO MCP"
+            }
+           ]
+          },
+          {
+           "text": "By industry",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "By company type",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "By application",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "API Documentation",
+           "url": "https://docs.dataforseo.com/v3",
+           "urls": [
+            {
+             "url": "https://docs.dataforseo.com/v3",
+             "anchor_text": "API Documentation"
+            }
+           ]
+          },
+          {
+           "text": "Help Center",
+           "url": "https://dataforseo.com/help-center",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/help-center",
+             "anchor_text": "Help Center"
+            }
+           ]
+          },
+          {
+           "text": "Product updates",
+           "url": "https://dataforseo.com/updates",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/updates",
+             "anchor_text": "Product updates"
+            }
+           ]
+          },
+          {
+           "text": "SERP features",
+           "url": "https://dataforseo.com/serp-features",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/serp-features",
+             "anchor_text": "SERP features"
+            }
+           ]
+          },
+          {
+           "text": "White papers",
+           "url": "https://dataforseo.com/whitepapers",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/whitepapers",
+             "anchor_text": "White papers"
+            }
+           ]
+          },
+          {
+           "text": "Try for free",
+           "url": "https://app.dataforseo.com/register",
+           "urls": [
+            {
+             "url": "https://app.dataforseo.com/register",
+             "anchor_text": "Try for free"
+            }
+           ]
+          },
+          {
+           "text": "SERP API",
+           "url": "https://dataforseo.com/apis/serp-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/serp-api",
+             "anchor_text": "SERP API"
+            }
+           ]
+          },
+          {
+           "text": "Google Ads API",
+           "url": "https://dataforseo.com/apis/google-ads-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-ads-api",
+             "anchor_text": "Google Ads API"
+            }
+           ]
+          },
+          {
+           "text": "Google Trends API",
+           "url": "https://dataforseo.com/apis/google-trends-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-trends-api",
+             "anchor_text": "Google Trends API"
+            }
+           ]
+          },
+          {
+           "text": "Bing Ads API",
+           "url": "https://dataforseo.com/apis/bing-ads-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/bing-ads-api",
+             "anchor_text": "Bing Ads API"
+            }
+           ]
+          },
+          {
+           "text": "Clickstream Data API",
+           "url": "https://dataforseo.com/apis/clickstream-data-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/clickstream-data-api",
+             "anchor_text": "Clickstream Data API"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Trends API",
+           "url": "https://dataforseo.com/apis/dataforseo-trends-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/dataforseo-trends-api",
+             "anchor_text": "DataForSEO Trends API"
+            }
+           ]
+          },
+          {
+           "text": "Backlinks API",
+           "url": "https://dataforseo.com/apis/backlinks-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/backlinks-api",
+             "anchor_text": "Backlinks API"
+            }
+           ]
+          },
+          {
+           "text": "On-Page API",
+           "url": "https://dataforseo.com/apis/on-page-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/on-page-api",
+             "anchor_text": "On-Page API"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Labs API",
+           "url": "https://dataforseo.com/apis/dataforseo-labs-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/dataforseo-labs-api",
+             "anchor_text": "DataForSEO Labs API"
+            }
+           ]
+          },
+          {
+           "text": "Google Reviews API",
+           "url": "https://dataforseo.com/apis/google-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-reviews-api",
+             "anchor_text": "Google Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Google Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/google-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/google-reviews-api",
+             "anchor_text": "Google Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Google Shopping Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/google-shopping-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/google-shopping-api",
+             "anchor_text": "Google Shopping Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Trustpilot Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/trustpilot-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/trustpilot-reviews-api",
+             "anchor_text": "Trustpilot Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Amazon Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/amazon-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/amazon-reviews-api",
+             "anchor_text": "Amazon Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Tripadvisor Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/tripadvisor-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/tripadvisor-reviews-api",
+             "anchor_text": "Tripadvisor Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/google-play-store-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/google-play-store-reviews-api",
+             "anchor_text": "Google Play Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "App Store Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api/app-store-reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api/app-store-reviews-api",
+             "anchor_text": "App Store Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Pinterest API",
+           "url": "https://dataforseo.com/apis/social-media-api/pinterest-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api/pinterest-api",
+             "anchor_text": "Pinterest API"
+            }
+           ]
+          },
+          {
+           "text": "Facebook API",
+           "url": "https://dataforseo.com/apis/social-media-api/facebook-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api/facebook-api",
+             "anchor_text": "Facebook API"
+            }
+           ]
+          },
+          {
+           "text": "Reddit API",
+           "url": "https://dataforseo.com/apis/social-media-api/reddit-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api/reddit-api",
+             "anchor_text": "Reddit API"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Store API",
+           "url": "https://dataforseo.com/apis/app-data-api/google-play-store-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/app-data-api/google-play-store-api",
+             "anchor_text": "Google Play Store API"
+            }
+           ]
+          },
+          {
+           "text": "App Store API",
+           "url": "https://dataforseo.com/apis/app-data-api/app-store",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/app-data-api/app-store",
+             "anchor_text": "App Store API"
+            }
+           ]
+          },
+          {
+           "text": "Google My Business API",
+           "url": "https://dataforseo.com/apis/business-data-api/google-my-business",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/google-my-business",
+             "anchor_text": "Google My Business API"
+            }
+           ]
+          },
+          {
+           "text": "Google Hotels API",
+           "url": "https://dataforseo.com/apis/business-data-api/google-hotels-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/google-hotels-api",
+             "anchor_text": "Google Hotels API"
+            }
+           ]
+          },
+          {
+           "text": "Trustpilot API",
+           "url": "https://dataforseo.com/apis/business-data-api/trustpilot-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/trustpilot-api",
+             "anchor_text": "Trustpilot API"
+            }
+           ]
+          },
+          {
+           "text": "Tripadvisor API",
+           "url": "https://dataforseo.com/apis/business-data-api/tripadvisor-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/tripadvisor-api",
+             "anchor_text": "Tripadvisor API"
+            }
+           ]
+          },
+          {
+           "text": "Business Listings API",
+           "url": "https://dataforseo.com/apis/business-data-api/business-listings-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/business-listings-api",
+             "anchor_text": "Business Listings API"
+            }
+           ]
+          },
+          {
+           "text": "Google Shopping",
+           "url": "https://dataforseo.com/apis/merchant-api-google-shopping",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/merchant-api-google-shopping",
+             "anchor_text": "Google Shopping"
+            }
+           ]
+          },
+          {
+           "text": "Domain Analytics API",
+           "url": "https://dataforseo.com/apis/domain-analytics-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/domain-analytics-api",
+             "anchor_text": "Domain Analytics API"
+            }
+           ]
+          },
+          {
+           "text": "Content Analysis API",
+           "url": "https://dataforseo.com/apis/content-analysis-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/content-analysis-api",
+             "anchor_text": "Content Analysis API"
+            }
+           ]
+          },
+          {
+           "text": "Content Generation API",
+           "url": "https://dataforseo.com/apis/content-generation-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/content-generation-api",
+             "anchor_text": "Content Generation API"
+            }
+           ]
+          },
+          {
+           "text": "Google Databases",
+           "url": "https://dataforseo.com/databases/google-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/google-databases",
+             "anchor_text": "Google Databases"
+            }
+           ]
+          },
+          {
+           "text": "Historical Google Databases",
+           "url": "https://dataforseo.com/databases/historical-google-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/historical-google-databases",
+             "anchor_text": "Historical Google Databases"
+            }
+           ]
+          },
+          {
+           "text": "Bing Databases",
+           "url": "https://dataforseo.com/databases/bing-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/bing-databases",
+             "anchor_text": "Bing Databases"
+            }
+           ]
+          },
+          {
+           "text": "Amazon Database",
+           "url": "https://dataforseo.com/databases/amazon-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/amazon-database",
+             "anchor_text": "Amazon Database"
+            }
+           ]
+          },
+          {
+           "text": "App Store Database",
+           "url": "https://dataforseo.com/databases/app-store-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/app-store-database",
+             "anchor_text": "App Store Database"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Database",
+           "url": "https://dataforseo.com/databases/google-play-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/google-play-database",
+             "anchor_text": "Google Play Database"
+            }
+           ]
+          },
+          {
+           "text": "Business Listings Database",
+           "url": "https://dataforseo.com/databases/business-listings-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/business-listings-database",
+             "anchor_text": "Business Listings Database"
+            }
+           ]
+          },
+          {
+           "text": "Domains\u2019 Whois & HTML Databases",
+           "url": "https://dataforseo.com/databases/whois-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/whois-database",
+             "anchor_text": "Domains\u2019 Whois & HTML Databases"
+            }
+           ]
+          },
+          {
+           "text": "Domains\u2019 Backlink Stats Database",
+           "url": "https://dataforseo.com/databases/backlink-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/backlink-database",
+             "anchor_text": "Domains\u2019 Backlink Stats Database"
+            }
+           ]
+          },
+          {
+           "text": "Google Sheets Connector",
+           "url": "https://dataforseo.com/google-sheets-connector",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/google-sheets-connector",
+             "anchor_text": "Google Sheets Connector"
+            }
+           ]
+          },
+          {
+           "text": "Make Integration",
+           "url": "https://dataforseo.com/make-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/make-integration",
+             "anchor_text": "Make Integration"
+            }
+           ]
+          },
+          {
+           "text": "Postman Integration",
+           "url": "https://dataforseo.com/postman-integrations",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/postman-integrations",
+             "anchor_text": "Postman Integration"
+            }
+           ]
+          },
+          {
+           "text": "Airtable Integration",
+           "url": "https://dataforseo.com/airtable-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/airtable-integration",
+             "anchor_text": "Airtable Integration"
+            }
+           ]
+          },
+          {
+           "text": "Zapier Integration",
+           "url": "https://dataforseo.com/zapier-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/zapier-integration",
+             "anchor_text": "Zapier Integration"
+            }
+           ]
+          },
+          {
+           "text": "n8n Integration",
+           "url": "https://dataforseo.com/n8n-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/n8n-integration",
+             "anchor_text": "n8n Integration"
+            }
+           ]
+          },
+          {
+           "text": "Pabbly integration",
+           "url": "https://dataforseo.com/pabbly-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/pabbly-integration",
+             "anchor_text": "Pabbly integration"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO MCP",
+           "url": "https://dataforseo.com/model-context-protocol",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/model-context-protocol",
+             "anchor_text": "DataForSEO MCP"
+            }
+           ]
+          },
+          {
+           "text": "By industry",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "By company type",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "By application",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "API Documentation",
+           "url": "https://docs.dataforseo.com/v3",
+           "urls": [
+            {
+             "url": "https://docs.dataforseo.com/v3",
+             "anchor_text": "API Documentation"
+            }
+           ]
+          },
+          {
+           "text": "Help Center",
+           "url": "https://dataforseo.com/help-center",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/help-center",
+             "anchor_text": "Help Center"
+            }
+           ]
+          },
+          {
+           "text": "Product updates",
+           "url": "https://dataforseo.com/updates",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/updates",
+             "anchor_text": "Product updates"
+            }
+           ]
+          },
+          {
+           "text": "SERP features",
+           "url": "https://dataforseo.com/serp-features",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/serp-features",
+             "anchor_text": "SERP features"
+            }
+           ]
+          },
+          {
+           "text": "White papers",
+           "url": "https://dataforseo.com/whitepapers",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/whitepapers",
+             "anchor_text": "White papers"
+            }
+           ]
+          },
+          {
+           "text": "Try for free",
+           "url": "https://app.dataforseo.com/register",
+           "urls": [
+            {
+             "url": "https://app.dataforseo.com/register",
+             "anchor_text": "Try for free"
+            }
+           ]
+          },
+          {
+           "text": "API Docs",
+           "url": "https://docs.dataforseo.com/v3",
+           "urls": [
+            {
+             "url": "https://docs.dataforseo.com/v3",
+             "anchor_text": "API Docs"
+            }
+           ]
+          },
+          {
+           "text": "Top 1000 Websites By Ranking Keywords",
+           "url": "https://dataforseo.com/free-seo-stats/top-1000-websites",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/top-1000-websites",
+             "anchor_text": "Top 1000 Websites By Ranking Keywords"
+            }
+           ]
+          },
+          {
+           "text": "Top 1000 Keywords",
+           "url": "https://dataforseo.com/free-seo-stats/top-1000-keywords",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/top-1000-keywords",
+             "anchor_text": "Top 1000 Keywords"
+            }
+           ]
+          },
+          {
+           "text": "Top 1000 Websites By Domain Rank",
+           "url": "https://dataforseo.com/free-seo-stats/top-1000-websites-by-domain-rank",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/top-1000-websites-by-domain-rank",
+             "anchor_text": "Top 1000 Websites By Domain Rank"
+            }
+           ]
+          },
+          {
+           "text": "Top 1000 Websites By Traffic Trends",
+           "url": "https://dataforseo.com/free-seo-stats/top-1000-websites-by-traffic-trends",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/top-1000-websites-by-traffic-trends",
+             "anchor_text": "Top 1000 Websites By Traffic Trends"
+            }
+           ]
+          },
+          {
+           "text": "SERP Volatility Index",
+           "url": "https://dataforseo.com/free-seo-stats/serp-volatility-index",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/free-seo-stats/serp-volatility-index",
+             "anchor_text": "SERP Volatility Index"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Trends",
+           "url": "https://trends.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://trends.dataforseo.com/",
+             "anchor_text": "DataForSEO Trends"
+            }
+           ]
+          },
+          {
+           "text": "Mission and vision",
+           "url": "https://dataforseo.com/about-us",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/about-us",
+             "anchor_text": "Mission and vision"
+            }
+           ]
+          },
+          {
+           "text": "Our data",
+           "url": "https://dataforseo.com/our-data",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/our-data",
+             "anchor_text": "Our data"
+            }
+           ]
+          },
+          {
+           "text": "Ukrainian Bravery",
+           "url": "https://dataforseo.com/bravery",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/bravery",
+             "anchor_text": "Ukrainian Bravery"
+            }
+           ]
+          },
+          {
+           "text": "Status Page",
+           "url": "https://status.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://status.dataforseo.com/",
+             "anchor_text": "Status Page"
+            }
+           ]
+          },
+          {
+           "text": "AI Assistant",
+           "url": "https://chat.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://chat.dataforseo.com/",
+             "anchor_text": "AI Assistant"
+            }
+           ]
+          },
+          {
+           "text": "Contact us",
+           "url": "https://dataforseo.com/contact",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/contact",
+             "anchor_text": "Contact us"
+            }
+           ]
+          }
+         ],
+         "table_content": null
+        },
+        "footer": {
+         "primary_content": null,
+         "secondary_content": [
+          {
+           "text": "Vesiv\u00e4rava tn 50-201, Kesklinna linnaosa, Tallinn, Harju maakond, Republic of Estonia, 10152",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "616 Corporate Way, Suite 2-4116 Valley Cottage, 10989, NY, USA",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "63 Kolomenskaya Str, Kharkiv, Ukraine, 61166",
+           "url": null,
+           "urls": null
+          },
+          {
+           "text": "Email: [email\u00a0protected]",
+           "url": "https://dataforseo.com/cdn-cgi/l/email-protection",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/cdn-cgi/l/email-protection",
+             "anchor_text": "[email\u00a0protected]"
+            }
+           ]
+          },
+          {
+           "text": "SERP API",
+           "url": "https://dataforseo.com/apis/serp-api/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/serp-api/",
+             "anchor_text": "SERP API"
+            }
+           ]
+          },
+          {
+           "text": "Google Ads API",
+           "url": "https://dataforseo.com/apis/google-ads-api/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/google-ads-api/",
+             "anchor_text": "Google Ads API"
+            }
+           ]
+          },
+          {
+           "text": "Backlinks API",
+           "url": "https://dataforseo.com/apis/backlinks-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/backlinks-api",
+             "anchor_text": "Backlinks API"
+            }
+           ]
+          },
+          {
+           "text": "OnPage API",
+           "url": "https://dataforseo.com/apis/on-page-api/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/on-page-api/",
+             "anchor_text": "OnPage API"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Labs API",
+           "url": "https://dataforseo.com/apis/dataforseo-labs-api/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/dataforseo-labs-api/",
+             "anchor_text": "DataForSEO Labs API"
+            }
+           ]
+          },
+          {
+           "text": "Reviews API",
+           "url": "https://dataforseo.com/apis/reviews-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/reviews-api",
+             "anchor_text": "Reviews API"
+            }
+           ]
+          },
+          {
+           "text": "Social Media API",
+           "url": "https://dataforseo.com/apis/social-media-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/social-media-api",
+             "anchor_text": "Social Media API"
+            }
+           ]
+          },
+          {
+           "text": "App Data API",
+           "url": "https://dataforseo.com/apis/app-data-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/app-data-api",
+             "anchor_text": "App Data API"
+            }
+           ]
+          },
+          {
+           "text": "Business Data API",
+           "url": "https://dataforseo.com/apis/business-data-api/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/business-data-api/",
+             "anchor_text": "Business Data API"
+            }
+           ]
+          },
+          {
+           "text": "Amazon API",
+           "url": "https://dataforseo.com/apis/merchant-api-amazon/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/merchant-api-amazon/",
+             "anchor_text": "Amazon API"
+            }
+           ]
+          },
+          {
+           "text": "Google Shopping API",
+           "url": "https://dataforseo.com/apis/merchant-api-google-shopping/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/merchant-api-google-shopping/",
+             "anchor_text": "Google Shopping API"
+            }
+           ]
+          },
+          {
+           "text": "Domain Analytics API",
+           "url": "https://dataforseo.com/apis/domain-analytics-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/domain-analytics-api",
+             "anchor_text": "Domain Analytics API"
+            }
+           ]
+          },
+          {
+           "text": "Content Analysis API",
+           "url": "https://dataforseo.com/apis/content-analysis-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/content-analysis-api",
+             "anchor_text": "Content Analysis API"
+            }
+           ]
+          },
+          {
+           "text": "Content Generation API",
+           "url": "https://dataforseo.com/apis/content-generation-api",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/apis/content-generation-api",
+             "anchor_text": "Content Generation API"
+            }
+           ]
+          },
+          {
+           "text": "Google Databases",
+           "url": "https://dataforseo.com/databases/google-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/google-databases",
+             "anchor_text": "Google Databases"
+            }
+           ]
+          },
+          {
+           "text": "Bing Databases",
+           "url": "https://dataforseo.com/databases/bing-databases",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/bing-databases",
+             "anchor_text": "Bing Databases"
+            }
+           ]
+          },
+          {
+           "text": "Amazon Database",
+           "url": "https://dataforseo.com/databases/amazon-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/amazon-database",
+             "anchor_text": "Amazon Database"
+            }
+           ]
+          },
+          {
+           "text": "App Store Database",
+           "url": "https://dataforseo.com/databases/app-store-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/app-store-database",
+             "anchor_text": "App Store Database"
+            }
+           ]
+          },
+          {
+           "text": "Google Play Database",
+           "url": "https://dataforseo.com/databases/google-play-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/google-play-database",
+             "anchor_text": "Google Play Database"
+            }
+           ]
+          },
+          {
+           "text": "Domains Database",
+           "url": "https://dataforseo.com/databases/whois-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/whois-database",
+             "anchor_text": "Domains Database"
+            }
+           ]
+          },
+          {
+           "text": "Backlink Database",
+           "url": "https://dataforseo.com/databases/backlink-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/backlink-database",
+             "anchor_text": "Backlink Database"
+            }
+           ]
+          },
+          {
+           "text": "Business Listings Database",
+           "url": "https://dataforseo.com/databases/business-listings-database",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/databases/business-listings-database",
+             "anchor_text": "Business Listings Database"
+            }
+           ]
+          },
+          {
+           "text": "Backlink App",
+           "url": "https://dataforseo.com/solutions/api-driven-backlinksapp",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/solutions/api-driven-backlinksapp",
+             "anchor_text": "Backlink App"
+            }
+           ]
+          },
+          {
+           "text": "SEO Agency",
+           "url": "https://dataforseo.com/solutions/seo-agency",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/solutions/seo-agency",
+             "anchor_text": "SEO Agency"
+            }
+           ]
+          },
+          {
+           "text": "SEO Software",
+           "url": "https://dataforseo.com/solutions/seo-software",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/solutions/seo-software",
+             "anchor_text": "SEO Software"
+            }
+           ]
+          },
+          {
+           "text": "Market Research",
+           "url": "https://dataforseo.com/solutions/market-research-apis",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/solutions/market-research-apis",
+             "anchor_text": "Market Research"
+            }
+           ]
+          },
+          {
+           "text": "Digital Marketing",
+           "url": "https://dataforseo.com/solutions/digital-marketing-apis",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/solutions/digital-marketing-apis",
+             "anchor_text": "Digital Marketing"
+            }
+           ]
+          },
+          {
+           "text": "Marketing Tech",
+           "url": "https://dataforseo.com/solutions/marketing-tech-apis",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/solutions/marketing-tech-apis",
+             "anchor_text": "Marketing Tech"
+            }
+           ]
+          },
+          {
+           "text": "Scraping Services",
+           "url": "https://dataforseo.com/solutions/scraping-services",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/solutions/scraping-services",
+             "anchor_text": "Scraping Services"
+            }
+           ]
+          },
+          {
+           "text": "AI Development",
+           "url": "https://dataforseo.com/solutions/data-for-ai-training",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/solutions/data-for-ai-training",
+             "anchor_text": "AI Development"
+            }
+           ]
+          },
+          {
+           "text": "White Papers",
+           "url": "https://dataforseo.com/whitepapers",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/whitepapers",
+             "anchor_text": "White Papers"
+            }
+           ]
+          },
+          {
+           "text": "Help Center",
+           "url": "https://dataforseo.com/help-center",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/help-center",
+             "anchor_text": "Help Center"
+            }
+           ]
+          },
+          {
+           "text": "About us",
+           "url": "https://dataforseo.com/about-us",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/about-us",
+             "anchor_text": "About us"
+            }
+           ]
+          },
+          {
+           "text": "Ukrainian Bravery",
+           "url": "https://dataforseo.com/bravery",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/bravery",
+             "anchor_text": "Ukrainian Bravery"
+            }
+           ]
+          },
+          {
+           "text": "SERP Features",
+           "url": "https://dataforseo.com/serp-features",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/serp-features",
+             "anchor_text": "SERP Features"
+            }
+           ]
+          },
+          {
+           "text": "Top 1000 Sites",
+           "url": "https://dataforseo.com/top-1000-websites",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/top-1000-websites",
+             "anchor_text": "Top 1000 Sites"
+            }
+           ]
+          },
+          {
+           "text": "Google Sheets Connector",
+           "url": "https://dataforseo.com/google-sheets-connector",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/google-sheets-connector",
+             "anchor_text": "Google Sheets Connector"
+            }
+           ]
+          },
+          {
+           "text": "Make Integration",
+           "url": "https://dataforseo.com/make-integration",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/make-integration",
+             "anchor_text": "Make Integration"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO Trends Tool",
+           "url": "https://trends.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://trends.dataforseo.com/",
+             "anchor_text": "DataForSEO Trends Tool"
+            }
+           ]
+          },
+          {
+           "text": "Our data",
+           "url": "https://dataforseo.com/our-data",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/our-data",
+             "anchor_text": "Our data"
+            }
+           ]
+          },
+          {
+           "text": "Status Page",
+           "url": "https://status.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://status.dataforseo.com/",
+             "anchor_text": "Status Page"
+            }
+           ]
+          },
+          {
+           "text": "DataForSEO AI Assistant",
+           "url": "https://chat.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://chat.dataforseo.com/",
+             "anchor_text": "DataForSEO AI Assistant"
+            }
+           ]
+          },
+          {
+           "text": "Community hub",
+           "url": "https://feedback.dataforseo.com/",
+           "urls": [
+            {
+             "url": "https://feedback.dataforseo.com/",
+             "anchor_text": "Community hub"
+            }
+           ]
+          },
+          {
+           "text": "Privacy Policy",
+           "url": "https://dataforseo.com/privacy-policy/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/privacy-policy/",
+             "anchor_text": "Privacy Policy"
+            }
+           ]
+          },
+          {
+           "text": "Terms of Services",
+           "url": "https://dataforseo.com/terms-of-service/",
+           "urls": [
+            {
+             "url": "https://dataforseo.com/terms-of-service/",
+             "anchor_text": "Terms of Services"
+            }
+           ]
+          }
+         ],
+         "table_content": null
+        },
+        "main_topic": [
+         {
+          "h_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 1,
+          "primary_content": [
+           {
+            "text": "Search trends data is a treasure trove of insights into people\u2019s interests in certain products, services, and information. This data reflects the popularity of search queries on various properties of a search engine in a certain period. Why is it so valuable and beneficial?",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Search queries and keywords are depersonalized, making it difficult to discover details about the users who enter a particular query in Google and their actual interests. However, search trends data can provide a glimpse into user behavior and needs. It can also offer insights into the popularity of products and services across different regions, ages, and genders.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "This data is invaluable for SEO specialists and marketers seeking to gain a deeper understanding of their target audiences. Furthermore, search trends data is highly beneficial for creators of keyword research tools, as they can provide additional features for their clients and enhance the value proposition of their products. In this article, we explore how you can access search trends data, particularly through the DataForSEO Trends API, and how you can seamlessly integrate this data into your solutions.",
+            "url": null,
+            "urls": null
+           }
+          ],
+          "secondary_content": [
+           {
+            "text": "What is DataForSEO Trends API and how does it work?",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Comparing Data ForSEO Trends API with Google Trends API",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "How to leverage the power of DataForSEO Trends API? Top use cases to consider",
+            "url": null,
+            "urls": null
+           }
+          ],
+          "table_content": null
+         },
+         {
+          "h_title": "What is DataForSEO Trends API and how does it work?",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 3,
+          "primary_content": [
+           {
+            "text": "There are various tools and methods available to estimate the popularity of search queries. For example, you can utilize Google Ads or Bing Ads to obtain lists of desired keywords along with their precise search volume data. This allows you to compare search volume changes for specific keywords over time and make projections about how their popularity might change in the future. However, relying solely on Google Ads or Bing Ads may not be the most cost-effective solution.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Another approach to understanding search trends involves conducting market research by directly engaging with consumers. This can include methods such as surveys, interviews, and focus groups to gather insights from respondents. By monitoring changes in consumer preferences, industry trends, and market dynamics through these channels, businesses can attempt to anticipate possible shifts in search behavior. The downside of this approach is that manual research consumes a lot of time and the quality of search trends estimates may vary significantly.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Additionally, you can get search trends from Google Trends. This tool allows you to access actual trends data related to specific locations, insights into related topics, and information on search queries. However, due to the limitations of Google Trends, such as inconsistent data retrieval and restrictions on simultaneous requests, you can\u2019t create a reliable system for automating the retrieval of search trends data.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Analyzing these existing approaches and their ups and downs, we created a completely new solution for fetching search interest data \u2013 DataForSEO Trends API. It retrieves search trends from Google Search, Google Shopping, and Google News in a convenient format. Alongside the popularity of search queries, this API can provide you with the following information:",
+            "url": "https://dataforseo.com/apis/dataforseo-trends-api",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/apis/dataforseo-trends-api",
+              "anchor_text": "DataForSEO Trends API"
+             }
+            ]
+           },
+           {
+            "text": "Search trends data across specific regions and subregions;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Information on search queries popularity by age and gender;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Merged data that provides a comprehensive overview of keyword popularity within specified timestamps, regions, subregions, and age and gender demographics;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Comparison of search interest over time for multiple keywords simultaneously.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "The most distinguishing feature of DataForSEO Trends API is our proprietary algorithm behind it. Let\u2019s delve into how it works to give you a clearer idea of what our new API can do.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "First, we pay meticulous attention to data collection to make our algorithm work. We utilize a sophisticated approach that leverages multiple data sources to provide accurate and comprehensive search trend estimates. These sources are utilized in different proportions depending on what query you enter into the API.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "The core source of our search trends data is the vast array of content we have indexed from across the internet. We gather information from search engine results, shopping listings, and web pages to create a comprehensive overview of search query popularity. Moreover, our process extends beyond merely scanning billions of pages and saving the text and content. We also collect data on the backlinks between websites. This massive dataset, comprising substantive content and backlink information, is securely stored in our database.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "But that\u2019s not all. To make our results even better, we take advantage of clickstream data \u2013 information collected when a person navigates the Internet. By carefully collecting and analyzing anonymized clickstream data from search engines, we can spot content that matches what users really want when they enter a query. To make the results more accurate, the data is aggregated and certain information, like duplicated searches and searches with special characters, is excluded.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Then, we use the data collected to estimate keyword popularity values. These values indicate how frequently a particular keyword or phrase is being searched for by users and how its popularity changes over time. Keyword popularity values are not the same thing as keyword search volume. The search volume depicts the exact number of searches made by a certain keyword or phrase. Keyword popularity, instead, is represented in estimated values that provide a relative measure of how popular a search term is compared to other terms. These values don\u2019t show the absolute search volume numbers, but allow ranking keywords by their popularity over time.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Here are the detailed steps our algorithm follows to process the data and generate keyword popularity values:",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "1 When you enter a keyword query into API, the algorithm counts the number of keyword queries that were made by users in search engines to determine popularity.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "2 After that, the algorithm searches the mentions of this keyword query on different pages of the internet and also counts these mentions.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "3 Then, the algorithm merges these two results depending on the presence of data in these two sources and the input parameters of the API request.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "4 The popularity scores are normalized and scaled to a standardized range, from 0 to 100 percent.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "5 To determine keyword popularity in different regions and subregions, popularity scores are blended with the approximate location data of the users.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "6 Following the same logic, the algorithm estimates the users\u2019 age and gender.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "For example, let\u2019s see how it works in the Interest by Subregion feature of our DataForSEO Trends Tool. It is a user-friendly and free-to-use tool, built atop the DataForSEO Trends API that allows you to test the capabilities of our API solution.",
+            "url": "https://trends.dataforseo.com/",
+            "urls": [
+             {
+              "url": "https://trends.dataforseo.com/",
+              "anchor_text": "DataForSEO Trends Tool"
+             }
+            ]
+           },
+           {
+            "text": "If you specify one keyword, the popularity values from this section will give you an insight into the popularity rate of a keyword between certain locations. To calculate the result, we determine the highest popularity value for the relevant keywords across all locations and express all other values as a percentage of the highest keyword popularity value.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "If you specify multiple keywords, keyword popularity values will help you understand how popular each keyword is \u2013 compared to other keywords across all given locations. In this case, we determine the highest popularity value across all keywords across all locations specified. Then we express the popularity rate of each keyword as a percentage of the highest keyword popularity value.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "You can experiment with the keywords and try to get some search interest info by yourself, just try out our DataForSEO Trends Tool here, it is free!",
+            "url": "https://trends.dataforseo.com/explore?country=US",
+            "urls": [
+             {
+              "url": "https://trends.dataforseo.com/explore?country=US",
+              "anchor_text": "DataForSEO Trends Tool here"
+             }
+            ]
+           }
+          ],
+          "secondary_content": null,
+          "table_content": null
+         },
+         {
+          "h_title": "Comparing DataForSEO Trends API with Google Trends API",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 3,
+          "primary_content": [
+           {
+            "text": "You may wonder about the difference between our new DataForSEO Trends API and our Google Trends API. At first sight, these APIs and the data they provide may seem alike, but certain differences make DataForSEO Trends API more versatile and effective for your goals.",
+            "url": "https://dataforseo.com/apis/google-trends-api",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/apis/google-trends-api",
+              "anchor_text": "Google Trends API"
+             }
+            ]
+           },
+           {
+            "text": "First, DataForSEO Trends API stands out for its reliability compared to Google Trends API. Although Google Trends offers highly accurate keyword popularity values, the platform itself can be inconsistent and unreliable at times. Google Trends has outages and downtime where the service is unavailable or provides incomplete data. This makes it difficult to retrieve large amounts of historical trends data through frequent API calls.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "DataForSEO Trends API, on the other hand, doesn\u2019t have such flaws and can consistently process requests and deliver data. It has been engineered as a reliable and scalable solution for retrieving keyword trends and popularity metrics. Moreover, we purposely designed the DataForSEO Trends API with maximum parity to legacy parameters from the Google Trends API. This ensures a smooth transition for any users previously working with the Google Trends API.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "The next difference lies in the methods our APIs employ. Google Trends API provides data based on the \u201cExplore\u201d feature of Google Trends and can supply you with information on keyword popularity rate over time, location-specific popularity rate, as well as related topics & queries for keywords. Additionally, you can specify the Google Trends search category code to obtain more precise results, while also having the ability to retrieve data for the specific timestamps you require.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "On the other hand, DataForSEO Trends API has a completely different algorithm, as we mentioned before. It analyses the vast amounts of data from different sources and, most importantly, takes into account content popularity metrics and web performance indicators of the relevant pages. Moreover, the algorithm also processes clickstream data to get important insights into user\u2019s browsing behavior.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "One of the biggest advantages of our algorithm is that it allows you to get the search interest broken down by gender & age and instantly compare the estimated results. Google Trends API on its own doesn\u2019t have such an opportunity. To do that, we introduced four separate endpoints in DataForSEO Trends API:",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Endpoint \u201cExplore\u201d which provides data on keyword popularity over a certain time range;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Endpoint \u201cSubregion Interests\u201d for measuring to measure and compare keyword popularity within a certain location or across all locations;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "The \u201cDemography\u201d endpoint gives a breakdown of keyword popularity data by age and gender;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Finally, the \u201cMerged Data\u201d endpoint combines data provided by the endpoints above to create a comprehensive picture of search interest trends.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Each endpoint has objects that compare keyword popularity data and provide relative results. Also, compared to Google Trends API, DataForSEO Trends API supports only the \u201cLive\u201d method of data retrieval. This means that you will always get fresh results with each request.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "If you want to learn more about the specifics of DataForSEO Trends API, check out our documentation, where everything is described to the smallest detail.",
+            "url": "https://docs.dataforseo.com/v3/dataforseo_trends/overview/?bash",
+            "urls": [
+             {
+              "url": "https://docs.dataforseo.com/v3/dataforseo_trends/overview/?bash",
+              "anchor_text": "our documentation"
+             }
+            ]
+           },
+           {
+            "text": "To summarise, below are the main differences between DataForSEO Google Trends API and DataForSEO Trends API.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "\u27a4 Google Trends API:",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Popularity data is usually more accurate;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "rovides data based on the \u201cExplore\u201d feature of Google Trends;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Gives you related topics and queries to keywords you specify;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "API supports the \u201cStandard\u201d and \u201cLive\u201d data retrieval methods.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "\u27a4 DataForSEO Trends API:",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Based on our proprietary algorithm that follows specific data collection and processing steps;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Works consistently and properly, compared to Google Trends;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Can provide an estimated demographic breakdown by age and gender;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Instant comparison of the retrieved search trends data results;",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Supports only the \u201cLive\u201d data retrieval method.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Less expensive option to retrieve search trends data.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "It is important to mention that DataForSEO Trends API delivers only estimated data, based on the research and analysis conducted by our algorithm. It doesn\u2019t provide search volume data for keywords and data for other keyword metrics. To get precise search volume data, consider using the \u201cSearch Volume\u201d endpoint of our Keywords Data API.",
+            "url": "https://docs.dataforseo.com/v3/keywords_data/google_ads/search_volume/live/",
+            "urls": [
+             {
+              "url": "https://docs.dataforseo.com/v3/keywords_data/google_ads/search_volume/live/",
+              "anchor_text": "\u201cSearch Volume\u201d endpoint"
+             }
+            ]
+           },
+           {
+            "text": "Now you know what makes DataForSEO Trends API a versatile and scalable solution for retrieving search trends data. But how can you leverage its capabilities to drive tangible value for your projects and tools? Our powerful API opens up various opportunities for data-driven professionals and companies. Let\u2019s delve into some of the top strategic use cases that showcase the potential of harnessing search trends data with DataForSEO Trends API.",
+            "url": null,
+            "urls": null
+           }
+          ],
+          "secondary_content": null,
+          "table_content": null
+         },
+         {
+          "h_title": "1 Access historical keyword trends data at affordable pricing",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 4,
+          "primary_content": [
+           {
+            "text": "If you are looking for the option to get keyword data for infographics and demonstration of changes in search trends over time, DataForSEO Trends API may be the best and most cost-effective way to do that. You don\u2019t need to retrieve historical search volume data directly from Google Ads or Bing Ads. Instead, you can estimate the search volume by using search trends data.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "For these purposes, the DataForSEO Trends API stands out for its affordability and versatility. To illustrate, let\u2019s compare the cost of retrieving data for 10,000 keywords across our Trends API, Google Trends API, and Google & Bing Ads APIs. Obtaining data on 10,000 keywords via the Google Ads API in Live mode would cost $0.75 (10 tasks with 1,000 keywords each). In Bing Ads API, the cost would be $3.75 for 50 tasks with 200 keywords each. While these prices seem affordable, estimating keyword popularity values requires manually calculating and comparing the results.",
+            "url": "https://dataforseo.com/apis/google-ads-api",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/apis/google-ads-api",
+              "anchor_text": "Google Ads API"
+             },
+             {
+              "url": "https://dataforseo.com/apis/bing-ads-api",
+              "anchor_text": "Bing Ads API"
+             }
+            ]
+           },
+           {
+            "text": "Using the Google Trends API to deliver keyword popularity data for 10,000 keywords in \u201cLive\u201d mode would cost $18 (2,000 tasks with 5 keywords each). However, as mentioned before, Google Trends doesn\u2019t always function reliably, which can cause problems when retrieving massive amounts of keyword data. On the other hand, for the same number of keywords, you would pay only $2 using the DataForSEO Trends API \u201cExplore\u201d endpoint. Moreover, it retrieves data in Live mode and compares the results instantly.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "As you can see, DataForSEO Trends API allows you to access keyword trends data with maximum cost-efficiency. To learn more about DataForSEO Trends API pricing, visit our pricing page.",
+            "url": "https://dataforseo.com/pricing/keywords-data/dataforseo-trends-api-pricing?_gl=1*h41ybu*_ga*NzQ2MjkxOTAuMTcxMjc0ODIzMg..*_ga_T5NKP5Y695*MTcxMjc0ODIzMi4xLjEuMTcxMjc0ODcwMy40NS4wLjEwNTM4MTU0MDM.",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/pricing/keywords-data/dataforseo-trends-api-pricing?_gl=1*h41ybu*_ga*NzQ2MjkxOTAuMTcxMjc0ODIzMg..*_ga_T5NKP5Y695*MTcxMjc0ODIzMi4xLjEuMTcxMjc0ODcwMy40NS4wLjEwNTM4MTU0MDM.",
+              "anchor_text": "visit our pricing page"
+             }
+            ]
+           },
+           {
+            "text": "Here is an example of retrieving historical keyword popularity data with DataForSEO Trends API. Let\u2019s assume you want to compare how search interest for \u201ciPhone\u201d and \u201cSamsung\u201d has changed over the past 90 days in the United States. The graph itself may look like this:",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "On the graph, you can observe how the popularity values for the search queries \u201ciphone\u201d and \u201csamsung\u201d fluctuated day-by-day over the 90-day period.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "To generate the following graph, we need to make a request to the \u201cExplore\u201d endpoint of the DataForSEO Trends API.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "POST https://api.dataforseo.com/v3/keywords_data/dataforseo_trends/explore/live",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Example request",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "The result will return as follows",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "In the items array, you will find the dataforseo_trends_graph element, which contains the keywords you specified. This element itself includes the data array, where you can locate the relative keyword popularity rates at specific timestamps within the given time range. Additionally, at the end of the request, there is an averages array that provides estimated keyword popularity values averaged over the entire time range.",
+            "url": null,
+            "urls": null
+           }
+          ],
+          "secondary_content": null,
+          "table_content": [
+           {
+            "header": [
+             {
+              "row_cells": [
+               {
+                "text": "API",
+                "urls": null,
+                "is_header": true
+               },
+               {
+                "text": "Pricing",
+                "urls": null,
+                "is_header": true
+               }
+              ]
+             }
+            ],
+            "body": [
+             {
+              "row_cells": [
+               {
+                "text": "Google Ads API",
+                "urls": [
+                 {
+                  "url": "https://dataforseo.com/apis/google-ads-api",
+                  "anchor_text": "Google Ads API"
+                 }
+                ],
+                "is_header": false
+               },
+               {
+                "text": "$0,75 for data on 10,000 keywords.",
+                "urls": null,
+                "is_header": false
+               }
+              ]
+             },
+             {
+              "row_cells": [
+               {
+                "text": "Bing Ads API",
+                "urls": [
+                 {
+                  "url": "https://dataforseo.com/apis/bing-ads-api",
+                  "anchor_text": "Bing Ads API"
+                 }
+                ],
+                "is_header": false
+               },
+               {
+                "text": "$3,75 for data on 10,000 keywords.",
+                "urls": null,
+                "is_header": false
+               }
+              ]
+             },
+             {
+              "row_cells": [
+               {
+                "text": "Google Trends API",
+                "urls": [
+                 {
+                  "url": "https://dataforseo.com/apis/google-trends-api",
+                  "anchor_text": "Google Trends API"
+                 }
+                ],
+                "is_header": false
+               },
+               {
+                "text": "$18 for data on 10,000 keywords.",
+                "urls": null,
+                "is_header": false
+               },
+               {
+                "text": "Instant keyword popularity values estimation and comparison.",
+                "urls": null,
+                "is_header": false
+               }
+              ]
+             },
+             {
+              "row_cells": [
+               {
+                "text": "DataForSEO Trends API",
+                "urls": [
+                 {
+                  "url": "https://dataforseo.com/apis/dataforseo-trends-api",
+                  "anchor_text": "DataForSEO Trends API"
+                 }
+                ],
+                "is_header": false
+               },
+               {
+                "text": "$2 for data on 10,000 keywords.",
+                "urls": null,
+                "is_header": false
+               },
+               {
+                "text": "Instant keyword popularity values estimation and comparison.",
+                "urls": null,
+                "is_header": false
+               }
+              ]
+             }
+            ],
+            "footer": null
+           }
+          ]
+         },
+         {
+          "h_title": "2 Enrich your keyword research tools with up-to-date trends data",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 4,
+          "primary_content": [
+           {
+            "text": "Estimated search interest data can be a valuable addition to your existing marketing tools and product offerings. API trends data can be seamlessly integrated into existing SEO tools, plugins, and keyword rank-tracking solutions. In addition to providing data on search volume and other keyword metrics, you can empower your customers to monitor search trends in real time and gain insights into regional search interest and demographic breakdowns.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "For instance, you could create a preview keyword research tool based on the keyword trends data. This tool would allow your customers to analyze the popularity of certain search queries across different regions, age groups, and genders before purchasing a full-scale product.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "To illustrate how this could work, let\u2019s examine an example of diagrams generated from an API request.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "The first diagram shows which states in the US had the highest popularity for the search query \u201csushi delivery\u201d during the last 90 days. The second diagram displays the distribution of search interest for this query between male and female users across various age groups.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Obtaining the values for both diagrams is possible with the \u201cMerged Data\u201d endpoint of the DataForSEO API.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "POST https://api.dataforseo.com/v3/keywords_data/dataforseo_trends/merged_data/live",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Example request",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Below is a response example you will get",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "In the items array of the response, you will find the subregion_interests element, which contains subregional keyword popularity data for each specified term, as well as the names of the corresponding subregions. Additionally, within the demography element, you can locate the age array that provides the distribution of keyword popularity across different age groups. Furthermore, the gender array presents the breakdown of keyword popularity values by gender.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "As you can observe, a single straightforward request allows you to obtain all the essential search trends data you require, presented in a convenient and accessible format.",
+            "url": null,
+            "urls": null
+           }
+          ],
+          "secondary_content": null,
+          "table_content": null
+         },
+         {
+          "h_title": "Conclusion",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 3,
+          "primary_content": [
+           {
+            "text": "If you\u2019re seeking detailed and unique insights into search trends data that go beyond Google Trends\u2019 capabilities, the DataForSEO Trends API is an excellent alternative to consider. It is particularly valuable if you require extensive keyword popularity data for large-scale projects at an affordable price point. Moreover, incorporating search trends insights can significantly enhance the value proposition of your existing keyword research tools and related offerings.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Besides, with DataForSEO trends API you can get bulk trends data swiftly and don`t worry about request limits and system availability. You can make up to 2000 API calls per minute and if you want to make more, we will raise the limit on your demand.",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "Finally, you can easily integrate DataForSEO Trends API with your website or application \u2013 it is compatible with almost all programming languages and everything is explained in detail in our documentation. If you want to test the capabilities of our API, try it for free and get acquainted with the DataForSEO Trends Tool as well.",
+            "url": "https://app.dataforseo.com/register",
+            "urls": [
+             {
+              "url": "https://app.dataforseo.com/register",
+              "anchor_text": "try it for free"
+             },
+             {
+              "url": "https://trends.dataforseo.com/",
+              "anchor_text": "DataForSEO Trends Tool"
+             }
+            ]
+           }
+          ],
+          "secondary_content": null,
+          "table_content": null
+         },
+         {
+          "h_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 1,
+          "primary_content": [
+           {
+            "text": "Sorry, the comment form is closed at this time.",
+            "url": null,
+            "urls": null
+           }
+          ],
+          "secondary_content": null,
+          "table_content": null
+         }
+        ],
+        "secondary_topic": [
+         {
+          "h_title": "How to leverage the power of DataForSEO Trends API? Top use cases to consider",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 3,
+          "primary_content": null,
+          "secondary_content": null,
+          "table_content": null
+         },
+         {
+          "h_title": "Anatolii Chernysh",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 5,
+          "primary_content": [
+           {
+            "text": "Content Writer at DataForSEO. Anatolii's deep interest in SEO optimization allows him to interpret complex SEO and tech topics and turn them into important insights for the audience. Sign up for our newsletter to never miss the latest pieces.",
+            "url": null,
+            "urls": null
+           }
+          ],
+          "secondary_content": null,
+          "table_content": null
+         },
+         {
+          "h_title": "No Comments",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 6,
+          "primary_content": null,
+          "secondary_content": null,
+          "table_content": null
+         },
+         {
+          "h_title": "Recent Posts",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 4,
+          "primary_content": null,
+          "secondary_content": [
+           {
+            "text": "How DataForSEO Empowers a Ukrainian IT Company to Explore Global Tech Frontiers",
+            "url": "https://dataforseo.com/blog/how-dataforseo-empowers-a-ukrainian-it-company-to-explore-global-tech-frontiers",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/how-dataforseo-empowers-a-ukrainian-it-company-to-explore-global-tech-frontiers",
+              "anchor_text": "How DataForSEO Empowers a Ukrainian IT Company to Explore Global Tech Frontiers"
+             }
+            ]
+           },
+           {
+            "text": "Tap into Real-Time Financial Data with Google Finance and APIs",
+            "url": "https://dataforseo.com/blog/tap-into-real-time-financial-data-with-google-finance-and-apis",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/tap-into-real-time-financial-data-with-google-finance-and-apis",
+              "anchor_text": "Tap into Real-Time Financial Data with Google Finance and APIs"
+             }
+            ]
+           },
+           {
+            "text": "Maximize SEO data insights with AI: your guide for 2025",
+            "url": "https://dataforseo.com/blog/maximize-seo-data-insights-with-ai",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/maximize-seo-data-insights-with-ai",
+              "anchor_text": "Maximize SEO data insights with AI: your guide for 2025"
+             }
+            ]
+           },
+           {
+            "text": "Jonathan Jansen\u2019s AISO Checker Improves Quality of SERP Analysis by 73% with DataForSEO",
+            "url": "https://dataforseo.com/blog/jonathan-jansens-aiso-checker-improves-quality-of-serp-analysis-by-73-with-dataforseo",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/jonathan-jansens-aiso-checker-improves-quality-of-serp-analysis-by-73-with-dataforseo",
+              "anchor_text": "Jonathan Jansen\u2019s AISO Checker Improves Quality of SERP Analysis by 73% with DataForSEO"
+             }
+            ]
+           },
+           {
+            "text": "From Manual Work to No-code SEO Automation: Giordano Tonelli\u2019s Journey with DataForSEO",
+            "url": "https://dataforseo.com/blog/from-manual-work-to-no-code-seo-automation-giordano-tonellis-journey-with-dataforseo",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/from-manual-work-to-no-code-seo-automation-giordano-tonellis-journey-with-dataforseo",
+              "anchor_text": "From Manual Work to No-code SEO Automation: Giordano Tonelli\u2019s Journey with DataForSEO"
+             }
+            ]
+           }
+          ],
+          "table_content": null
+         },
+         {
+          "h_title": "Categories",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 4,
+          "primary_content": null,
+          "secondary_content": [
+           {
+            "text": "Best Practices",
+            "url": "https://dataforseo.com/blog/category/best-practices",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/category/best-practices",
+              "anchor_text": "Best Practices"
+             }
+            ]
+           },
+           {
+            "text": "DataForSEO vs Competitors",
+            "url": "https://dataforseo.com/blog/category/competitor-comparisons",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/category/competitor-comparisons",
+              "anchor_text": "DataForSEO vs Competitors"
+             }
+            ]
+           },
+           {
+            "text": "Success Stories",
+            "url": "https://dataforseo.com/blog/category/success-stories",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/category/success-stories",
+              "anchor_text": "Success Stories"
+             }
+            ]
+           },
+           {
+            "text": "Use Cases",
+            "url": "https://dataforseo.com/blog/category/use-cases",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/category/use-cases",
+              "anchor_text": "Use Cases"
+             }
+            ]
+           },
+           {
+            "text": "What's New",
+            "url": "https://dataforseo.com/blog/category/whats-new",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/category/whats-new",
+              "anchor_text": "What's New"
+             }
+            ]
+           },
+           {
+            "text": "White Papers",
+            "url": "https://dataforseo.com/blog/category/white-papers",
+            "urls": [
+             {
+              "url": "https://dataforseo.com/blog/category/white-papers",
+              "anchor_text": "White Papers"
+             }
+            ]
+           },
+           {
+            "text": "FEATURES TO WIN",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "FIND THE RIGHT PATH",
+            "url": null,
+            "urls": null
+           },
+           {
+            "text": "TO INNOVATION",
+            "url": null,
+            "urls": null
+           }
+          ],
+          "table_content": null
+         },
+         {
+          "h_title": "Embed DataForSeo widget on your website",
+          "main_title": "A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends API",
+          "author": "Anatolii",
+          "language": "en",
+          "level": 2,
+          "primary_content": null,
+          "secondary_content": [
+           {
+            "text": "Embed code:",
+            "url": null,
+            "urls": null
+           }
+          ],
+          "table_content": null
+         }
+        ],
+        "ratings": null,
+        "offers": null,
+        "comments": null,
+        "contacts": {
+         "telephones": [
+          "+3726027642"
+         ],
+         "emails": null
+        }
+       },
+       "page_as_markdown": "# A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends APIn#### 1 Access historical keyword trends data at affordable pricingn| API | Pricing |n|---|n| Google Ads API | $0,75 for data on 10,000 keywords. |n| Bing Ads API | $3,75 for data on 10,000 keywords. |n| Google Trends API | $18 for data on 10,000 keywords. | Instant keyword popularity values estimation and comparison. |n| DataForSEO Trends API | $2 for data on 10,000 keywords. | Instant keyword popularity values estimation and comparison. |nnIf you are looking for the option to get keyword data for infographics and demonstration of changes in search trends over time, DataForSEO Trends API may be the best and most cost-effective way to do that. You don\u2019t need to retrieve historical search volume data directly from Google Ads or Bing Ads. Instead, you can estimate the search volume by using search trends data.nnFor these purposes, the DataForSEO Trends API stands out for its affordability and versatility. To illustrate, let\u2019s compare the cost of retrieving data for 10,000 keywords across our Trends API, Google Trends API, and Google & [Bing Ads API](https://dataforseo.com/apis/bing-ads-api)s. Obtaining data on 10,000 keywords via the [Google Ads API](https://dataforseo.com/apis/google-ads-api) in Live mode would cost $0.75 (10 tasks with 1,000 keywords each). In [Bing Ads API](https://dataforseo.com/apis/bing-ads-api), the cost would be $3.75 for 50 tasks with 200 keywords each. While these prices seem affordable, estimating keyword popularity values requires manually calculating and comparing the results.nnUsing the Google Trends API to deliver keyword popularity data for 10,000 keywords in \u201cLive\u201d mode would cost $18 (2,000 tasks with 5 keywords each). However, as mentioned before, Google Trends doesn\u2019t always function reliably, which can cause problems when retrieving massive amounts of keyword data. On the other hand, for the same number of keywords, you would pay only $2 using the DataForSEO Trends API \u201cExplore\u201d endpoint. Moreover, it retrieves data in Live mode and compares the results instantly.nnAs you can see, DataForSEO Trends API allows you to access keyword trends data with maximum cost-efficiency. To learn more about DataForSEO Trends API pricing, [visit our pricing page](https://dataforseo.com/pricing/keywords-data/dataforseo-trends-api-pricing?_gl=1*h41ybu*_ga*NzQ2MjkxOTAuMTcxMjc0ODIzMg..*_ga_T5NKP5Y695*MTcxMjc0ODIzMi4xLjEuMTcxMjc0ODcwMy40NS4wLjEwNTM4MTU0MDM.).nnHere is an example of retrieving historical keyword popularity data with DataForSEO Trends API. Let\u2019s assume you want to compare how search interest for \u201ciPhone\u201d and \u201cSamsung\u201d has changed over the past 90 days in the United States. The graph itself may look like this:nnOn the graph, you can observe how the popularity values for the search queries \u201ciphone\u201d and \u201csamsung\u201d fluctuated day-by-day over the 90-day period.nnTo generate the following graph, we need to make a request to the \u201cExplore\u201d endpoint of the DataForSEO Trends API.nnPOST https://api.dataforseo.com/v3/keywords_data/dataforseo_trends/explore/livennExample requestnnThe result will return as followsnnIn the items array, you will find the dataforseo_trends_graph element, which contains the keywords you specified. This element itself includes the data array, where you can locate the relative keyword popularity rates at specific timestamps within the given time range. Additionally, at the end of the request, there is an averages array that provides estimated keyword popularity values averaged over the entire time range.n# A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends APInnSearch trends data is a treasure trove of insights into people\u2019s interests in certain products, services, and information. This data reflects the popularity of search queries on various properties of a search engine in a certain period. Why is it so valuable and beneficial?nnSearch queries and keywords are depersonalized, making it difficult to discover details about the users who enter a particular query in Google and their actual interests. However, search trends data can provide a glimpse into user behavior and needs. It can also offer insights into the popularity of products and services across different regions, ages, and genders.nnThis data is invaluable for SEO specialists and marketers seeking to gain a deeper understanding of their target audiences. Furthermore, search trends data is highly beneficial for creators of keyword research tools, as they can provide additional features for their clients and enhance the value proposition of their products. In this article, we explore how you can access search trends data, particularly through the DataForSEO Trends API, and how you can seamlessly integrate this data into your solutions.nnWhat is DataForSEO Trends API and how does it work?nnComparing Data ForSEO Trends API with Google Trends APInnHow to leverage the power of DataForSEO Trends API? Top use cases to considern### What is DataForSEO Trends API and how does it work?nnThere are various tools and methods available to estimate the popularity of search queries. For example, you can utilize Google Ads or Bing Ads to obtain lists of desired keywords along with their precise search volume data. This allows you to compare search volume changes for specific keywords over time and make projections about how their popularity might change in the future. However, relying solely on Google Ads or Bing Ads may not be the most cost-effective solution.nnAnother approach to understanding search trends involves conducting market research by directly engaging with consumers. This can include methods such as surveys, interviews, and focus groups to gather insights from respondents. By monitoring changes in consumer preferences, industry trends, and market dynamics through these channels, businesses can attempt to anticipate possible shifts in search behavior. The downside of this approach is that manual research consumes a lot of time and the quality of search trends estimates may vary significantly.nnAdditionally, you can get search trends from Google Trends. This tool allows you to access actual trends data related to specific locations, insights into related topics, and information on search queries. However, due to the limitations of Google Trends, such as inconsistent data retrieval and restrictions on simultaneous requests, you can\u2019t create a reliable system for automating the retrieval of search trends data.nnAnalyzing these existing approaches and their ups and downs, we created a completely new solution for fetching search interest data \u2013 [DataForSEO Trends API](https://dataforseo.com/apis/dataforseo-trends-api). It retrieves search trends from Google Search, Google Shopping, and Google News in a convenient format. Alongside the popularity of search queries, this API can provide you with the following information:nnSearch trends data across specific regions and subregions;nnInformation on search queries popularity by age and gender;nnMerged data that provides a comprehensive overview of keyword popularity within specified timestamps, regions, subregions, and age and gender demographics;nnComparison of search interest over time for multiple keywords simultaneously.nnThe most distinguishing feature of DataForSEO Trends API is our proprietary algorithm behind it. Let\u2019s delve into how it works to give you a clearer idea of what our new API can do.nnFirst, we pay meticulous attention to data collection to make our algorithm work. We utilize a sophisticated approach that leverages multiple data sources to provide accurate and comprehensive search trend estimates. These sources are utilized in different proportions depending on what query you enter into the API.nnThe core source of our search trends data is the vast array of content we have indexed from across the internet. We gather information from search engine results, shopping listings, and web pages to create a comprehensive overview of search query popularity. Moreover, our process extends beyond merely scanning billions of pages and saving the text and content. We also collect data on the backlinks between websites. This massive dataset, comprising substantive content and backlink information, is securely stored in our database.nnBut that\u2019s not all. To make our results even better, we take advantage of clickstream data \u2013 information collected when a person navigates the Internet. By carefully collecting and analyzing anonymized clickstream data from search engines, we can spot content that matches what users really want when they enter a query. To make the results more accurate, the data is aggregated and certain information, like duplicated searches and searches with special characters, is excluded.nnThen, we use the data collected to estimate keyword popularity values. These values indicate how frequently a particular keyword or phrase is being searched for by users and how its popularity changes over time. Keyword popularity values are not the same thing as keyword search volume. The search volume depicts the exact number of searches made by a certain keyword or phrase. Keyword popularity, instead, is represented in estimated values that provide a relative measure of how popular a search term is compared to other terms. These values don\u2019t show the absolute search volume numbers, but allow ranking keywords by their popularity over time.nnHere are the detailed steps our algorithm follows to process the data and generate keyword popularity values:nn1 When you enter a keyword query into API, the algorithm counts the number of keyword queries that were made by users in search engines to determine popularity.nn2 After that, the algorithm searches the mentions of this keyword query on different pages of the internet and also counts these mentions.nn3 Then, the algorithm merges these two results depending on the presence of data in these two sources and the input parameters of the API request.nn4 The popularity scores are normalized and scaled to a standardized range, from 0 to 100 percent.nn5 To determine keyword popularity in different regions and subregions, popularity scores are blended with the approximate location data of the users.nn6 Following the same logic, the algorithm estimates the users\u2019 age and gender.nnFor example, let\u2019s see how it works in the Interest by Subregion feature of our [DataForSEO Trends Tool](https://trends.dataforseo.com/). It is a user-friendly and free-to-use tool, built atop the DataForSEO Trends API that allows you to test the capabilities of our API solution.nnIf you specify one keyword, the popularity values from this section will give you an insight into the popularity rate of a keyword between certain locations. To calculate the result, we determine the highest popularity value for the relevant keywords across all locations and express all other values as a percentage of the highest keyword popularity value.nnIf you specify multiple keywords, keyword popularity values will help you understand how popular each keyword is \u2013 compared to other keywords across all given locations. In this case, we determine the highest popularity value across all keywords across all locations specified. Then we express the popularity rate of each keyword as a percentage of the highest keyword popularity value.nnYou can experiment with the keywords and try to get some search interest info by yourself, just try out our [DataForSEO Trends Tool here](https://trends.dataforseo.com/explore?country=US), it is free!n### Comparing DataForSEO Trends API with Google Trends APInnYou may wonder about the difference between our new DataForSEO Trends API and our [Google Trends API](https://dataforseo.com/apis/google-trends-api). At first sight, these APIs and the data they provide may seem alike, but certain differences make DataForSEO Trends API more versatile and effective for your goals.nnFirst, DataForSEO Trends API stands out for its reliability compared to Google Trends API. Although Google Trends offers highly accurate keyword popularity values, the platform itself can be inconsistent and unreliable at times. Google Trends has outages and downtime where the service is unavailable or provides incomplete data. This makes it difficult to retrieve large amounts of historical trends data through frequent API calls.nnDataForSEO Trends API, on the other hand, doesn\u2019t have such flaws and can consistently process requests and deliver data. It has been engineered as a reliable and scalable solution for retrieving keyword trends and popularity metrics. Moreover, we purposely designed the DataForSEO Trends API with maximum parity to legacy parameters from the Google Trends API. This ensures a smooth transition for any users previously working with the Google Trends API.nnThe next difference lies in the methods our APIs employ. Google Trends API provides data based on the \u201cExplore\u201d feature of Google Trends and can supply you with information on keyword popularity rate over time, location-specific popularity rate, as well as related topics & queries for keywords. Additionally, you can specify the Google Trends search category code to obtain more precise results, while also having the ability to retrieve data for the specific timestamps you require.nnOn the other hand, DataForSEO Trends API has a completely different algorithm, as we mentioned before. It analyses the vast amounts of data from different sources and, most importantly, takes into account content popularity metrics and web performance indicators of the relevant pages. Moreover, the algorithm also processes clickstream data to get important insights into user\u2019s browsing behavior.nnOne of the biggest advantages of our algorithm is that it allows you to get the search interest broken down by gender & age and instantly compare the estimated results. Google Trends API on its own doesn\u2019t have such an opportunity. To do that, we introduced four separate endpoints in DataForSEO Trends API:nnEndpoint \u201cExplore\u201d which provides data on keyword popularity over a certain time range;nnEndpoint \u201cSubregion Interests\u201d for measuring to measure and compare keyword popularity within a certain location or across all locations;nnThe \u201cDemography\u201d endpoint gives a breakdown of keyword popularity data by age and gender;nnFinally, the \u201cMerged Data\u201d endpoint combines data provided by the endpoints above to create a comprehensive picture of search interest trends.nnEach endpoint has objects that compare keyword popularity data and provide relative results. Also, compared to Google Trends API, DataForSEO Trends API supports only the \u201cLive\u201d method of data retrieval. This means that you will always get fresh results with each request.nnIf you want to learn more about the specifics of DataForSEO Trends API, check out [our documentation](https://docs.dataforseo.com/v3/dataforseo_trends/overview/?bash), where everything is described to the smallest detail.nnTo summarise, below are the main differences between DataForSEO Google Trends API and DataForSEO Trends API.nn\u27a4 Google Trends API:nnPopularity data is usually more accurate;nnrovides data based on the \u201cExplore\u201d feature of Google Trends;nnGives you related topics and queries to keywords you specify;nnAPI supports the \u201cStandard\u201d and \u201cLive\u201d data retrieval methods.nn\u27a4 DataForSEO Trends API:nnBased on our proprietary algorithm that follows specific data collection and processing steps;nnWorks consistently and properly, compared to Google Trends;nnCan provide an estimated demographic breakdown by age and gender;nnInstant comparison of the retrieved search trends data results;nnSupports only the \u201cLive\u201d data retrieval method.nnLess expensive option to retrieve search trends data.nnIt is important to mention that DataForSEO Trends API delivers only estimated data, based on the research and analysis conducted by our algorithm. It doesn\u2019t provide search volume data for keywords and data for other keyword metrics. To get precise search volume data, consider using the [\u201cSearch Volume\u201d endpoint](https://docs.dataforseo.com/v3/keywords_data/google_ads/search_volume/live/) of our Keywords Data API.nnNow you know what makes DataForSEO Trends API a versatile and scalable solution for retrieving search trends data. But how can you leverage its capabilities to drive tangible value for your projects and tools? Our powerful API opens up various opportunities for data-driven professionals and companies. Let\u2019s delve into some of the top strategic use cases that showcase the potential of harnessing search trends data with DataForSEO Trends API.n#### 2 Enrich your keyword research tools with up-to-date trends datannEstimated search interest data can be a valuable addition to your existing marketing tools and product offerings. API trends data can be seamlessly integrated into existing SEO tools, plugins, and keyword rank-tracking solutions. In addition to providing data on search volume and other keyword metrics, you can empower your customers to monitor search trends in real time and gain insights into regional search interest and demographic breakdowns.nnFor instance, you could create a preview keyword research tool based on the keyword trends data. This tool would allow your customers to analyze the popularity of certain search queries across different regions, age groups, and genders before purchasing a full-scale product.nnTo illustrate how this could work, let\u2019s examine an example of diagrams generated from an API request.nnThe first diagram shows which states in the US had the highest popularity for the search query \u201csushi delivery\u201d during the last 90 days. The second diagram displays the distribution of search interest for this query between male and female users across various age groups.nnObtaining the values for both diagrams is possible with the \u201cMerged Data\u201d endpoint of the DataForSEO API.nnPOST https://api.dataforseo.com/v3/keywords_data/dataforseo_trends/merged_data/livennExample requestnnBelow is a response example you will getnnIn the items array of the response, you will find the subregion_interests element, which contains subregional keyword popularity data for each specified term, as well as the names of the corresponding subregions. Additionally, within the demography element, you can locate the age array that provides the distribution of keyword popularity across different age groups. Furthermore, the gender array presents the breakdown of keyword popularity values by gender.nnAs you can observe, a single straightforward request allows you to obtain all the essential search trends data you require, presented in a convenient and accessible format.n### ConclusionnnIf you\u2019re seeking detailed and unique insights into search trends data that go beyond Google Trends\u2019 capabilities, the DataForSEO Trends API is an excellent alternative to consider. It is particularly valuable if you require extensive keyword popularity data for large-scale projects at an affordable price point. Moreover, incorporating search trends insights can significantly enhance the value proposition of your existing keyword research tools and related offerings.nnBesides, with DataForSEO trends API you can get bulk trends data swiftly and don`t worry about request limits and system availability. You can make up to 2000 API calls per minute and if you want to make more, we will raise the limit on your demand.nnFinally, you can easily integrate DataForSEO Trends API with your website or application \u2013 it is compatible with almost all programming languages and everything is explained in detail in our documentation. If you want to test the capabilities of our API, [try it for free](https://app.dataforseo.com/register) and get acquainted with the [DataForSEO Trends Tool](https://trends.dataforseo.com/) as well.n##### Anatolii ChernyshnnContent Writer at DataForSEO. Anatolii's deep interest in SEO optimization allows him to interpret complex SEO and tech topics and turn them into important insights for the audience. Sign up for our newsletter to never miss the latest pieces.n# A Versatile Alternative to Google Trends: Exploring the Power of DataForSEO Trends APInnSorry, the comment form is closed at this time.n#### Recent Postsnn[How DataForSEO Empowers a Ukrainian IT Company to Explore Global Tech Frontiers](https://dataforseo.com/blog/how-dataforseo-empowers-a-ukrainian-it-company-to-explore-global-tech-frontiers)nn[Tap into Real-Time Financial Data with Google Finance and APIs](https://dataforseo.com/blog/tap-into-real-time-financial-data-with-google-finance-and-apis)nn[Maximize SEO data insights with AI: your guide for 2025](https://dataforseo.com/blog/maximize-seo-data-insights-with-ai)nn[Jonathan Jansen\u2019s AISO Checker Improves Quality of SERP Analysis by 73% with DataForSEO](https://dataforseo.com/blog/jonathan-jansens-aiso-checker-improves-quality-of-serp-analysis-by-73-with-dataforseo)nn[From Manual Work to No-code SEO Automation: Giordano Tonelli\u2019s Journey with DataForSEO](https://dataforseo.com/blog/from-manual-work-to-no-code-seo-automation-giordano-tonellis-journey-with-dataforseo)n#### Categoriesnn[Best Practices](https://dataforseo.com/blog/category/best-practices)nn[DataForSEO vs Competitors](https://dataforseo.com/blog/category/competitor-comparisons)nn[Success Stories](https://dataforseo.com/blog/category/success-stories)nn[Use Cases](https://dataforseo.com/blog/category/use-cases)nn[What's New](https://dataforseo.com/blog/category/whats-new)nn[White Papers](https://dataforseo.com/blog/category/white-papers)nnFEATURES TO WINnnFIND THE RIGHT PATHnnTO INNOVATIONn## Embed DataForSeo widget on your websitennEmbed code:n"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

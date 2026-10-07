@@ -11,4 +11,5 @@
 - [ ] 9. Matrix and brief
 - [ ] 10. App
 - [ ] 11. Tracking and draft scorer
-- [ ] 12. Platform events, alerts, billing
+- [ ] 12. Platform events and alerts
+- [ ] 13. Billing (later)

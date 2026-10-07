@@ -2,7 +2,7 @@
 
 Automates Jake Ward's process (`docs/source-thread.md`) end to end: pick a query, capture its Google AI Overview around the clock, find exactly what keeps showing up with evidence for every count, reverse-engineer the cited pages, generate a brief for a better page, then track whether and where your page gets cited.
 
-**Stack: DataForSEO + Claude API + Supabase.** Outside those three: Vercel hosts the Next.js app, Stripe takes payments, Resend sends alert emails.
+**Stack: DataForSEO + Claude API + Supabase.** Outside those three: Vercel hosts the Next.js app (`web/`), Resend sends alert emails. Billing (Stripe, plans, query limits) is deferred; the app is built without it for now.
 
 | Piece | Does |
 |---|---|
@@ -223,163 +223,15 @@ The draft scorer is a live request; it also sends `fallbacks: "default"` with th
 
 ## 8. Database (Supabase)
 
-```sql
--- reference
-create table locations (
-  code int primary key, name text not null, country_iso text not null, timezone text not null
-);
+The schema lives in `supabase/migrations/`; `docs/architecture.md` describes the status flows and the SQL functions the app calls.
 
--- shared capture pool
-create table series (
-  id uuid primary key default gen_random_uuid(),
-  keyword text not null,                 -- normalised
-  location_code int not null references locations,
-  language_code text not null,
-  device text not null check (device in ('desktop','mobile')),
-  next_capture_at timestamptz not null,  -- random offset, then +3 hours each capture
-  subscribers int not null default 0,
-  created_at timestamptz not null default now(),
-  unique (keyword, location_code, language_code, device)
-);
+- **Reference:** `locations`, `platform_domains`.
+- **Shared capture pool:** `series` (one per normalised keyword, location, language, device), `captures`, `snapshots` (status, sentences, content hash, `same_as`, organic, formats, extraction status), `sections`, `citations` (url, `url_key`, host, registrable domain, passage), `claim_groups`, `claims` (snapshot, sentence, text, type, citations), `entities`, `entity_mentions`.
+- **Pages (shared cache):** `pages` (markdown, outline, measures, tags).
+- **Per user:** `tracked_queries`, `reports` (metrics, page details, analysis, brief Markdown, checks, stage), `draft_scores`, `own_pages`, `own_matches`, `citation_events`, `notifications`.
+- **System:** `batches`, `batch_items` (ref maps per request), `platform_daily`, `platform_events`.
 
-create table captures (
-  id uuid primary key default gen_random_uuid(),
-  series_id uuid not null references series on delete cascade,
-  scheduled_at timestamptz not null,
-  task_id text,
-  attempts int not null default 0,
-  status text not null default 'submitted' check (status in ('submitted','received','error')),
-  unique (series_id, scheduled_at)
-);
-
-create table snapshots (
-  id uuid primary key default gen_random_uuid(),
-  series_id uuid not null references series on delete cascade,
-  capture_id uuid references captures,
-  captured_at timestamptz not null,
-  status text not null check (status in ('present','absent','error')),
-  overview_markdown text,
-  content_hash text,
-  same_as uuid references snapshots,     -- identical earlier capture whose claims are reused
-  raw_path text,                         -- Supabase Storage
-  organic jsonb,                         -- [{rank, url, domain}]
-  formats jsonb,                         -- labels, word_count, answer_lead
-  extraction text not null default 'pending'
-    check (extraction in ('pending','submitted','done','reused','none'))
-);
-create index on snapshots (series_id, captured_at desc);
-
-create table sections (
-  id uuid primary key default gen_random_uuid(),
-  snapshot_id uuid not null references snapshots on delete cascade,
-  position int not null, kind text not null, title text, text text not null,
-  citation_idx int[] not null default '{}'
-);
-
-create table citations (
-  id uuid primary key default gen_random_uuid(),
-  snapshot_id uuid not null references snapshots on delete cascade,
-  idx int not null, url text not null, url_key text not null,  -- normalised
-  domain text not null, title text, source text, passage text
-);
-create index on citations (url_key);
-
-create table claim_groups (
-  id uuid primary key default gen_random_uuid(),
-  series_id uuid not null references series on delete cascade,
-  label text not null,
-  merged_into uuid references claim_groups,
-  created_at timestamptz not null default now()
-);
-
-create table claims (
-  id uuid primary key default gen_random_uuid(),
-  snapshot_id uuid not null references snapshots on delete cascade,
-  group_id uuid not null references claim_groups,
-  section int not null, sentence int not null,
-  text text not null, type text not null,
-  citation_idx int[] not null default '{}'
-);
-
-create table entities (
-  id uuid primary key default gen_random_uuid(),
-  series_id uuid not null references series on delete cascade,
-  name text not null, aliases text[] not null default '{}',
-  merged_into uuid references entities
-);
-
-create table entity_mentions (
-  entity_id uuid not null references entities,
-  snapshot_id uuid not null references snapshots on delete cascade,
-  claim_id uuid references claims,
-  role text not null check (role in ('recommended','mentioned')),
-  label text
-);
-
--- pages (shared)
-create table pages (
-  url_key text primary key, url text not null,
-  parsed_at timestamptz, parsed jsonb,      -- DataForSEO page_content
-  measures jsonb,                           -- code measurements
-  tags jsonb, tagged_at timestamptz         -- Claude page tags
-);
-
--- per user
-create table tracked_queries (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null default auth.uid() references auth.users on delete cascade,
-  series_id uuid not null references series,
-  display_keyword text not null,
-  own_url text, brand_names text[] not null default '{}',
-  status text not null default 'tracking' check (status in ('watching','tracking','paused')),
-  created_at timestamptz not null default now(),
-  unique (user_id, series_id)
-);
-
-create table reports (
-  id uuid primary key default gen_random_uuid(),
-  tracked_query_id uuid not null references tracked_queries on delete cascade,
-  kind text not null check (kind in ('preliminary','full','refresh')),
-  window_start timestamptz not null, window_end timestamptz not null,
-  renders int not null,
-  metrics jsonb, matrix jsonb, brief jsonb, brief_markdown text,
-  stage text not null default 'pages' check (stage in ('pages','brief','ready','failed')),
-  created_at timestamptz not null default now()
-);
-
-create table draft_scores (
-  id uuid primary key default gen_random_uuid(),
-  tracked_query_id uuid not null references tracked_queries on delete cascade,
-  source text not null, input text not null,
-  result jsonb, status text not null default 'running',
-  created_at timestamptz not null default now()
-);
-
-create table citation_events (
-  id uuid primary key default gen_random_uuid(),
-  tracked_query_id uuid not null references tracked_queries on delete cascade,
-  snapshot_id uuid references snapshots,
-  level text not null, kind text not null check (kind in ('first_seen','lost','regained','brand_mention')),
-  quoted_heading text, held_for_platform_event boolean not null default false,
-  created_at timestamptz not null default now()
-);
-
--- system
-create table batches (
-  id text primary key, kind text not null, status text not null default 'in_progress',
-  created_at timestamptz not null default now(), ended_at timestamptz
-);
-create table platform_events (
-  id uuid primary key default gen_random_uuid(), day date not null unique, metrics jsonb not null
-);
-create table accounts (
-  user_id uuid primary key references auth.users on delete cascade,
-  plan text not null default 'free', query_limit int not null default 1,
-  stripe_customer_id text
-);
-```
-
-Row-level security: users read and write their own `tracked_queries`, `reports`, `draft_scores`, `citation_events` and `accounts` row. They read `series`, `snapshots`, `sections`, `citations`, `claims`, `claim_groups`, `entities`, `entity_mentions` and `pages` only for series they track (a policy joining `tracked_queries`). Edge Functions use the service role. Metrics are SQL functions taking a series id and a window.
+Row-level security: users read their own tracked queries, reports, draft scores, own pages, matches, events and notifications. They read the shared pool only for series they track (`user_tracks_series`). Tracked queries are created by `add-query`; users may update only the tracking fields. Edge Functions use the service role. Metrics are SQL functions taking a series id and a window.
 
 ---
 
@@ -397,15 +249,16 @@ Row-level security: users read and write their own `tracked_queries`, `reports`,
 | `score-draft` | App | Measure the draft, run Claude task E as a background task, write the result |
 | `detect-platform-events` | Cron, daily | Cross-series change detection |
 | `notify` | Cron, every 15 min | In-app notifications and Resend emails, including the daily digest |
-| `stripe-webhook` | Stripe | Set plan and query limit |
+| `set-own-page` | App | Save the own URL and brand names, parse the page, re-match the last 28 days of captures |
 
-Secrets: `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, `ANTHROPIC_API_KEY`, `POSTBACK_SECRET`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
+Secrets: `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, `ANTHROPIC_API_KEY`, `POSTBACK_SECRET`, `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `FUNCTIONS_PUBLIC_URL`.
 
 ---
 
 ## 10. App (Next.js on Vercel)
 
-- **Auth:** Supabase magic link and Google sign-in.
+- **Auth:** Supabase magic link, password and Google sign-in.
+- **Design:** the Legiit Keywords design system (`docs/brand.md`): Inter, purple brand, plum hero, pill buttons, white cards.
 - **Queries:** list with status, renders captured, presence rate, own-page status.
 - **Add query:** keyword, country, language, device (desktop, mobile or both); sibling suggestions when no overview appears.
 - **Query page tabs:**
@@ -415,7 +268,7 @@ Secrets: `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, `ANTHROPIC_API_KEY`, `POSTBA
   - *Brief:* the brief with evidence links, Markdown export, day-28 diff.
   - *Draft score:* paste text or a URL, get the score and fix list.
   - *Tracking:* own URL, match level per day, quoted section, survival, events, platform-event banner.
-- **Billing:** plan picker with Stripe Checkout; query limit enforced by `add-query`.
+- **Billing:** deferred. When added: plan picker with Stripe Checkout, a `stripe-webhook` function, and the query limit enforced by `add-query`.
 
 ---
 
@@ -434,7 +287,8 @@ One step per session, in order. Each ends with a check.
 9. **Matrix and brief.** `build-reports`, task D, code checks on the brief, Markdown export. Check: a seeded series produces a full report whose every brief item links to existing evidence.
 10. **App.** Auth, queries list, add query, query page tabs (Live, Patterns, Pages, Brief). Check: every tab renders for a seeded series and every count opens its evidence.
 11. **Tracking and draft scorer.** Own-page parsing, match levels, quoted section, events, `score-draft`, Tracking and Draft score tabs. Check: a seeded capture citing the user's URL creates a first-seen event naming the quoted heading; a copy of the top cited page scores high on coverage.
-12. **Platform events, alerts, billing.** `detect-platform-events`, `notify` with Resend, `stripe-webhook`, plan limits. Check: a seeded Google-wide shift records a platform event and holds back lost alerts; a test-mode purchase raises the query limit.
+12. **Platform events and alerts.** `detect-platform-events`, `notify` with Resend. Check: a seeded Google-wide shift records a platform event and holds back lost alerts.
+13. **Billing (later).** `stripe-webhook`, plans and query limits. Check: a test-mode purchase raises the query limit.
 
 ---
 
