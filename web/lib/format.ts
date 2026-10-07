@@ -96,6 +96,13 @@ export function formatDayUTC(value: string | number | Date | null | undefined): 
   return d.toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric" });
 }
 
+/** "08:00" in UTC (24-hour). */
+export function formatTimeUTC(value: string | number | Date | null | undefined): string {
+  const d = toDate(value);
+  if (!d) return DASH;
+  return d.toLocaleTimeString("en-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
+}
+
 /** A date in a given locale and time zone (defaults: the runtime's). "Oct 7, 2026". */
 export function formatDate(value: string | number | Date | null | undefined, locale?: string, timeZone?: string): string {
   const d = toDate(value);

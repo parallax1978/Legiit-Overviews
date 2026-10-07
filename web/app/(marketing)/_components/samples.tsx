@@ -11,9 +11,10 @@ import type { Bucket } from "@/lib/types";
 const KEYWORD = "best crm for small business";
 
 const CLAIMS: { type: string; text: string; share: number; bucket: Bucket; cited: string }[] = [
-  { type: "Recommendation", text: "HubSpot CRM has a free plan that suits teams under five people", share: 0.82, bucket: "core", cited: "cited 9 times in 10" },
-  { type: "Comparison", text: "Zoho CRM costs less than Salesforce as a team grows", share: 0.61, bucket: "recurring", cited: "cited 7 times in 10" },
-  { type: "Fact", text: "Pipedrive organises deals in a visual sales pipeline", share: 0.34, bucket: "rotating", cited: "cited 5 times in 10" },
+  // `cited` uses the app's own measure: the share of the claim's mentions that carry a citation, with its n.
+  { type: "Recommendation", text: "HubSpot CRM has a free plan that suits teams under five people", share: 0.82, bucket: "core", cited: "cited 89% · n=46" },
+  { type: "Comparison", text: "Zoho CRM costs less than Salesforce as a team grows", share: 0.61, bucket: "recurring", cited: "cited 71% · n=34" },
+  { type: "Fact", text: "Pipedrive organises deals in a visual sales pipeline", share: 0.34, bucket: "rotating", cited: "cited 47% · n=19" },
 ];
 
 const SOURCES: { domain: string; share: number; bucket: Bucket }[] = [
@@ -48,11 +49,11 @@ export function HeroReportCard() {
               <NumberBadge n={i + 1} />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1 text-[11px] font-semibold text-good">
-                  <QuoteIcon className="h-3 w-3" /> {c.type} <span className="font-normal text-ink-soft">· {c.cited}</span>
+                  <QuoteIcon className="h-3 w-3" /> {c.type} <span className="font-normal text-ink-muted">· {c.cited}</span>
                 </p>
                 <p className="line-clamp-1 text-sm font-semibold">{c.text}</p>
                 <div className="mt-1.5 flex items-center gap-2">
-                  <ProgressBar value={c.share} />
+                  <ProgressBar value={c.share} label="Share of overviews" valueText={formatPercent(c.share)} />
                   <Share share={c.share} />
                 </div>
               </div>
@@ -121,7 +122,7 @@ export function PatternsSample() {
               </p>
               <p className="line-clamp-1 text-sm font-semibold">{e.name}</p>
               <div className="mt-1.5 flex items-center gap-2">
-                <ProgressBar value={e.share} />
+                <ProgressBar value={e.share} label={`${e.name}, share of overviews`} valueText={`${formatPercent(e.share)} · n=49`} />
                 <Share share={e.share} n={49} />
               </div>
             </div>
@@ -162,7 +163,7 @@ export function PageSample() {
         <Tag value="8/10">setup time</Tag>
         <Tag value="7/10">integrations</Tag>
       </div>
-      <p className="mt-5 text-xs text-ink-soft">
+      <p className="mt-5 text-xs text-ink-muted">
         Measured in code: words before the answer, tables, lists, numbers per 100 words, author and dates.
       </p>
     </BrowserCard>
@@ -195,7 +196,7 @@ export function EvidenceSample() {
         <p className="eyebrow text-brand">Recurring claim</p>
         <p className="mt-1 text-base font-semibold leading-snug">HubSpot CRM has a free plan that suits teams under five people</p>
         <div className="mt-3 flex items-center gap-3">
-          <ProgressBar value={0.82} className="max-w-48" />
+          <ProgressBar value={0.82} className="max-w-48" label="Share of overviews" valueText="82% · n=56" />
           <Share share={0.82} />
           <BucketChip bucket="core" />
         </div>

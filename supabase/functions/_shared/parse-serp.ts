@@ -114,8 +114,16 @@ interface RawBlock {
 /** Maps a citation marker (its number and link target) to a citation idx. */
 type Resolver = (n: number | null, url: string | null) => number | null;
 
+/**
+ * One citation per url_key. Google cites a page once per passage it used (each reference with its
+ * own text fragment), so every distinct passage is kept in `passages`; `passage` is the first.
+ */
+interface Citation extends ParsedCitation {
+  passages: string[];
+}
+
 class Builder {
-  citations: ParsedCitation[] = [];
+  citations: Citation[] = [];
   drafts: Draft[] = [];
   sections: ParsedSection[] = [];
   private byKey = new Map<string, number>();
@@ -292,11 +300,13 @@ class Builder {
     const url = stripTextFragment(rawUrl.trim());
     const key = normalizeUrl(url);
     const known = this.byKey.get(key);
+    const passage = str(ref?.text);
     if (known !== undefined) {
       const c = this.citations[known];
       c.title ??= str(ref?.title);
       c.source ??= str(ref?.source);
-      c.passage ??= str(ref?.text);
+      if (passage && !c.passages.includes(passage)) c.passages.push(passage);
+      c.passage = c.passages[0] ?? null;
       return known;
     }
     const host = hostOfUrl(url);
@@ -309,7 +319,8 @@ class Builder {
       reg_domain: regDomain(host || url),
       title: str(ref?.title),
       source: str(ref?.source),
-      passage: str(ref?.text),
+      passage,
+      passages: passage ? [passage] : [],
     });
     this.byKey.set(key, idx);
     return idx;

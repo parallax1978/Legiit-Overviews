@@ -1,5 +1,5 @@
 "use client";
-// Sign-in card: email magic link (default), email and password, or Google. Respects `next`.
+// Sign-in card: email magic link (default), email and password, or Google (when the provider is on). Respects `next`.
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/feedback";
@@ -191,14 +191,19 @@ export function LoginForm({ next, initialError, googleEnabled }: LoginFormProps)
         </Button>
       </form>
 
-      <div className="my-4 flex items-center gap-3 text-xs text-ink-soft">
-        <span className="h-px flex-1 bg-line" />
-        or
-        <span className="h-px flex-1 bg-line" />
-      </div>
-      <Button variant="secondary" fullWidth onClick={onGoogle} loading={busy === "google"} iconLeft={<GoogleIcon />}>
-        Continue with Google
-      </Button>
+      {/* Hidden when the Google provider is known to be off; shown when it is on or unknown. */}
+      {googleEnabled !== false && (
+        <>
+          <div className="my-4 flex items-center gap-3 text-xs text-ink-muted">
+            <span className="h-px flex-1 bg-line" />
+            or
+            <span className="h-px flex-1 bg-line" />
+          </div>
+          <Button variant="secondary" fullWidth onClick={onGoogle} loading={busy === "google"} iconLeft={<GoogleIcon />}>
+            Continue with Google
+          </Button>
+        </>
+      )}
 
       <p className="mt-4 text-center text-xs text-ink-muted">We only use your email to sign you in and send the alerts you choose.</p>
       <p className="mt-3 text-center">

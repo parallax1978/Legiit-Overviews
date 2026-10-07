@@ -212,7 +212,7 @@ export function SourceList({ citations, className }: { citations: OverviewCitati
                 <ExternalLinkIcon className="h-3 w-3 text-ink-soft group-hover:text-brand" />
               </a>
               {c.title && <p className="break-words text-sm text-ink-muted">{c.title}</p>}
-              {c.passage && <p className="mt-1 break-words text-xs leading-5 text-ink-soft">&ldquo;{truncate(c.passage, 240)}&rdquo;</p>}
+              {c.passage && <p className="mt-1 break-words text-xs leading-5 text-ink-muted">&ldquo;{truncate(c.passage, 240)}&rdquo;</p>}
             </div>
           </li>
         );

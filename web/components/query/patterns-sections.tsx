@@ -2,7 +2,7 @@
 // organic overlap, day by day and unsupported claims. Every share opens its evidence.
 import type { ReactNode } from "react";
 import { BucketChip, Chip, LocalTime, NumberedRow, ProgressBar, Tag, TH, THead, TR, TD } from "@/components/ui";
-import { formatCount, formatDayUTC, formatPercent, formatShare, plural } from "@/lib/format";
+import { formatCount, formatDayUTC, formatPercent, formatShare, formatTimeUTC, plural } from "@/lib/format";
 import type { Bucket, DailyDiff, SeriesMetrics } from "@/lib/types";
 import { DayDiff, dayChangeCounts, dayHasChanges } from "./day-diff";
 import { EvidenceTrigger } from "./evidence";
@@ -29,6 +29,7 @@ export function ClaimsSection({ m, w }: { m: SeriesMetrics; w: WindowRef }) {
         key={c.group_id}
         n={i + 1}
         title={c.label}
+        stackAside
         aside={
           <>
             <BucketChip bucket={c.bucket} />
@@ -67,7 +68,7 @@ export function ClaimsSection({ m, w }: { m: SeriesMetrics; w: WindowRef }) {
       description={`How often each claim appears, out of ${plural(m.present, "overview")} in this window. Cited is the share of its mentions that carry a citation.`}
     >
       {rows.length ? (
-        <ShowMore items={rows} noun="claims" containerClassName="border-t border-line" />
+        <ShowMore items={rows} noun="claims" />
       ) : (
         <SectionEmpty>
           Claims appear once Claude has read the overviews in this window. Reading runs in batches, usually within a few hours of a capture.
@@ -98,6 +99,7 @@ export function EntitiesSection({ m, w }: { m: SeriesMetrics; w: WindowRef }) {
         key={e.entity_id}
         n={i + 1}
         title={e.name}
+        stackAside
         aside={<BucketChip bucket={e.bucket} />}
         meta={`Recommended in ${formatShare(e.recommended_share, m.present)}, mentioned only in ${formatPercent(mentioned)}`}
       >
@@ -148,7 +150,7 @@ export function EntitiesSection({ m, w }: { m: SeriesMetrics; w: WindowRef }) {
       }
     >
       {rows.length ? (
-        <ShowMore items={rows} noun="brands and entities" containerClassName="border-t border-line" />
+        <ShowMore items={rows} noun="brands and entities" />
       ) : (
         <SectionEmpty>No brand, product or other entity was named in the overviews of this window yet.</SectionEmpty>
       )}
@@ -172,7 +174,7 @@ export function FormatsSection({ m, w }: { m: SeriesMetrics; w: WindowRef }) {
       }
     >
       {m.formats.length ? (
-        <ul className="divide-y divide-line border-t border-line">
+        <ul className="divide-y divide-line">
           {m.formats.map((f) => {
             const name = formatLabelName(f.label);
             const share = formatShare(f.share, m.present);
@@ -215,7 +217,7 @@ export function OverlapSection({ m }: { m: SeriesMetrics }) {
       {n === 0 ? (
         <SectionEmpty>No overview in this window cited a URL yet.</SectionEmpty>
       ) : (
-        <div className="space-y-4 px-5 pb-5">
+        <div className="space-y-4 p-5">
           {rows.map((r) => (
             <div key={r.label}>
               <div className="flex items-baseline justify-between gap-3">
@@ -327,7 +329,7 @@ export function SourcesSection({ m, w }: { m: SeriesMetrics; w: WindowRef }) {
       label="Sources"
       description={`URLs Google cited and how reliably they survive, out of ${plural(m.present, "overview")}. Organic top 10 is how often the URL also ranked on page one when cited.`}
     >
-      <div className="px-5 pb-4">
+      <div className="px-5 pb-4 pt-4">
         <BucketLegend />
       </div>
       {sourceRows.length ? (
@@ -385,49 +387,74 @@ export function SourcesSection({ m, w }: { m: SeriesMetrics; w: WindowRef }) {
 
 // ------------------------------------------------------------------ day by day
 
-export function DailySection({ m }: { m: SeriesMetrics }) {
+export function DailySection({ m, now, cutDay }: { m: SeriesMetrics; now: number; cutDay: string | null }) {
   const days = [...m.daily].reverse();
   const prevOf = new Map<string, DailyDiff | undefined>();
   const withRenders = m.daily.filter((d) => d.renders > 0);
   withRenders.forEach((d, i) => prevOf.set(d.day, withRenders[i - 1]));
+  const today = new Date(now).toISOString().slice(0, 10);
+  const startTime = formatTimeUTC(m.window.from);
 
   const items = days.map((d) => {
     const prev = prevOf.get(d.day);
-    const counts = dayChangeCounts(d);
+    const isToday = d.day === today;
+    // Today is still being captured: what it "dropped" mostly hasn't been captured yet, so only additions show.
+    const diff: DailyDiff = isToday ? { ...d, claims_dropped: [], entities_dropped: [], citations_dropped: [] } : d;
+    const counts = dayChangeCounts(diff);
+    const compared = !!prev && d.day !== cutDay && prev.day !== cutDay;
     let body: ReactNode;
     if (d.renders === 0) body = <p className="mt-1 text-sm text-ink-muted">Every capture failed this day, so it isn&rsquo;t compared.</p>;
+    else if (d.day === cutDay)
+      body = <p className="mt-1 text-sm text-ink-muted">The window starts at {startTime} UTC this day, so the day is only partly here and isn&rsquo;t compared.</p>;
     else if (!prev) body = <p className="mt-1 text-sm text-ink-muted">First day in this window; changes are counted from the next day.</p>;
-    else if (!dayHasChanges(d)) body = <p className="mt-1 text-sm text-ink-muted">No changes from {formatDayUTC(prev.day)}.</p>;
-    else body = <DayDiff diff={d} limit={8} className="mt-3" />;
+    else if (prev.day === cutDay)
+      body = <p className="mt-1 text-sm text-ink-muted">Not compared: only part of {formatDayUTC(prev.day)} is in this window. A longer window compares it.</p>;
+    else if (!dayHasChanges(diff))
+      body = <p className="mt-1 text-sm text-ink-muted">{isToday ? "Nothing new so far" : "No changes"} from {formatDayUTC(prev.day)}.</p>;
+    else body = <DayDiff diff={diff} limit={8} className="mt-3" />;
     return (
       <li key={d.day} className="relative py-3 pl-6">
         <span aria-hidden="true" className="absolute left-0 top-[18px] h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-brand-faint" />
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-          <h3 className="text-sm font-semibold text-ink">{formatDayUTC(d.day)}</h3>
+          <h3 className="text-sm font-semibold text-ink">
+            {formatDayUTC(d.day)}
+            {isToday && <span className="font-normal text-ink-muted"> · today so far</span>}
+          </h3>
           <p className="text-xs text-ink-muted">
             {plural(d.present, "overview")} in {plural(d.renders, "render")}
-            {prev && dayHasChanges(d) && (
+            {compared && dayHasChanges(diff) && (
               <>
                 {" · "}
-                <span className="text-good">+{counts.added}</span> <span className="text-bad">−{counts.dropped}</span>
+                <span className="text-good">+{counts.added}</span>
+                {!isToday && (
+                  <>
+                    {" "}
+                    <span className="text-bad">−{counts.dropped}</span>
+                  </>
+                )}
               </>
             )}
           </p>
         </div>
         {body}
+        {isToday && compared && <p className="mt-2 text-xs text-ink-muted">Dropped items show once the day is complete.</p>}
       </li>
     );
   });
 
   return (
-    <SectionCard id="daily" label="Day by day" description="Claims, brands and cited URLs added and dropped against the previous day with captures (UTC days), newest first.">
+    <SectionCard
+      id="daily"
+      label="Day by day"
+      description="Claims, brands and cited URLs added and dropped against the previous day with captures (UTC days), newest first. Only full days are compared."
+    >
       {items.length ? (
         <ShowMore
           variant="plain"
           items={items}
           initial={days.length > 8 ? 7 : 8}
           noun="days"
-          containerClassName="relative mx-5 mb-2 before:absolute before:bottom-5 before:left-[4px] before:top-5 before:w-px before:bg-line"
+          containerClassName="relative mx-5 my-2 before:absolute before:bottom-5 before:left-[4px] before:top-5 before:w-px before:bg-line"
         />
       ) : (
         <SectionEmpty>No captures in this window yet.</SectionEmpty>
@@ -446,11 +473,11 @@ export function UnsupportedSection({ m, w }: { m: SeriesMetrics; w: WindowRef })
       description="Recurring claims (in 40% or more of overviews) that no capture backed with a citation. A page that backs one with evidence is an opening: Google has nothing to cite for it yet."
     >
       {m.unsupported_claims.length ? (
-        <ol className="divide-y divide-line border-t border-line">
+        <ol className="divide-y divide-line">
           {m.unsupported_claims.map((u, i) => {
             const share = formatShare(u.share, m.present);
             return (
-              <NumberedRow key={u.group_id} n={i + 1} title={u.label} aside={<Chip tone="warn" size="sm">Unsupported</Chip>}>
+              <NumberedRow key={u.group_id} n={i + 1} title={u.label} stackAside aside={<Chip tone="warn" size="sm">Unsupported</Chip>}>
                 <ShareLine share={u.share}>
                   <EvidenceTrigger
                     seriesId={w.seriesId}

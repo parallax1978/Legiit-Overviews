@@ -3,7 +3,7 @@
 // recent captures and when we check next.
 import type { ReactNode } from "react";
 import { CaptureStatusChip } from "@/components/query/capture-status";
-import { DayDiff, dayHasChanges } from "@/components/query/day-diff";
+import { DayDiff, completeDays, dayHasChanges } from "@/components/query/day-diff";
 import { OrganicList } from "@/components/query/organic-list";
 import { OverviewText, SourceList } from "@/components/query/overview";
 import { ShareValue } from "@/components/query/share-value";
@@ -82,7 +82,7 @@ export default async function LiveTab({ params }: { params: Promise<{ id: string
   const timeline = !statusesRes.data ? (
     <ErrorCard title="The capture timeline didn't load" detail={statusesRes.error} action={<RetryButton />} />
   ) : (
-    <TimelineCard captures={statusesRes.data} now={now} trackingStart={trackingStart} />
+    <TimelineCard captures={statusesRes.data} now={now} from={timelineFrom} trackingStart={trackingStart} />
   );
 
   if (q.status === "watching" || !lastPresent) {
@@ -226,18 +226,21 @@ function LatestCard({ latest, shown }: { latest: LiveSnapshot; shown: LiveSnapsh
   );
 }
 
-function TimelineCard({ captures, now, trackingStart }: { captures: CaptureStatusRow[]; now: number; trackingStart: string | null }) {
+function TimelineCard({ captures, now, from, trackingStart }: { captures: CaptureStatusRow[]; now: number; from: string; trackingStart: string | null }) {
   const counted = captures.filter((c) => c.status !== "error");
   const present = counted.filter((c) => c.status === "present").length;
   const errors = captures.length - counted.length;
+  // Calendar days, unlike the rolling 7 days of the stat row above, so the card names its own span.
+  const span = `${formatDayUTC(from)} to ${formatDayUTC(now)}`;
   return (
     <Card>
       <CardHeader
-        title="Captures, last 7 days"
+        as="h2"
+        title={`Captures, ${span} (UTC days)`}
         description={
           counted.length
             ? `${formatCount(present)} of ${plural(counted.length, "capture")} showed an overview (${formatShare(present / counted.length, counted.length)})${errors ? `; ${plural(errors, "capture")} failed and ${errors === 1 ? "isn't" : "aren't"} counted` : ""}.`
-            : "No captures in the last 7 days yet."
+            : `No captures from ${span} yet.`
         }
       />
       <CaptureTimeline className="mt-4" captures={captures} now={now} trackingStart={trackingStart} />
@@ -246,17 +249,20 @@ function TimelineCard({ captures, now, trackingStart }: { captures: CaptureStatu
 }
 
 function ChangesCard({ m, now, patternsHref }: { m: SeriesMetrics; now: number; patternsHref: string }) {
-  const days = m.daily.filter((d) => d.renders > 0);
+  // Only full UTC days are compared: today is still being captured, so most of what it "dropped" just
+  // hasn't been captured yet.
+  const days = completeDays(m.daily, m.window.from, now);
   const last = days[days.length - 1];
   const prev = days[days.length - 2];
   const todayKey = new Date(now).toISOString().slice(0, 10);
-  const title = !last ? "What changed today" : last.day === todayKey ? "What changed today" : `What changed on ${formatDayUTC(last.day)}`;
+  const today = m.daily.find((d) => d.day === todayKey && d.renders > 0);
+  const title = last && prev ? `What changed on ${formatDayUTC(last.day)}` : "What changed";
 
   let body: ReactNode;
   if (!last || !prev) {
     body = (
       <EmptyInline icon={<ActivityIcon />}>
-        Changes show from the second day of captures: we compare each UTC day with the day before.
+        Changes show once two full UTC days are captured: we compare each full day with the day before.
       </EmptyInline>
     );
   } else if (!dayHasChanges(last)) {
@@ -272,11 +278,15 @@ function ChangesCard({ m, now, patternsHref }: { m: SeriesMetrics; now: number; 
   return (
     <Card>
       <CardHeader
+        as="h2"
         title={title}
         description={
-          last && prev
-            ? `${formatDayUTC(last.day)} against ${formatDayUTC(prev.day)} (UTC days): ${plural(last.present, "overview")} in ${plural(last.renders, "render")}.`
-            : undefined
+          last && prev ? (
+            <>
+              {formatDayUTC(last.day)} against {formatDayUTC(prev.day)} (full UTC days): {plural(last.present, "overview")} in {plural(last.renders, "render")}.
+              {today && ` Today is still being captured (${plural(today.renders, "render")} so far), so it is compared tomorrow.`}
+            </>
+          ) : undefined
         }
       />
       {body}
@@ -301,6 +311,7 @@ function OrganicCard({ snapshot }: { snapshot: LiveSnapshot }) {
     <Card padding="none">
       <div className="px-5 pt-5">
         <CardHeader
+          as="h2"
           title="Organic top 10"
           description={
             <>

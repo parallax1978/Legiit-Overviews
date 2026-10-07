@@ -2,22 +2,29 @@
 import { parse as parseDomain } from "tldts";
 import type { MatchLevel } from "./types.ts";
 
-/** Keyword key for the shared series: NFKC, trim, collapse whitespace, lowercase, strip trailing punctuation. */
+/**
+ * Keyword key for the shared series: NFKC, trim, collapse whitespace, lowercase, strip trailing
+ * sentence punctuation. Only . , ; : ! ? (and their CJK forms) are stripped: symbols like # % ) ]
+ * belong to the query ("learn c#", "increase by 10%").
+ */
 export function normalizeKeyword(raw: string): string {
   return raw
     .normalize("NFKC")
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase()
-    .replace(/[\s\p{P}]+$/u, "")
+    .replace(/[\s.,;:!?…。．，、？！]+$/u, "")
     .trim();
 }
 
 const OPERATOR = /(^|\s)(site|inurl|intitle|intext|filetype|related|cache|allintitle|allinurl|allintext):|"|(^|\s)-\S|\sOR\s/;
 
-/** Returns a reason when the keyword uses search operators (DataForSEO bills 5x for them). */
+/**
+ * Returns a reason when the keyword uses search operators (DataForSEO bills 5x for them). Checked on
+ * the NFKC form, which is what the series stores: full-width ： ＂ － become ASCII operators there.
+ */
 export function keywordProblem(raw: string): string | null {
-  const k = raw.trim();
+  const k = raw.normalize("NFKC").trim();
   if (!k) return "Enter a keyword.";
   if (k.length > 200) return "Keep the keyword under 200 characters.";
   if (OPERATOR.test(k)) return "Search operators (site:, quotes, minus, OR) are not supported.";

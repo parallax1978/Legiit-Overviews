@@ -82,7 +82,7 @@ function PageMeasuresBlock({ page }: { page: PageInfo | undefined }) {
     return (
       <p className="text-sm text-ink-muted">
         We couldn&rsquo;t read this page, so it has no measurements.
-        {page.parse_error && <span className="mt-1 block break-words font-mono text-xs text-ink-soft">{page.parse_error}</span>}
+        {page.parse_error && <span className="mt-1 block break-words font-mono text-xs text-ink-muted">{page.parse_error}</span>}
       </p>
     );
   }
@@ -118,7 +118,7 @@ function PageMeasuresBlock({ page }: { page: PageInfo | undefined }) {
 function TagRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">{label}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">{label}</p>
       <div className="mt-1.5">{children}</div>
     </div>
   );
@@ -205,13 +205,44 @@ function PageTagsBlock({ page }: { page: PageInfo | undefined }) {
 
 interface PassageGroup {
   passage: PassageLocation;
+  /** Distinct quotes Google took from this place. */
   count: number;
 }
 
-/** Google often quotes the same spot with slightly different cuts: one entry per heading and position. */
-function groupPassages(passages: PassageLocation[]): PassageGroup[] {
+/** Google's "Sep 18, 2026 — " prefix on some passages. */
+const DATE_PREFIX = /^[A-Z][a-z]{2,8}\.? \d{1,2}, \d{4}\s*[—–-]\s*/;
+const TRAILING_ELLIPSIS = /\s*(?:\.{3}|…)\s*$/;
+
+function quoteKey(text: string): string {
+  return text.replace(DATE_PREFIX, "").replace(TRAILING_ELLIPSIS, "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/**
+ * One entry per distinct quote: Google cites the same sentence cut short ("…") or with a date in front,
+ * so variants whose text is a prefix of another are merged. The variant without a date prefix gives the
+ * location (a date prefix shifts the passage locator back into the previous section).
+ */
+function distinctQuotes(passages: PassageLocation[]): PassageLocation[] {
+  const sorted = [...passages].sort((a, b) => quoteKey(b.passage).length - quoteKey(a.passage).length);
+  const quotes: { key: string; variants: PassageLocation[] }[] = [];
+  for (const p of sorted) {
+    const key = quoteKey(p.passage);
+    const match = quotes.find((q) => q.key.startsWith(key));
+    if (match) match.variants.push(p);
+    else quotes.push({ key, variants: [p] });
+  }
+  return quotes.map(({ variants }) => {
+    const clean = variants.filter((v) => !DATE_PREFIX.test(v.passage));
+    const located = clean.find((v) => v.found) ?? variants.find((v) => v.found) ?? variants[0];
+    const text = (clean[0] ?? variants[0]).passage.replace(DATE_PREFIX, "");
+    return { ...located, passage: text };
+  });
+}
+
+/** Distinct quotes grouped by where they sit (heading and position), most quoted place first. */
+function groupPassages(quotes: PassageLocation[]): PassageGroup[] {
   const groups = new Map<string, PassageGroup>();
-  for (const p of passages) {
+  for (const p of quotes) {
     const key = p.found ? `f|${p.heading ?? ""}|${Math.round((p.position ?? 0) * 50)}` : `n|${p.passage.slice(0, 60)}`;
     const g = groups.get(key);
     if (!g) groups.set(key, { passage: p, count: 1 });
@@ -226,14 +257,16 @@ function groupPassages(passages: PassageLocation[]): PassageGroup[] {
 const SHOWN_PASSAGES = 4;
 
 function Passages({ passages }: { passages: PassageLocation[] }) {
-  const groups = groupPassages(passages);
+  const quotes = distinctQuotes(passages);
+  const groups = groupPassages(quotes);
   const shown = groups.slice(0, SHOWN_PASSAGES);
   const rest = groups.slice(SHOWN_PASSAGES);
   return (
     <>
       <p className="mt-1 text-xs text-ink-muted">
-        {plural(passages.length, "quoted passage")} in the report window
-        {groups.length < passages.length ? `, from ${plural(groups.length, "place")} on the page` : ""}.
+        {plural(quotes.length, "distinct quote")} in the report window
+        {groups.length < quotes.length ? `, from ${plural(groups.length, "place")} on the page` : ""}
+        {passages.length > quotes.length ? ` (Google trimmed or dated some, so ${plural(passages.length, "text variant")} are merged)` : ""}.
       </p>
       <ul className="mt-3 space-y-4">
         {shown.map((g, i) => (
@@ -269,7 +302,7 @@ function PassageItem({ group }: { group: PassageGroup }) {
         {passage.found ? (
           pos !== null && (
             <span className="text-xs tabular-nums text-ink-muted">
-              {formatPercent(pos)} down the page{count > 1 ? ` · quoted ${count} ways` : ""}
+              {formatPercent(pos)} down the page{count > 1 ? ` · ${count} different quotes` : ""}
             </span>
           )
         ) : (
@@ -279,7 +312,7 @@ function PassageItem({ group }: { group: PassageGroup }) {
         )}
       </div>
       {pos !== null && <PositionBar position={pos} />}
-      <p className={cn("mt-2 break-words text-xs leading-5", passage.found ? "text-ink-muted" : "text-ink-soft")}>
+      <p className={cn("mt-2 break-words text-xs leading-5", passage.found ? "text-ink-muted" : "italic text-ink-muted")}>
         &ldquo;{truncate(passage.passage, 280)}&rdquo;
       </p>
     </li>
@@ -289,7 +322,7 @@ function PassageItem({ group }: { group: PassageGroup }) {
 /** A thin top-to-bottom bar with a marker where the passage sits. */
 function PositionBar({ position }: { position: number }) {
   return (
-    <div className="mt-2 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wide text-ink-soft">
+    <div className="mt-2 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wide text-ink-muted">
       <span>Top</span>
       <div className="relative h-1.5 flex-1 rounded-full bg-surface-sunken" role="img" aria-label={`${formatPercent(position)} of the way down the page`}>
         <div className="absolute inset-y-0 left-0 rounded-full bg-brand-soft" style={{ width: `${position * 100}%` }} />

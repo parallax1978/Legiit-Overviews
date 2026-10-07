@@ -28,7 +28,7 @@ export default async function TrackingTab({ params }: { params: Promise<{ id: st
     );
   }
 
-  const { summary, events, ownPage, platformEvents } = data;
+  const { summary, exact, events, ownPage, platformEvents } = data;
   const ownUrl = summary?.own_url ?? q.own_url;
   const brandNames = summary?.brand_names ?? q.brand_names ?? [];
   const configured = Boolean(ownUrl) || brandNames.length > 0;
@@ -54,8 +54,12 @@ export default async function TrackingTab({ params }: { params: Promise<{ id: st
 
       {configured && summary && (
         <section className="space-y-4" aria-labelledby="tracking-summary">
-          <SectionHeading id="tracking-summary" title="How often Google cites you" description="Share of renders with an AI Overview that cited your page, by UTC day." />
-          <TrackingStats summary={summary} />
+          <SectionHeading
+            id="tracking-summary"
+            title="How often Google cites you"
+            description="Share of renders with an AI Overview that cited your exact URL. The daily strip counts any match level and colours each day by its closest match."
+          />
+          <TrackingStats summary={summary} exact={ownUrl ? exact : null} />
           <TrackingStrip daily={summary.daily} brandTracked={brandNames.length > 0} />
         </section>
       )}

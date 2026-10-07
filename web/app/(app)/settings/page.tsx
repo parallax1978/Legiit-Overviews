@@ -24,7 +24,7 @@ export default async function SettingsPage() {
       <PageHeader kicker="Account" title="Settings" meta="Your sign-in details." />
       <div className="mt-8 grid max-w-3xl gap-6">
         <Card padding="lg">
-          <CardHeader title="Account" description="The email we sign you in with and send alerts to." />
+          <CardHeader as="h2" title="Account" description="The email we sign you in with and send alerts to." />
           <LabelValueGrid className="mt-5">
             <LabelValue label="Email">
               <span className="break-all font-medium">{user?.email ?? "–"}</span>
@@ -46,6 +46,7 @@ export default async function SettingsPage() {
 
         <Card padding="lg" id="password" className="scroll-mt-20">
           <CardHeader
+            as="h2"
             title="Password"
             description="Set a password to sign in without waiting for an email link, or change the one you have. Email links keep working either way."
           />
@@ -53,7 +54,7 @@ export default async function SettingsPage() {
         </Card>
 
         <Card padding="lg">
-          <CardHeader title="Sign out" description="Signs you out in this browser. Your queries keep being captured." />
+          <CardHeader as="h2" title="Sign out" description="Signs you out in this browser. Your queries keep being captured." />
           <form action="/auth/signout" method="post" className="mt-5">
             <button type="submit" className={buttonClasses({ variant: "secondary" })}>
               <LogOutIcon /> Sign Out

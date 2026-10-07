@@ -161,7 +161,7 @@ export default function HomePage() {
               {p}
             </li>
           ))}
-          <li className="text-ink-soft sm:ml-2">From the team behind Legiit</li>
+          <li className="text-ink-muted sm:ml-2">From the team behind Legiit</li>
         </ul>
       </section>
 

@@ -53,6 +53,7 @@ export function BriefDiffCard({ diff, firstLabel }: { diff: BriefDiff; firstLabe
     <Card padding="none">
       <div className="p-5 sm:p-6">
         <CardHeader
+          as="h2"
           eyebrow="28-day refresh"
           title="Changes since the first brief"
           description={

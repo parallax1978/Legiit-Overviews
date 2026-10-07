@@ -4,6 +4,14 @@ import { keywordProblem, matchLevel, mentionsBrand, normalizeKeyword, normalizeU
 Deno.test("normalizeKeyword", () => {
   assertEquals(normalizeKeyword("  Best   CRM?  "), "best crm");
   assertEquals(normalizeKeyword("ＢＥＳＴ form builder!!"), "best form builder");
+  assertEquals(normalizeKeyword("best crm?! ."), "best crm");
+  assertEquals(normalizeKeyword("best crm。"), "best crm");
+  // Symbols that change the query are kept.
+  assertEquals(normalizeKeyword("Learn C#"), "learn c#");
+  assertEquals(normalizeKeyword("what is f#?"), "what is f#");
+  assertEquals(normalizeKeyword("increase by 10%"), "increase by 10%");
+  assertEquals(normalizeKeyword("vitamin b12 (cobalamin)"), "vitamin b12 (cobalamin)");
+  assertEquals(normalizeKeyword("array[0] in c++"), "array[0] in c++");
 });
 
 Deno.test("keywordProblem rejects operators", () => {
@@ -12,6 +20,11 @@ Deno.test("keywordProblem rejects operators", () => {
   assertEquals(keywordProblem('"best crm"') !== null, true);
   assertEquals(keywordProblem("crm -free") !== null, true);
   assertEquals(keywordProblem("x".repeat(201)) !== null, true);
+  // Full-width forms become ASCII operators when the keyword is normalised, so they are rejected too.
+  assertEquals(keywordProblem("best crm site：hubspot.com") !== null, true);
+  assertEquals(keywordProblem("＂best form builder＂") !== null, true);
+  assertEquals(keywordProblem("best crm －hubspot") !== null, true);
+  assertEquals(keywordProblem("learn c#"), null);
 });
 
 Deno.test("normalizeUrl", () => {

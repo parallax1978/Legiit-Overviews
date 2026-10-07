@@ -218,7 +218,7 @@ export function DraftScorer({ trackedQueryId, running }: DraftScorerProps) {
                 <p className="font-semibold text-ink">Scoring your draft&hellip; this takes about a minute</p>
                 <p className="mt-1 text-sm text-ink-muted">{steps}</p>
                 <ProgressBar value={progress} className="mt-4" label="Scoring the draft" />
-                <p className="mt-2 text-xs tabular-nums text-ink-soft">{elapsed}s</p>
+                <p className="mt-2 text-xs tabular-nums text-ink-muted">{elapsed}s</p>
               </>
             )}
           </div>
@@ -283,7 +283,7 @@ export function DraftScorer({ trackedQueryId, running }: DraftScorerProps) {
           </Alert>
         )}
         <Button type="submit" loading={starting}>
-          Score draft
+          Score Draft
         </Button>
       </form>
     </Card>

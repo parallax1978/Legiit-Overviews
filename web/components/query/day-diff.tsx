@@ -7,6 +7,24 @@ import { cn } from "@/lib/cn";
 import type { DailyDiff } from "@/lib/types";
 import { displayUrl } from "./page-anchor";
 
+const DAY = 86_400_000;
+
+/** The UTC day (YYYY-MM-DD) a rolling window cuts at its start, or null when it starts at midnight. */
+export function cutFirstDay(windowFrom: string): string | null {
+  const ms = Date.parse(windowFrom);
+  return Number.isFinite(ms) && ms % DAY !== 0 ? new Date(ms).toISOString().slice(0, 10) : null;
+}
+
+/**
+ * Days with renders that were captured in full inside the window: not today (still being captured) and
+ * not a first day the window starts partway through. Only these are fair to compare.
+ */
+export function completeDays(daily: DailyDiff[], windowFrom: string, now: number): DailyDiff[] {
+  const today = new Date(now).toISOString().slice(0, 10);
+  const cut = cutFirstDay(windowFrom);
+  return daily.filter((d) => d.renders > 0 && d.day < today && d.day !== cut);
+}
+
 /** True when the day added or dropped anything. */
 export function dayHasChanges(d: DailyDiff): boolean {
   return (
@@ -75,7 +93,7 @@ export function DayDiff({ diff, limit, moreHref, className }: { diff: DailyDiff;
         <div key={g.label}>
           <SectionLabel>
             {g.label}{" "}
-            <span className="font-normal normal-case tracking-normal text-ink-soft">
+            <span className="font-normal normal-case tracking-normal text-ink-muted">
               {g.added.length > 0 && `${g.added.length} added`}
               {g.added.length > 0 && g.dropped.length > 0 && ", "}
               {g.dropped.length > 0 && `${g.dropped.length} dropped`}

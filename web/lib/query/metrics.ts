@@ -142,3 +142,22 @@ export const getCaptureStatuses = cache(async (seriesId: string, from: string): 
   if (error) return { data: null, error: error.message };
   return { data: (data ?? []) as CaptureStatusRow[], error: null };
 });
+
+/**
+ * Renders with an overview in [from, to) whose claims Claude hasn't read yet (extraction pending,
+ * submitted, or reused but not copied). series_metrics counts them in every share's n, so shares of
+ * claims, entities and formats read slightly low until they are done. Null when the count fails.
+ */
+export const getUnreadRenders = cache(async (seriesId: string, from: string, to: string): Promise<number | null> => {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("snapshots")
+    .select("id", { count: "exact", head: true })
+    .eq("series_id", seriesId)
+    .eq("status", "present")
+    .in("extraction", ["pending", "submitted", "reused"])
+    .gte("captured_at", from)
+    .lt("captured_at", to);
+  if (error) return null;
+  return count ?? 0;
+});

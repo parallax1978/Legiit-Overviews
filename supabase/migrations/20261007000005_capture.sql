@@ -1,5 +1,6 @@
 -- Capture pipeline helpers. Each runs in one transaction so retries and duplicate deliveries are safe:
 --   claim_due_captures      due series -> one pending capture each (latest passed slot), next_capture_at advanced
+--   claim_live_capture      the Live capture for add-query, or none when the series is fresh or a capture is in flight
 --   mark_capture_submissions  records task_post outcomes for many captures at once
 --   ingest_snapshot         snapshot + sections + citations, same_as, capture received, watching -> tracking
 --   record_capture_failure  error snapshot at scheduled_at, capture error
@@ -7,6 +8,10 @@
 --   replace_own_matches     recomputed own_matches for a tracked query's history
 --   own_match_events        first_seen / regained / brand_mention events and their notifications
 -- All are for the service role only.
+
+-- Every distinct passage Google quoted from the page (one reference per passage); `passage` stays the first.
+alter table public.citations add column if not exists passages text[] not null default '{}';
+update public.citations set passages = array[passage] where passage is not null and passages = '{}';
 
 create or replace function public.claim_due_captures(p_limit int default 500, p_series_ids uuid[] default null)
 returns table (capture_id uuid, series_id uuid, keyword text, location_code int, language_code text, device text)

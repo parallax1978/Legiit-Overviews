@@ -72,7 +72,7 @@ export function CaptureTimeline({ captures, now, trackingStart, days = 7, classN
       <div className="grid grid-cols-[3.25rem_repeat(8,minmax(0,1fr))] items-center gap-x-1.5 gap-y-1.5 sm:gap-x-2">
         <span />
         {hours.map((h) => (
-          <span key={h} className="text-center text-[10px] font-medium tabular-nums text-ink-soft">
+          <span key={h} className="text-center text-[10px] font-medium tabular-nums text-ink-muted">
             {pad(h)}
           </span>
         ))}
@@ -80,7 +80,7 @@ export function CaptureTimeline({ captures, now, trackingStart, days = 7, classN
           <TimelineRow key={day} day={day} now={now} start={start} bySlot={bySlot} />
         ))}
       </div>
-      <p className="mt-2 text-right text-[11px] text-ink-soft">Hours in UTC, newest day first</p>
+      <p className="mt-2 text-right text-[11px] text-ink-muted">Hours in UTC, newest day first</p>
       <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-muted">
         {legend.map((s) => (
           <li key={s} className="inline-flex items-center gap-1.5">

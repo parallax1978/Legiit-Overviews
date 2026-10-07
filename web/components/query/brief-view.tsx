@@ -110,7 +110,7 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
           {b.format.structure && <p className="text-[15px] leading-7 text-ink">{b.format.structure}</p>}
           <dl className="mt-4 grid gap-4 border-t border-line pt-4 sm:grid-cols-[2fr_1fr]">
             <div className="min-w-0">
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Table columns</dt>
+              <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">Table columns</dt>
               <dd className="mt-1.5 flex flex-wrap gap-1.5">
                 {b.format.table_columns.length ? (
                   b.format.table_columns.map((c, i) => <Tag key={i}>{c}</Tag>)
@@ -120,7 +120,7 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
               </dd>
             </div>
             <div>
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Main list</dt>
+              <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">Main list</dt>
               <dd className="mt-1.5 text-sm text-ink">{b.format.list_items !== null ? plural(b.format.list_items, "item") : "–"}</dd>
             </div>
           </dl>
@@ -142,7 +142,7 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
                   n={i + 1}
                   className={depth === 1 ? "pl-8 sm:pl-10" : depth === 2 ? "pl-12 sm:pl-16" : depth === 3 ? "pl-16 sm:pl-22" : undefined}
                   overline={
-                    <span className="font-medium tracking-wide text-ink-soft">
+                    <span className="font-medium tracking-wide text-ink-muted">
                       H{s.level}
                       <span className="font-normal sm:hidden"> · about {formatCount(s.target_words)} words</span>
                     </span>
@@ -159,7 +159,7 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
                 >
                   {s.covers.length > 0 && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Covers</span>
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">Covers</span>
                       {s.covers.map((c, j) => (
                         <Tag key={j}>{c}</Tag>
                       ))}
@@ -183,7 +183,7 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
                     <p className="text-sm leading-6 text-ink">{e.what}</p>
                     {pages.length > 0 && (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Seen on</span>
+                        <span className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">Seen on</span>
                         {pages.map((p) => p && <PageChip key={p.id} urlKey={p.id} ctx={ctx} />)}
                       </div>
                     )}

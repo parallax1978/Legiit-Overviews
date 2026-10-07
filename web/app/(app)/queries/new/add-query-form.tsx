@@ -148,7 +148,7 @@ export function AddQueryForm({ locations, initialKeyword }: AddQueryFormProps) {
               {device === "both" ? "Desktop and mobile" : device === "mobile" ? "Mobile" : "Desktop"}
             </p>
             <ProgressBar value={progress} className="mt-4" label="Checking Google" />
-            <p className="mt-2 text-xs tabular-nums text-ink-soft">{elapsed}s</p>
+            <p className="mt-2 text-xs tabular-nums text-ink-muted">{elapsed}s</p>
           </div>
         </div>
       </Card>

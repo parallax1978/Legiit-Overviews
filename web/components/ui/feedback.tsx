@@ -61,7 +61,7 @@ export function Alert({ tone = "info", title, children, action, onDismiss, class
       </div>
       {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
       {onDismiss && (
-        <button type="button" onClick={onDismiss} aria-label="Dismiss" className="rounded-md p-0.5 text-ink-soft hover:text-ink">
+        <button type="button" onClick={onDismiss} aria-label="Dismiss" className="rounded-md p-0.5 text-ink-muted hover:text-ink">
           <XIcon />
         </button>
       )}
@@ -91,7 +91,7 @@ export function ErrorCard({ title = "This didn't load", detail, children, action
           <div className="mt-1 text-sm leading-6 text-ink-muted">
             {children ?? "Something went wrong while loading this. Try again in a moment."}
           </div>
-          {detail && <p className="mt-2 break-words font-mono text-xs text-ink-soft">{detail}</p>}
+          {detail && <p className="mt-2 break-words font-mono text-xs text-ink-muted">{detail}</p>}
           {action && <div className="mt-4 flex flex-wrap gap-2">{action}</div>}
         </div>
       </div>

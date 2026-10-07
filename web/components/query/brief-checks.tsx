@@ -48,6 +48,7 @@ export function BriefChecks({ checks }: { checks: BriefChecksData }) {
     <Card padding="none">
       <div className="p-5 sm:p-6">
         <CardHeader
+          as="h2"
           title="Checks on this brief"
           description="Run in code on the counts before the brief was saved. Items that fail the recurrence checks are removed."
           action={

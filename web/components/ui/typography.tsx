@@ -12,9 +12,9 @@ export function Eyebrow({ tone = "brand", className, ...props }: EyebrowProps) {
   return <p className={cn("eyebrow", tone === "brand" ? "text-brand" : "text-brand-soft", className)} {...props} />;
 }
 
-/** Uppercase 11px ink-soft label inside cards: "WHY THIS SITE CAN WIN IT". */
+/** Uppercase 11px muted label inside cards: "WHY THIS SITE CAN WIN IT" (ink-muted for AA contrast). */
 export function SectionLabel({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn("text-[11px] font-semibold uppercase tracking-wide text-ink-soft", className)} {...props} />;
+  return <p className={cn("text-[11px] font-semibold uppercase tracking-wide text-ink-muted", className)} {...props} />;
 }
 
 /** Small uppercase muted kicker above an app page title: "AI OVERVIEW". */
@@ -105,7 +105,7 @@ export interface LabelValueProps {
 export function LabelValue({ label, children, className }: LabelValueProps) {
   return (
     <div className={cn("min-w-0", className)}>
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">{label}</dt>
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">{label}</dt>
       <dd className="mt-1 text-sm text-ink">{children}</dd>
     </div>
   );

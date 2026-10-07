@@ -77,7 +77,7 @@ function QueryRow({ q }: { q: MyQuery }) {
         </div>
         <div className="w-full shrink-0 sm:w-44">
           <div className="flex items-baseline justify-between gap-2 sm:block sm:text-right">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Overview shown, 7 days</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">Overview shown, 7 days</p>
             <p className="text-sm font-semibold tabular-nums sm:mt-0.5">
               {formatPercent(q.presence_rate_7d)}
               <span className="font-normal text-ink-muted"> · n={formatCount(q.renders_7d ?? 0)}</span>

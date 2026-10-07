@@ -69,7 +69,7 @@ export function BriefLocked({ status, days, context = "brief" }: BriefLockedProp
           <FileTextIcon />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-bold tracking-tight text-ink">{title}</h3>
+          <h2 className="text-base font-bold tracking-tight text-ink">{title}</h2>
           <p className="mt-1 text-sm leading-6 text-ink-muted">
             {draft ? "Your draft is scored against the brief. " : ""}A preliminary brief is written at day {PRELIMINARY_DAYS} of history and
             the full brief at day {FULL_DAYS}, from every capture so far. Reports start on the hour; studying the cited pages and writing the
@@ -143,6 +143,7 @@ export function BriefProgress({ report, progress }: BriefProgressProps) {
     <Card padding="none">
       <div className="p-5 sm:p-6">
         <CardHeader
+          as="h2"
           eyebrow="In progress"
           title={`${REPORT_KIND_LABELS[report.kind]} · ${reportWindow(report)}`}
           description={`Built from ${plural(report.renders, "render")}. We study the most-cited pages, then Claude writes the brief from the counts. This page updates when you reload it.`}

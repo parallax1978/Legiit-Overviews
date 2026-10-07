@@ -6,31 +6,48 @@ import { CalendarIcon, QuoteIcon, TargetIcon, TrendingUpIcon } from "@/component
 import { LocalTime } from "@/components/ui/local-time";
 import { StatCard, StatGrid } from "@/components/ui/stat-card";
 import { formatCount, formatPercent, matchLevelLabel, truncate } from "@/lib/format";
-import type { TrackingSummaryData } from "@/lib/query/tracking";
+import type { ExactCited, TrackingSummaryData } from "@/lib/query/tracking";
 
 function shareCaption(cited: number, present: number, noun: string): string {
   if (present === 0) return "n=0 · no AI Overview in this window";
   return `n=${formatCount(present)} overviews · ${formatCount(cited)} ${noun}`;
 }
 
-export function TrackingStats({ summary }: { summary: TrackingSummaryData }) {
+/** "n=48 overviews · 27 cited this URL · 30 at any match level". */
+function pageCaption(exact: number | null, anyLevel: number, present: number): string {
+  if (present === 0) return "n=0 · no AI Overview in this window";
+  if (exact === null) return `n=${formatCount(present)} overviews · ${formatCount(anyLevel)} at any match level`;
+  const others = anyLevel - exact;
+  return `n=${formatCount(present)} overviews · ${formatCount(exact)} cited this URL${others > 0 ? ` · ${formatCount(anyLevel)} at any match level` : ""}`;
+}
+
+/**
+ * The four stat cards. "Your page cited" counts the exact URL only, like the page's share on the Patterns
+ * and Pages tabs; citations of other pages on the site (same section, host or domain) are counted
+ * separately in the caption. Without the exact counts it falls back to any match level and says so.
+ */
+export function TrackingStats({ summary, exact }: { summary: TrackingSummaryData; exact: ExactCited | null }) {
   const brandTracked = summary.brand_names.length > 0;
   const brandShare = summary.present_7d > 0 ? summary.brand_7d / summary.present_7d : null;
   const latest = summary.latest;
+  const share = (cited: number, present: number) => (present > 0 ? cited / present : null);
+  const cited7 = exact ? exact.cited_7d : summary.cited_7d;
+  const cited28 = exact ? exact.cited_28d : summary.cited_28d;
+  const label = exact ? "Your page cited" : "Cited at any match level";
   return (
     <StatGrid>
       <StatCard
-        label="Cited, last 7 days"
+        label={`${label}, 7 days`}
         icon={<TargetIcon />}
-        tone={summary.cited_7d > 0 ? "brand" : "ink"}
-        value={formatPercent(summary.survival_7d)}
-        caption={shareCaption(summary.cited_7d, summary.present_7d, "cited")}
+        tone={cited7 > 0 ? "brand" : "ink"}
+        value={formatPercent(share(cited7, summary.present_7d))}
+        caption={pageCaption(exact ? exact.cited_7d : null, summary.cited_7d, summary.present_7d)}
       />
       <StatCard
-        label="Cited, last 28 days"
+        label={`${label}, 28 days`}
         icon={<CalendarIcon />}
-        value={formatPercent(summary.survival_28d)}
-        caption={shareCaption(summary.cited_28d, summary.present_28d, "cited")}
+        value={formatPercent(share(cited28, summary.present_28d))}
+        caption={pageCaption(exact ? exact.cited_28d : null, summary.cited_28d, summary.present_28d)}
       />
       <StatCard
         label="Brand named, 7 days"
@@ -42,7 +59,7 @@ export function TrackingStats({ summary }: { summary: TrackingSummaryData }) {
         label="Latest match"
         icon={<TrendingUpIcon />}
         tone={latest?.level === "exact_url" || latest?.level === "path_prefix" ? "good" : latest?.level ? "brand" : "ink"}
-        value={latest?.level ? matchLevelLabel(latest.level) : <span className="text-ink-soft">Not cited</span>}
+        value={latest?.level ? matchLevelLabel(latest.level) : <span className="text-ink-muted">Not cited</span>}
         caption={
           latest ? (
             <span className="block">

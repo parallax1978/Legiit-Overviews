@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { RefChips, type RefContext } from "@/components/query/brief-refs";
 import { CoverageMatrix, MatrixLegend, type CellState, type MatrixColumn, type MatrixRow } from "@/components/query/coverage-matrix";
 import { displayUrl, pageAnchorId } from "@/components/query/page-anchor";
+import { HashScroll } from "@/components/query/hash-scroll";
 import { PageCard } from "@/components/query/page-card";
 import { SectionCard, SectionEmpty } from "@/components/query/section-card";
 import {
@@ -58,6 +59,7 @@ export default async function PagesTab({ params }: { params: Promise<{ id: strin
   return (
     <div className="space-y-6">
       <ReportHeader report={report} />
+      <HashScroll />
       {newer && (
         <Alert tone="brand" title={`A newer ${REPORT_KIND_LABELS[newer.kind]?.toLowerCase() ?? "report"} is on its way`}>
           {REPORT_STAGE_LABELS[newer.stage]}. These pages are from the last finished report until it is ready.
@@ -193,7 +195,7 @@ function NoReport({ q }: { q: TrackedQueryDetail }) {
         </p>
         <div className="mx-auto mt-4 max-w-xs text-left">
           <ProgressBar value={Math.min(days, 7)} max={7} label="Days of history" valueText={`${days} of 7 days`} />
-          <div className="relative mt-1.5 h-4 text-[11px] text-ink-soft">
+          <div className="relative mt-1.5 h-4 text-[11px] text-ink-muted">
             <span className="absolute left-0">Day 0</span>
             <span className="absolute -translate-x-1/2" style={{ left: `${(3 / 7) * 100}%` }}>
               Day 3 preliminary
@@ -241,7 +243,7 @@ function PlatformNote({ metrics }: { metrics: SeriesMetrics | null }) {
       description="YouTube, Reddit, Facebook, Quora, Wikipedia and similar platforms are left out of the page analysis. When Google cites them, the answer is a presence on that platform (a video, a thread, an answer), not a page you write."
     >
       {platforms.length ? (
-        <ul className="flex flex-wrap gap-2 px-5 pb-5">
+        <ul className="flex flex-wrap gap-2 p-5">
           {platforms.map((p) => (
             <li key={p.reg_domain}>
               <Tag value={formatShare(p.share, metrics?.present)}>{p.reg_domain}</Tag>
@@ -356,8 +358,8 @@ async function MatrixSection({
       >
         {columns.length && (topicRows.length || entityRows.length) ? (
           <div className="space-y-6 pb-2">
-            {topicRows.length > 0 && <CoverageMatrix rowLabel="Topic" rows={topicRows} columns={columns} className="border-t border-line" />}
-            {entityRows.length > 0 && <CoverageMatrix rowLabel="Entity" rows={entityRows} columns={columns} className="border-t border-line" />}
+            {topicRows.length > 0 && <CoverageMatrix rowLabel="Topic" rows={topicRows} columns={columns} />}
+            {entityRows.length > 0 && <CoverageMatrix rowLabel="Entity" rows={entityRows} columns={columns} className={topicRows.length > 0 ? "border-t border-line" : undefined} />}
           </div>
         ) : (
           <SectionEmpty>The matrix for this report is empty.</SectionEmpty>
@@ -367,14 +369,14 @@ async function MatrixSection({
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard id="common" label="What every winner has" description="Shared by all of the cited pages.">
           {analysis.common_to_all.length ? (
-            <CheckList items={analysis.common_to_all} className="px-5 pb-5" />
+            <CheckList items={analysis.common_to_all} className="p-5" />
           ) : (
             <SectionEmpty>The cited pages have nothing in common worth copying.</SectionEmpty>
           )}
         </SectionCard>
         <SectionCard id="gaps" label="Gaps no page fills" description="What the overview needs that none of the cited pages gives it.">
           {analysis.gaps.length ? (
-            <ul className="space-y-4 px-5 pb-5">
+            <ul className="space-y-4 p-5">
               {analysis.gaps.map((g, i) => {
                 const why = withoutFigures(g.why);
                 return (
@@ -394,7 +396,7 @@ async function MatrixSection({
 
       {analysis.page_notes.length > 0 && (
         <SectionCard id="differences" label="How each page differs" description="What each cited page does that the others don't.">
-          <ol className="divide-y divide-line border-t border-line">
+          <ol className="divide-y divide-line">
             {analysis.page_notes.map((n, i) => {
               const key = pageKey(n.page_ref);
               const ref = key ? refOf.get(key) : undefined;

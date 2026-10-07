@@ -120,7 +120,7 @@ export function Tag({ value, className, children, ...props }: TagProps) {
   return (
     <span className={cn("inline-flex items-center gap-1.5 rounded-md bg-surface-sunken px-2 py-0.5 text-xs text-ink", className)} {...props}>
       {children}
-      {value !== undefined && <span className="text-ink-soft tabular-nums">{value}</span>}
+      {value !== undefined && <span className="text-ink-muted tabular-nums">{value}</span>}
     </span>
   );
 }

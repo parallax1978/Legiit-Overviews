@@ -45,21 +45,24 @@ export interface NumberedRowProps {
   children?: ReactNode;
   /** Right-aligned chips. */
   aside?: ReactNode;
+  /** On phones, show the aside chips in a row under the title instead of a column on the right. */
+  stackAside?: boolean;
   className?: string;
 }
 
 /** One numbered row: circle, 15px semibold title, meta, and chips on the right. */
-export function NumberedRow({ n, title, overline, meta, children, aside, className }: NumberedRowProps) {
+export function NumberedRow({ n, title, overline, meta, children, aside, stackAside = false, className }: NumberedRowProps) {
   return (
     <li className={cn("flex items-start gap-3 px-4 py-3.5", className)}>
       <NumberBadge n={n} className="mt-0.5" />
       <div className="min-w-0 flex-1">
         {overline && <div className="text-[11px] font-semibold">{overline}</div>}
         <div className="text-[15px] font-semibold leading-snug text-ink">{title}</div>
+        {aside && stackAside && <div className="mt-1.5 flex flex-wrap items-center gap-1 sm:hidden">{aside}</div>}
         {meta && <div className="mt-0.5 text-xs text-ink-muted">{meta}</div>}
         {children}
       </div>
-      {aside && <div className="flex shrink-0 flex-col items-end gap-1">{aside}</div>}
+      {aside && <div className={cn("shrink-0 flex-col items-end gap-1", stackAside ? "hidden sm:flex" : "flex")}>{aside}</div>}
     </li>
   );
 }

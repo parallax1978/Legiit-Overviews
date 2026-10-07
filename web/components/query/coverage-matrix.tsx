@@ -1,6 +1,7 @@
 // CoverageMatrix: a heatmap table of rows (topics or entities) against the analysed pages, each cell
 // covered (brand), partial (brand-soft) or missing (sunken with a dash). Sticky first column; the table
-// scrolls inside its own container on narrow screens.
+// scrolls inside its own container on narrow screens, with a right-edge fade and a hint while pages are hidden.
+import { ScrollFade } from "@/components/ui/scroll-fade";
 import { cn } from "@/lib/cn";
 import { Hint } from "./hint";
 
@@ -45,7 +46,12 @@ export function MatrixLegend({ className }: { className?: string }) {
 
 export function CoverageMatrix({ rowLabel, rows, columns, className }: { rowLabel: string; rows: MatrixRow[]; columns: MatrixColumn[]; className?: string }) {
   return (
-    <div className={cn("relative overflow-x-auto [--matrix-label:9.5rem] sm:[--matrix-label:20rem]", className)}>
+    <ScrollFade
+      endOnly
+      className={cn("relative [--matrix-label:9.5rem] sm:[--matrix-label:20rem]", className)}
+      hint={`Scroll sideways to see all ${columns.length} pages (${columns[0]?.ref ?? ""} to ${columns[columns.length - 1]?.ref ?? ""}).`}
+      hintClassName="px-4"
+    >
       <table
         className="w-full table-fixed border-separate border-spacing-0 text-sm"
         style={{ minWidth: `calc(var(--matrix-label) + ${columns.length * 3.25}rem)` }}
@@ -60,7 +66,7 @@ export function CoverageMatrix({ rowLabel, rows, columns, className }: { rowLabe
           <tr>
             <th
               scope="col"
-              className="sticky left-0 z-10 border-b border-line bg-surface-alt px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-soft"
+              className="sticky left-0 z-10 border-b border-line bg-surface-alt px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted"
             >
               {rowLabel}
             </th>
@@ -103,6 +109,6 @@ export function CoverageMatrix({ rowLabel, rows, columns, className }: { rowLabe
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollFade>
   );
 }

@@ -67,7 +67,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <Logo size="md" />
         </div>
         <LoginForm next={next} initialError={initialError} googleEnabled={google} />
-        <p className="mt-8 text-xs text-ink-soft lg:hidden">A Legiit product.</p>
+        <p className="mt-8 text-xs text-ink-muted lg:hidden">A Legiit product.</p>
       </main>
     </div>
   );

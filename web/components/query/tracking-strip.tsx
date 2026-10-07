@@ -56,7 +56,7 @@ export function TrackingStrip({ daily, brandTracked }: { daily: TrackingDay[]; b
     <Card padding="lg">
       <CardHeader
         title="Last 28 days"
-        description="One column per day (UTC). Height is the share of that day's AI Overviews that cited your page; colour is the closest match."
+        description="One column per day (UTC). Height is the share of that day's AI Overviews that cited your page or site at any match level; colour is the closest match."
       />
       {!anyData ? (
         <p className="mt-5 rounded-lg bg-surface-alt px-4 py-6 text-center text-sm text-ink-muted">
@@ -108,7 +108,7 @@ export function TrackingStrip({ daily, brandTracked }: { daily: TrackingDay[]; b
               );
             })}
           </div>
-          <div className="mt-2 flex justify-between text-[11px] text-ink-soft tabular-nums" aria-hidden="true">
+          <div className="mt-2 flex justify-between text-[11px] text-ink-muted tabular-nums" aria-hidden="true">
             <span>{formatDayUTC(cols[0].day)}</span>
             <span>{formatDayUTC(cols[Math.floor(DAYS / 2)].day)}</span>
             <span>{formatDayUTC(cols[DAYS - 1].day)}</span>

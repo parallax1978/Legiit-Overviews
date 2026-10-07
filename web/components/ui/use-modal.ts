@@ -24,9 +24,10 @@ export function useModal<T extends HTMLElement>(open: boolean, ready: boolean, o
 
     const focusables = () =>
       Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.getClientRects().length > 0);
-    // An element marked data-autofocus gets focus; otherwise the panel itself, so screen readers announce
-    // the dialog's title and Tab starts at the close button.
-    const initial = panel.querySelector<HTMLElement>("[data-autofocus]") ?? panel;
+    // An element marked data-autofocus gets focus; then one marked data-modal-initial (the Drawer's
+    // scrolling body); otherwise the panel itself, so screen readers announce the dialog's title and Tab
+    // starts at the close button.
+    const initial = panel.querySelector<HTMLElement>("[data-autofocus]") ?? panel.querySelector<HTMLElement>("[data-modal-initial]") ?? panel;
     initial.focus({ preventScroll: true });
 
     function onKeyDown(e: KeyboardEvent) {

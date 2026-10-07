@@ -24,6 +24,31 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: { default: keyword, template: `%s · ${keyword} · Legiit Overviews` } };
 }
 
+/**
+ * "Tracking since <added>", or "Added <date>" and "History since <date>" when the search's captures
+ * started before this query was added (another user tracked it first, so its history is shared).
+ */
+function sinceItems(createdAt: string, firstCapturedAt: string | null): ReactNode[] {
+  const added = Date.parse(createdAt);
+  const first = firstCapturedAt ? Date.parse(firstCapturedAt) : Number.NaN;
+  // Same UTC day or later: the query's own captures.
+  if (!Number.isFinite(first) || Math.floor(first / 86_400_000) >= Math.floor(added / 86_400_000)) {
+    return [
+      <span key="since">
+        Tracking since <LocalTime value={createdAt} format="date" />
+      </span>,
+    ];
+  }
+  return [
+    <span key="added">
+      Added <LocalTime value={createdAt} format="date" />
+    </span>,
+    <span key="history">
+      History since <LocalTime value={firstCapturedAt} format="date" />
+    </span>,
+  ];
+}
+
 export default async function QueryLayout({ children, params }: { children: ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { data: q, error } = await getTrackedQuery(id);
@@ -63,9 +88,7 @@ export default async function QueryLayout({ children, params }: { children: Reac
               q.location?.name ?? `Location ${q.series.location_code}`,
               q.series.language_code,
               deviceLabel(q.series.device),
-              <span key="since">
-                Tracking since <LocalTime value={q.created_at} format="date" />
-              </span>,
+              ...sinceItems(q.created_at, q.first_captured_at),
               `${plural(q.renders, "render")} captured`,
             ]}
           />

@@ -1,5 +1,6 @@
 "use client";
 // Drawer: right-side modal panel (for evidence lists) with focus trap, Esc to close, scroll lock and focus return.
+// The body is a focusable region so keyboard users can scroll it.
 import { useId, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
@@ -69,7 +70,17 @@ export function Drawer({ open, onClose, title, eyebrow, description, footer, siz
             <XIcon />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        {/* The scrolling body takes focus on open (and is the Tab stop after Close), so arrow keys,
+            Page Up/Down and Space scroll a long evidence list. */}
+        <div
+          role="region"
+          aria-labelledby={titleId}
+          tabIndex={0}
+          data-modal-initial
+          className="flex-1 overflow-y-auto px-5 py-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+        >
+          {children}
+        </div>
         {footer && <div className="border-t border-line bg-white px-5 py-3">{footer}</div>}
       </div>
     </div>,

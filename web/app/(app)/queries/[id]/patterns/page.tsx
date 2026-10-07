@@ -10,6 +10,8 @@ import {
   UnsupportedSection,
   type WindowRef,
 } from "@/components/query/patterns-sections";
+import { cutFirstDay } from "@/components/query/day-diff";
+import { HashScroll } from "@/components/query/hash-scroll";
 import { ShareValue } from "@/components/query/share-value";
 import { WindowControl } from "@/components/query/window-control";
 import {
@@ -29,7 +31,7 @@ import {
 } from "@/components/ui";
 import { formatCount, formatShare, plural } from "@/lib/format";
 import { getTrackedQuery } from "@/lib/queries";
-import { getSeriesMetrics } from "@/lib/query/metrics";
+import { getSeriesMetrics, getUnreadRenders } from "@/lib/query/metrics";
 import { currentTime, parseWindow } from "@/lib/query/window";
 
 export const metadata = { title: "Patterns" };
@@ -45,9 +47,10 @@ export default async function PatternsTab({
   const { data: q } = await getTrackedQuery(id);
   if (!q) return null;
 
-  const win = parseWindow(sp.window, q.first_captured_at, currentTime());
+  const now = currentTime();
+  const win = parseWindow(sp.window, q.first_captured_at, now);
   const path = `/queries/${q.id}/patterns`;
-  const res = await getSeriesMetrics(q.series.id, win.from, win.to);
+  const [res, unread] = await Promise.all([getSeriesMetrics(q.series.id, win.from, win.to), getUnreadRenders(q.series.id, win.from, win.to)]);
   const w: WindowRef = { seriesId: q.series.id, from: win.from, to: win.to };
 
   const header = (
@@ -68,6 +71,15 @@ export default async function PatternsTab({
       Claude reads each capture and matches its claims, brands and sources to the ones seen before. The database does all the counting. Click any
       percentage to open the captures and sentences behind it.
       {win.defaulted && win.key === "all" && " This query has less than 7 days of history, so the window starts at the first capture."}
+      {unread ? (
+        <>
+          {" "}
+          <strong className="font-semibold">
+            {plural(unread, "render")} {unread === 1 ? "is" : "are"} still being read,
+          </strong>{" "}
+          so claim, brand and format shares are slightly low until {unread === 1 ? "it is" : "they are"} done, usually within the hour.
+        </>
+      ) : null}
     </Alert>
   );
 
@@ -105,6 +117,7 @@ export default async function PatternsTab({
     <div className="space-y-6">
       {header}
       {intro}
+      <HashScroll />
 
       <StatGrid>
         <StatCard
@@ -146,7 +159,7 @@ export default async function PatternsTab({
         <OverlapSection m={m} />
       </div>
       <SourcesSection m={m} w={w} />
-      <DailySection m={m} />
+      <DailySection m={m} now={now} cutDay={win.key === "all" ? null : cutFirstDay(win.from)} />
       <UnsupportedSection m={m} w={w} />
 
       <p className="flex items-start gap-2 text-xs leading-5 text-ink-muted">

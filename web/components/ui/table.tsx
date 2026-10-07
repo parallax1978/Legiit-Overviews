@@ -35,13 +35,13 @@ export interface THProps extends ThHTMLAttributes<HTMLTableCellElement> {
   align?: "left" | "right" | "center";
 }
 
-/** Header cell: uppercase 11px tracked ink-soft. */
+/** Header cell: uppercase 11px tracked ink-muted. */
 export function TH({ align = "left", className, ...props }: THProps) {
   return (
     <th
       scope="col"
       className={cn(
-        "whitespace-nowrap px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-soft",
+        "whitespace-nowrap px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted",
         align === "right" && "text-right",
         align === "center" && "text-center",
         className,

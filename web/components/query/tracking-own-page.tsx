@@ -194,6 +194,7 @@ export function TrackingOwnPage({ trackedQueryId, ownUrl, brandNames, parsedAt }
   return (
     <Card padding="lg">
       <CardHeader
+        as="h2"
         title="Your page"
         description="Every capture's citations are checked against this URL, and the answer text against your brand names."
       />

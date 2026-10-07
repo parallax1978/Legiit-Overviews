@@ -15,6 +15,7 @@ export * from "./menu";
 export * from "./number-badge";
 export * from "./progress-bar";
 export * from "./retry-button";
+export * from "./scroll-fade";
 export * from "./segmented-control";
 export * from "./skeleton";
 export * from "./stat-card";

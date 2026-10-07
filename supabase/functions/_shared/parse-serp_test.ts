@@ -125,10 +125,16 @@ Deno.test("form builders: list items keep their own citations, duplicates collap
   const by = (start: string) => p.sentences.find((s) => s.text.startsWith(start))!;
   const idxOf = (key: string) => p.citations.find((c) => c.url_key === key)!.idx;
 
-  // Two Zapier references (www and not, different text fragments) are one citation; the first passage wins.
+  // Two Zapier references (www and not, different text fragments) are one citation that keeps both
+  // passages in order; `passage` is the first.
   assertEquals(p.citations.filter((c) => c.reg_domain === "zapier.com").length, 1);
   const zapier = idxOf("zapier.com/blog/best-online-form-builder-software");
-  assert(p.citations[zapier].passage!.startsWith("The best form builders let you"));
+  const passages = (p.citations[zapier] as any).passages as string[];
+  assertEquals(passages.length, 2);
+  assert(passages[0].startsWith("The best form builders let you"));
+  assert(passages[1].startsWith("Google Forms is free and simple"));
+  assertEquals(p.citations[zapier].passage, passages[0]);
+  assertEquals((p.citations.find((c) => c.reg_domain === "forbes.com") as any).passages.length, 1, "repeated identical texts count once");
   assertEquals(p.citations.find((c) => c.reg_domain === "typeform.com")!.url_key, "typeform.com/pricing");
 
   assertEquals(by("The best form builder").citations, [zapier, idxOf("forbes.com/advisor/business/software/best-form-builder")]);

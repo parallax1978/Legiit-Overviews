@@ -59,7 +59,7 @@ export function ScoreRing({ score, size = 120 }: { score: number; size?: number 
       <text x="50%" y="50%" dy="0.1em" textAnchor="middle" dominantBaseline="middle" className="fill-ink text-[32px] font-bold tracking-tight">
         {value}
       </text>
-      <text x="50%" y="50%" dy="1.9em" textAnchor="middle" dominantBaseline="middle" className="fill-ink-soft text-[11px] font-medium">
+      <text x="50%" y="50%" dy="1.9em" textAnchor="middle" dominantBaseline="middle" className="fill-ink-muted text-[11px] font-medium">
         of 100
       </text>
     </svg>
@@ -137,7 +137,7 @@ export function DraftResult({ row, faq }: DraftResultProps) {
               <div key={s.key}>
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="text-sm font-medium text-ink">
-                    {s.label} <span className="text-xs font-normal text-ink-soft">{s.weight}% of score</span>
+                    {s.label} <span className="text-xs font-normal text-ink-muted">{s.weight}% of score</span>
                   </p>
                   <p className="text-sm font-semibold tabular-nums text-ink">{formatPercent(v)}</p>
                 </div>
@@ -195,7 +195,7 @@ export function DraftResult({ row, faq }: DraftResultProps) {
           <Card>
             {missing.length > 0 && (
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Missing</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Missing</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {missing.map((e) => (
                     <Chip key={e.name} tone="bad" icon={<XIcon className="h-3 w-3" />}>
@@ -207,7 +207,7 @@ export function DraftResult({ row, faq }: DraftResultProps) {
             )}
             {present.length > 0 && (
               <div className={missing.length ? "mt-4" : undefined}>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Named</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Named</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {present.map((e) => (
                     <Chip key={e.name} tone="good" icon={<CheckIcon className="h-3 w-3" />}>

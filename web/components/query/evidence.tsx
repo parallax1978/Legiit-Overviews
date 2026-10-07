@@ -205,7 +205,7 @@ function EvidenceRow({ item, kind }: { item: EvidenceItem; kind: EvidenceKind })
       )}
       {notes.length > 0 && (
         <div className="mt-2.5 border-t border-line pt-2.5">
-          {NOTE_LABELS[kind] && <p className="eyebrow text-ink-soft">{NOTE_LABELS[kind]}</p>}
+          {NOTE_LABELS[kind] && <p className="eyebrow text-ink-muted">{NOTE_LABELS[kind]}</p>}
           {kind === "entity" || kind === "domain" ? (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {notes.map((n) => (
