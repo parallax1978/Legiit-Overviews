@@ -108,12 +108,16 @@ export function stubAnthropic(): StubAnthropic {
     batches: new Map(),
     responder: () => ({ type: "errored", message: "no responder set" }),
     failCreate: 0,
+    loseCreateResponse: false,
+    canceled: new Set(),
     processing: "ended",
     duplicateLines: false,
     dropLines: new Set(),
     reset() {
       this.responder = () => ({ type: "errored", message: "no responder set" });
       this.failCreate = 0;
+      this.loseCreateResponse = false;
+      this.canceled = new Set();
       this.processing = "ended";
       this.duplicateLines = false;
       this.dropLines = new Set();
@@ -134,11 +138,22 @@ export function stubAnthropic(): StubAnthropic {
       }
       const b: StubBatch = { id: `msgbatch_stub_${crypto.randomUUID().replaceAll("-", "")}`, requests: body.requests, created_at: new Date().toISOString() };
       s.batches.set(b.id, b);
+      if (s.loseCreateResponse) {
+        s.loseCreateResponse = false;
+        return new Response(JSON.stringify({ type: "error", error: { type: "api_error", message: "bad gateway" } }), { status: 502, headers: JSON_HEADERS });
+      }
       return new Response(JSON.stringify({ ...batchObject(s, b), processing_status: "in_progress", results_url: null }), { headers: JSON_HEADERS });
+    }
+    if (req.method === "GET" && !id) {
+      const data = [...s.batches.values()].sort((x, y) => y.created_at.localeCompare(x.created_at)).map((b) => batchObject(s, b));
+      return new Response(JSON.stringify({ data, has_more: false, first_id: data[0]?.id ?? null, last_id: data.at(-1)?.id ?? null }), { headers: JSON_HEADERS });
     }
     const b = id ? s.batches.get(id) : undefined;
     if (!b) return new Response(JSON.stringify({ type: "error", error: { type: "not_found_error", message: `no batch ${id}` } }), { status: 404, headers: JSON_HEADERS });
-    if (req.method === "POST" && sub === "cancel") return new Response(JSON.stringify(batchObject(s, b)), { headers: JSON_HEADERS });
+    if (req.method === "POST" && sub === "cancel") {
+      s.canceled.add(b.id);
+      return new Response(JSON.stringify(batchObject(s, b)), { headers: JSON_HEADERS });
+    }
     if (req.method === "GET" && !sub) return new Response(JSON.stringify(batchObject(s, b)), { headers: JSON_HEADERS });
     if (req.method === "GET" && sub === "results") {
       const lines: string[] = [];
@@ -230,6 +245,7 @@ export async function seedSnapshot(seriesId: string, opts: {
   extraction?: string;
   same_as?: string | null;
   captured_at?: string;
+  content_hash?: string;
 }): Promise<string> {
   clock += 3 * 3600_000;
   const row = must(
@@ -238,7 +254,7 @@ export async function seedSnapshot(seriesId: string, opts: {
       captured_at: opts.captured_at ?? new Date(clock).toISOString(),
       status: "present",
       sentences: opts.sentences,
-      content_hash: crypto.randomUUID(),
+      content_hash: opts.content_hash ?? crypto.randomUUID(),
       same_as: opts.same_as ?? null,
       formats: { word_count: 20, has_table: false, list_items: opts.sentences.length, headings: 0, sentences: opts.sentences.length },
       extraction: opts.extraction ?? "pending",

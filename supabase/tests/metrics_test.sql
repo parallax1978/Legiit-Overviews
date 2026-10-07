@@ -47,22 +47,25 @@ insert into public.series (id, keyword, location_code, language_code, device, ne
   ('a0000000-0000-4000-8000-000000000001', 'metrics-test best form builder', 2840, 'en', 'desktop', '2030-01-01'),
   ('b0000000-0000-4000-8000-000000000001', 'metrics-test stability', 2840, 'en', 'desktop', '2030-01-01');
 
-create temp table fx_snap (n int, at timestamptz, status text, hash text, words int, labels text[]) on commit drop;
+-- lead = answer_lead_sentence Claude marked (null: no direct answer):
+--   S1 0, S2 0, S4 1, S6 1, S7 2, S8 3, S9 3, S10 null, S11 0, S12 0
+--   -> answer first 4/10 = 0.4, no answer 1/10 = 0.1, median of 0 0 0 0 1 1 2 3 3 = 1
+create temp table fx_snap (n int, at timestamptz, status text, hash text, words int, labels text[], lead int) on commit drop;
 insert into fx_snap values
-  (0,  '2026-01-04 21:00Z', 'present', 'Z', 90,  '{ranked_list}'),
-  (1,  '2026-01-05 00:00Z', 'present', 'A', 100, '{ranked_list,table}'),
-  (2,  '2026-01-05 03:00Z', 'present', 'A', 100, '{ranked_list,table}'),
-  (3,  '2026-01-05 06:00Z', 'absent',  null, 0,  null),
-  (4,  '2026-01-05 09:00Z', 'present', 'B', 120, '{ranked_list}'),
-  (5,  '2026-01-05 12:00Z', 'error',   null, null, null),
-  (6,  '2026-01-05 15:00Z', 'present', 'B', 130, '{ranked_list}'),
-  (7,  '2026-01-06 00:00Z', 'present', 'C', 80,  '{bullets}'),
-  (8,  '2026-01-06 03:00Z', 'present', 'C', 80,  '{bullets}'),
-  (9,  '2026-01-06 06:00Z', 'present', 'A', 200, '{bullets}'),
-  (10, '2026-01-06 09:00Z', 'present', 'D', 150, '{ranked_list,best_for_labels}'),
-  (11, '2026-01-06 12:00Z', 'present', 'D', 150, '{ranked_list,best_for_labels}'),
-  (12, '2026-01-06 15:00Z', 'present', 'D', 150, '{ranked_list,best_for_labels}'),
-  (13, '2026-01-07 00:00Z', 'present', 'E', 90,  '{table}');
+  (0,  '2026-01-04 21:00Z', 'present', 'Z', 90,  '{ranked_list}', 0),
+  (1,  '2026-01-05 00:00Z', 'present', 'A', 100, '{ranked_list,table}', 0),
+  (2,  '2026-01-05 03:00Z', 'present', 'A', 100, '{ranked_list,table}', 0),
+  (3,  '2026-01-05 06:00Z', 'absent',  null, 0,  null, null),
+  (4,  '2026-01-05 09:00Z', 'present', 'B', 120, '{ranked_list}', 1),
+  (5,  '2026-01-05 12:00Z', 'error',   null, null, null, null),
+  (6,  '2026-01-05 15:00Z', 'present', 'B', 130, '{ranked_list}', 1),
+  (7,  '2026-01-06 00:00Z', 'present', 'C', 80,  '{bullets}', 2),
+  (8,  '2026-01-06 03:00Z', 'present', 'C', 80,  '{bullets}', 3),
+  (9,  '2026-01-06 06:00Z', 'present', 'A', 200, '{bullets}', 3),
+  (10, '2026-01-06 09:00Z', 'present', 'D', 150, '{ranked_list,best_for_labels}', null),
+  (11, '2026-01-06 12:00Z', 'present', 'D', 150, '{ranked_list,best_for_labels}', 0),
+  (12, '2026-01-06 15:00Z', 'present', 'D', 150, '{ranked_list,best_for_labels}', 0),
+  (13, '2026-01-07 00:00Z', 'present', 'E', 90,  '{table}', null);
 
 create function pg_temp.sid(n int) returns uuid language sql immutable
   as $$ select ('a0000000-0000-4000-8000-0000000001' || lpad(n::text, 2, '0'))::uuid $$;
@@ -85,7 +88,8 @@ select pg_temp.sid(n), 'a0000000-0000-4000-8000-000000000001', at, status, hash,
     when n = 3 then '[{"rank":1,"url":"https://www.jotform.com/blog/best-form-builders/","url_key":"jotform.com/blog/best-form-builders","reg_domain":"jotform.com","title":null}]'::jsonb
     else '[]'::jsonb end,
   case when words is null then '{}'::jsonb
-       else jsonb_build_object('word_count', words) || coalesce(jsonb_build_object('labels', to_jsonb(labels)), '{}'::jsonb) end,
+       else jsonb_build_object('word_count', words) || coalesce(jsonb_build_object('labels', to_jsonb(labels)), '{}'::jsonb)
+            || case when status = 'present' then jsonb_build_object('answer_lead_sentence', lead) else '{}'::jsonb end end,
   case when status = 'present' then 'done' else 'none' end
 from fx_snap;
 
@@ -207,6 +211,8 @@ select is((select (j->>'renders')::int from m), 11, 'renders exclude errors and 
 select is((select (j->>'present')::int from m), 10, 'present');
 select is((select (j->>'errors')::int from m), 1, 'errors');
 select is((select (j->>'days')::int from m), 2, 'days with a non-error render');
+select is((select (j->>'extracted')::int from m), 10, 'every present render is extracted');
+select is((select (j->>'extraction_pending')::int from m), 0, 'none awaiting extraction');
 select is((select (j->>'presence_rate')::numeric from m), 0.9091, 'presence rate 10/11');
 select is((select (j->>'change_rate')::numeric from m), 0.5, 'change rate 5/10, error skipped, absent is a state');
 select is((select j->>'confidence' from m), 'medium', 'confidence medium at 11 renders');
@@ -214,6 +220,9 @@ select is((select (j->'citation_stability'->>'url')::numeric from m), 0.3889, 'u
 select is((select (j->'citation_stability'->>'domain')::numeric from m), 0.4778, 'domain stability 21.5/45');
 select is((select (j->>'citations_per_render')::numeric from m), 1.7, 'distinct cited urls per present render');
 select is((select (j->>'median_word_count')::numeric from m), 125::numeric, 'median word count of present renders');
+select is((select j->'answer_lead' from m),
+  '{"n":10,"answer_first_share":0.4,"no_answer_share":0.1,"median_sentence":1}'::jsonb,
+  'answer-lead position over extracted renders');
 select is((select (j->'organic_overlap'->>'top10')::numeric from m), 0.3529, 'organic overlap top 10 = 6/17');
 select is((select (j->'organic_overlap'->>'top20')::numeric from m), 0.7647, 'organic overlap top 20 = 13/17');
 
@@ -391,6 +400,79 @@ select is((select (pg_temp.ev('format', 'table')->>'total')::int), 2, 'format ev
 select is((select pg_temp.ev('format', 'table')->'items'->0->'sentences'), '[]'::jsonb, 'formats carry no sentences');
 select throws_ok($$ select pg_temp.ev('nonsense', 'x') $$, '22023', null, 'unknown kind is rejected');
 select throws_ok($$ select pg_temp.ev('claim', 'not-a-uuid') $$, '22023', null, 'claim keys must be uuids');
+
+-- ============================================================== extraction pending, whole-day diffs
+-- S14 01-06 18:00 present, extraction pending, cites U1, no claims yet. S15 01-08 03:00 the same with U3.
+insert into public.snapshots (id, series_id, captured_at, status, content_hash, sentences, formats, extraction) values
+  (pg_temp.sid(14), 'a0000000-0000-4000-8000-000000000001', '2026-01-06 18:00Z', 'present', 'P', '[]', '{"word_count": 500}', 'pending'),
+  (pg_temp.sid(15), 'a0000000-0000-4000-8000-000000000001', '2026-01-08 03:00Z', 'present', 'P', '[]', '{"word_count": 500}', 'submitted');
+insert into public.citations (snapshot_id, idx, url, url_key, host, reg_domain, title)
+select pg_temp.sid(c.n), 0, u.url, u.url_key, u.host, u.reg, u.title
+from (values (14, 'U1'), (15, 'U3')) as c(n, u) join fx_url u on u.u = c.u;
+
+-- Same window as m with S14 added: present 11 but shares of claims, entities and formats stay over
+-- the 10 extracted renders; sources, citations per render and word count see all 11.
+create temp table mp as
+select public.series_metrics('a0000000-0000-4000-8000-000000000001', '2026-01-05 00:00Z', '2026-01-07 00:00Z') as j;
+select is((select (j->>'present')::int from mp), 11, 'pending render counts as present');
+select is((select (j->>'extracted')::int from mp), 10, 'but not as extracted');
+select is((select (j->>'extraction_pending')::int from mp), 1, 'one render awaiting extraction');
+select is((select (j->'claims'->0->>'share')::numeric from mp), 0.8, 'G1 share unchanged by the pending render');
+select is((select j->'claims'->0->>'bucket' from mp), 'core', 'G1 still core');
+select is((select (j->'entities'->0->>'share')::numeric from mp), 0.8, 'Jotform share unchanged');
+select is((select j->'formats'->0 from mp), '{"label":"ranked_list","renders":7,"share":0.7}'::jsonb, 'format share unchanged');
+select is((select (j->'unsupported_claims'->0->>'share')::numeric from mp), 0.4, 'unsupported share unchanged');
+select is((select (j->'answer_lead'->>'n')::int from mp), 10, 'answer lead n is the extracted count');
+select is((select (j->'sources'->0->>'renders')::int from mp), 9, 'U1 cited by the pending render too');
+select is((select (j->'sources'->0->>'share')::numeric from mp), 0.8182, 'source survival stays over present renders: 9/11');
+select is((select (j->>'citations_per_render')::numeric from mp), 1.6364, '18 citations over 11 present renders');
+select is((select (j->>'median_word_count')::numeric from mp), 130::numeric, 'word count is code-measured, so the pending render counts');
+select is((select (j->'daily'->1->>'present')::int from mp), 7, 'day 2 present includes the pending render');
+select is((select j->'daily'->1->'claims_dropped' from mp),
+  '[{"group_id":"a0000000-0000-4000-8000-000000000206","label":"Wufoo is discontinued"}]'::jsonb, 'day 2 claim diffs unchanged');
+
+-- A window starting at 02:00 on 01-05: S1 (00:00) is outside it but completes day 1 for the diffs,
+-- so G6 (only in S1) is still dropped on day 2; counts and shares are in-window only.
+create temp table ml as
+select public.series_metrics('a0000000-0000-4000-8000-000000000001', '2026-01-05 02:00Z', '2026-01-07 00:00Z') as j;
+select is((select (j->>'renders')::int from ml), 11, 'S1 is outside the window');
+select is((select (j->>'present')::int from ml), 10, 'present without S1');
+select is((select (j->'daily'->0->>'renders')::int from ml), 4, 'day 1 counts only in-window renders');
+select is((select (j->'daily'->0->>'present')::int from ml), 3, 'day 1 present in-window');
+select is((select (j->'claims'->0->>'share')::numeric from ml), 0.7, 'G1 7/10 without S1');
+select is((select j->'daily'->1->'claims_dropped' from ml),
+  '[{"group_id":"a0000000-0000-4000-8000-000000000206","label":"Wufoo is discontinued"}]'::jsonb,
+  'G6 seen at 00:00 before the window still counts as dropped on day 2');
+select is((select j->'daily'->1->'citations_added' from ml),
+  '[{"url_key":"youtube.com/watch?v=abc","reg_domain":"youtube.com"},{"url_key":"zapier.com/blog/tally-review","reg_domain":"zapier.com"}]'::jsonb,
+  'citations added on day 2 unchanged');
+
+-- A window ending at 12:00 on 01-06: the last day is still being captured, so it lists what was
+-- added but nothing as dropped.
+create temp table mh as
+select public.series_metrics('a0000000-0000-4000-8000-000000000001', '2026-01-05 00:00Z', '2026-01-06 12:00Z') as j;
+select is((select jsonb_array_length(j->'daily') from mh), 2, 'two days');
+select is((select (j->'daily'->1->>'renders')::int from mh), 4, 'day 2 has the four morning renders');
+select is((select j->'daily'->1->'claims_added' from mh),
+  '[{"group_id":"a0000000-0000-4000-8000-000000000204","label":"Typeform has the best design"}]'::jsonb, 'partial day: claims added');
+select is((select j->'daily'->1->'claims_dropped' from mh), '[]'::jsonb, 'partial day: nothing dropped yet');
+select is((select j->'daily'->1->'entities_dropped' from mh), '[]'::jsonb, 'partial day: no entities dropped');
+select is((select j->'daily'->1->'citations_added' from mh),
+  '[{"url_key":"youtube.com/watch?v=abc","reg_domain":"youtube.com"}]'::jsonb, 'partial day: U3 added, U4 not seen yet');
+select is((select j->'daily'->1->'citations_dropped' from mh), '[]'::jsonb, 'partial day: no citations dropped');
+
+-- 01-08 has only S15 (awaiting extraction): claim and entity diffs wait for it, citation diffs run.
+create temp table mw as
+select public.series_metrics('a0000000-0000-4000-8000-000000000001', '2026-01-05 00:00Z', '2026-01-09 00:00Z') as j;
+select is((select jsonb_array_length(j->'daily') from mw), 4, 'four days');
+select is((select j->'daily'->3->>'day' from mw), '2026-01-08', 'day 4');
+select is((select (j->'daily'->3->>'present')::int from mw), 1, 'day 4 has one present render');
+select is((select j->'daily'->3->'claims_dropped' from mw), '[]'::jsonb, 'no claims dropped on a day with nothing extracted');
+select is((select j->'daily'->3->'claims_added' from mw), '[]'::jsonb, 'no claims added either');
+select is((select j->'daily'->3->'entities_dropped' from mw), '[]'::jsonb, 'no entities dropped');
+select is((select j->'daily'->3->'citations_added' from mw), '[]'::jsonb, 'U3 was cited on 01-07 too');
+select is((select jsonb_array_length(j->'daily'->2->'claims_dropped') from mw), 4, '01-07 (S13 extracted) drops the four day-2 claims');
+select is((select (j->>'extraction_pending')::int from mw), 2, 'two renders awaiting extraction');
 
 -- Without the service role and without tracking the series, every metric RPC refuses.
 set local request.jwt.claims to '{"role":"authenticated","sub":"00000000-0000-4000-8000-00000000dead"}';
