@@ -1,0 +1,139 @@
+/* Legiit Overviews styles: the Legiit Keywords design system (docs/brand.md) as Tailwind v4 tokens. */
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  --color-ink: #0f172a;
+  --color-ink-muted: #64748b;
+  --color-ink-soft: #94a3b8;
+  --color-line: #e5e7eb;
+  --color-line-strong: #d1d5db;
+  --color-surface: #fff;
+  --color-surface-alt: #f7f7fb;
+  --color-surface-sunken: #f1f1f6;
+  --color-brand: #8a12dc;
+  --color-brand-strong: #6e0db1;
+  --color-brand-soft: #e9d5ff;
+  --color-brand-faint: #f3e8ff;
+  --color-plum: #12081f;
+  --color-good: #15803d;
+  --color-good-soft: #dcfce7;
+  --color-warn: #b45309;
+  --color-warn-soft: #fef3c7;
+  --color-bad: #b91c1c;
+  --color-bad-soft: #fee2e2;
+
+  --radius-card: 0.75rem;
+
+  --shadow-card: 0 1px 2px #0f172a0a, 0 1px 3px #0f172a0f;
+  --shadow-glow: 0 8px 24px -8px #8a12dc99;
+  --shadow-pop: 0 8px 30px #0f172a1f, 0 2px 6px #0f172a0f;
+
+  --animate-slide-in-right: slide-in-right 0.2s ease-out;
+  --animate-fade-in: fade-in 0.15s ease-out;
+  --animate-toast-in: toast-in 0.18s ease-out;
+
+  @keyframes slide-in-right {
+    0% {
+      transform: translate(100%);
+    }
+    to {
+      transform: translate(0);
+    }
+  }
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes toast-in {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  html {
+    color: var(--color-ink);
+    background: var(--color-surface-alt);
+    color-scheme: light;
+    font-feature-settings: "cv11", "ss01", "tnum";
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  a {
+    text-underline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-brand-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  summary {
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* Logo mark gradient. */
+@utility brand-gradient {
+  background-image: linear-gradient(135deg, #8a12dc, #1863dc);
+}
+
+/* Purple-to-pink headline accent. */
+@utility text-gradient {
+  color: transparent;
+  background-image: linear-gradient(90deg, #a855f7, #d946ef 55%, #ec4899);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Plum hero: purple glow from below plus a faint dot grid. */
+@utility hero-dark {
+  color: #fff;
+  background-color: var(--color-plum);
+  background-image: radial-gradient(60% 80% at 50% 110%, #8a12dc73, #0000 70%),
+    radial-gradient(#ffffff0f 1px, #0000 0);
+  background-size: auto, 22px 22px;
+}
+
+/* Uppercase tracked label above headings. */
+@utility eyebrow {
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 11px;
+  line-height: 16.5px;
+  font-weight: 600;
+}
+
+/* Hides a scrollbar while keeping the element scrollable (tab bars on phones). */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
