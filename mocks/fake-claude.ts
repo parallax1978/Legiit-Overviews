@@ -63,7 +63,7 @@ export function fakeOutput(params: { messages?: unknown; output_config?: { forma
     case "page_tag":
       return { task, output: fakePageTag(data as PageTagInput) };
     case "brief":
-      return { task, output: fakeBrief(data as BriefInput) };
+      return { task, output: fakeBrief(data as FakeBriefInput) };
     case "draft_score":
       return { task, output: fakeDraftScore(data as DraftScoreInput) };
   }
@@ -512,7 +512,24 @@ function labelPhrase(label: string | undefined): string {
   return /^(best|top|ideal)\b/i.test(label) ? `the ${label}` : label;
 }
 
-export function fakeBrief(input: BriefInput): BriefOutput {
+/** BriefInput plus the answer word budget code sends with it (prompts/brief.ts). */
+export type FakeBriefInput = BriefInput & { answer_word_budget?: number };
+
+/** Answer budget when the request carries none: median words before the answer, as code computes it. */
+const DEFAULT_ANSWER_BUDGET = 60;
+
+function mustCoverWhy(citedShare: number): string {
+  if (citedShare === 0) return "State it plainly and back it with your own evidence: the overview never links a source for it.";
+  if (citedShare < 0.5) return "State it plainly and cite a source: the overview usually gives it without one.";
+  return "State it plainly, close to the overview's wording, and cite the kind of source the overview links.";
+}
+
+function entityNote(e: BriefInput["entities"][number], recommended: boolean): string {
+  if (e.labels[0]) return `Present it as "${e.labels[0]}", the label the overview gives it.`;
+  return recommended ? "Recommend it with a one-line reason it suits the reader." : "Name it where it fits; the overview mentions it without recommending it.";
+}
+
+export function fakeBrief(input: FakeBriefInput): BriefOutput {
   const topic = topicOf(input.keyword);
   const pages = input.pages ?? [];
   const pageTk = new Map(pages.map((p) => [p.ref, pageTokens(p)]));
@@ -543,7 +560,7 @@ export function fakeBrief(input: BriefInput): BriefOutput {
     ...entityRows.filter((r) => r.cells.length && r.cells.every((c) => c.state === "covered")).map((r) => `Names ${r.entity}`),
   ];
   const gaps: BriefOutput["gaps"] = [
-    ...input.unsupported_claims.slice(0, 3).map((u) => ({ gap: u.label, why: `Appears in ${pct(u.share)}% of overviews, but no sentence carrying it is cited.`, claim_refs: [u.ref] })),
+    ...input.unsupported_claims.slice(0, 3).map((u) => ({ gap: u.label, why: "The overview keeps saying it but never links a source for it.", claim_refs: [u.ref] })),
     ...topicRows.filter((r) => r.cells.length && r.cells.every((c) => c.state === "missing")).map((r) => ({ gap: r.topic, why: "None of the cited pages covers it.", claim_refs: r.claim_refs })),
   ];
 
@@ -552,16 +569,15 @@ export function fakeBrief(input: BriefInput): BriefOutput {
   const answerText = e0
     ? `${e0.name} is the best ${topic} for most people${e1 ? `${e2 ? "," : " and"} ${e1.name} is ${labelPhrase(e1.labels[0])}` : ""}${e2 ? ` and ${e2.name} is ${labelPhrase(e2.labels[0])}` : ""}.`
     : `The best ${topic} depends on your budget, the features you need and the tools you already use.`;
+  // One word budget for the whole brief: how many words the page may put before its direct answer.
   const wba = pages.map((p) => (p.measures as { words_before_answer?: number | null } | null)?.words_before_answer).filter((x): x is number => typeof x === "number");
-  const maxWords = Math.max(20, Math.min(120, Math.round(median(wba) ?? 50)));
+  const budget = typeof input.answer_word_budget === "number" ? input.answer_word_budget : Math.round(median(wba) ?? DEFAULT_ANSWER_BUDGET);
 
-  const must_cover = mustClaims.map((c) => ({ topic: c.label, why: `In ${pct(c.share)}% of overviews (${c.bucket}); ${pct(c.cited_share)}% of mentions are cited.`, claim_refs: [c.ref] }));
-  const briefEntities = keyEnts.map((e) => ({
-    name: e.name,
-    entity_ref: e.ref,
-    role: e.recommended_share >= e.share / 2 ? "recommended" as const : "mentioned" as const,
-    note: `Named in ${pct(e.share)}% of overviews${e.labels[0] ? `, usually as "${e.labels[0]}"` : ""}.`,
-  }));
+  const must_cover = mustClaims.map((c) => ({ topic: c.label, why: mustCoverWhy(c.cited_share), claim_refs: [c.ref] }));
+  const briefEntities = keyEnts.map((e) => {
+    const recommended = e.recommended_share >= e.share / 2;
+    return { name: e.name, entity_ref: e.ref, role: recommended ? "recommended" as const : "mentioned" as const, note: entityNote(e, recommended) };
+  });
 
   const formats = [...input.formats].sort((a, b) => b.share - a.share);
   const used = formats.filter((f) => f.share >= 0.3 && FORMAT_PHRASE[f.label]).map((f) => FORMAT_PHRASE[f.label]);
@@ -603,7 +619,11 @@ export function fakeBrief(input: BriefInput): BriefOutput {
   if (topNames.length) {
     new_to_cite.push({
       idea: `A hands-on test of ${topNames.map((e) => e.name).join(", ")} on the same real task, with timings and screenshots`,
-      why_google_lacks_it: `Only ${tested.length} of ${pages.length} cited pages show first-hand test results.`,
+      why_google_lacks_it: !tested.length
+        ? "None of the cited pages shows first-hand test results."
+        : tested.length * 2 < pages.length
+        ? "Most of the cited pages show no first-hand test results."
+        : "The cited pages that run tests do not put these options through the same task.",
       how_to_produce: "first_hand_test",
       evidence_refs: [...topNames.map((e) => e.ref), ...untested.slice(0, 2)],
     });
@@ -616,10 +636,10 @@ export function fakeBrief(input: BriefInput): BriefOutput {
       evidence_refs: [...keyEnts.slice(0, 4).map((e) => e.ref), ...pages.slice(0, 1).map((p) => p.ref)],
     });
   }
-  if (rareQuestion) {
+  if (rareQuestion && rareQuestion[1].length * 2 < Math.max(2, pages.length)) {
     new_to_cite.push({
       idea: `A direct, sourced answer to "${rareQuestion[0]}"`,
-      why_google_lacks_it: `Only ${rareQuestion[1].length} cited page${rareQuestion[1].length === 1 ? "" : "s"} answer it.`,
+      why_google_lacks_it: rareQuestion[1].length === 1 ? "Only one of the cited pages answers it." : "Most of the cited pages leave it unanswered.",
       how_to_produce: "unanswered_question",
       evidence_refs: rareQuestion[1].slice(0, 2),
     });
@@ -628,7 +648,13 @@ export function fakeBrief(input: BriefInput): BriefOutput {
   const questions = [...pageQuestions.keys()].slice(0, 8);
   if (!questions.length) questions.push(`What is the best free ${topic}?`, `How much does a ${topic} cost?`);
 
-  const outline: BriefOutput["brief"]["outline"] = [{ heading: `The best ${topic} at a glance`, level: 2, purpose: "Answer the query in the first two sentences, then summarise the picks.", target_words: maxWords, covers: [] }];
+  const outline: BriefOutput["brief"]["outline"] = [{
+    heading: `The best ${topic} at a glance`,
+    level: 2,
+    purpose: `Start the direct answer within the first ${budget} words of the page, then summarise the picks.`,
+    target_words: wordList(answerText).length + 20 * Math.max(1, topNames.length),
+    covers: [],
+  }];
   const coveredTopics = new Set<string>();
   for (const e of topNames.concat(keyEnts.filter((x) => !topNames.includes(x))).slice(0, 6)) {
     const covers = must_cover.filter((m) => !coveredTopics.has(m.topic) && m.topic.toLowerCase().includes(e.name.toLowerCase())).map((m) => m.topic);
@@ -640,8 +666,11 @@ export function fakeBrief(input: BriefInput): BriefOutput {
   outline.push({ heading: `How to choose a ${topic}`, level: 2, purpose: "Decision criteria and caveats the overview repeats.", target_words: 220, covers: rest });
   outline.push({ heading: "Frequently asked questions", level: 2, purpose: "Short answers to the sub-questions the overview keeps answering.", target_words: 200, covers: [] });
 
-  const avoid = [`Background before the answer; cited pages answer within about ${maxWords} words.`];
+  const avoid = [`Background before the answer: start it within the first ${budget} words, as the cited pages do.`];
+  // Formats the outline itself uses (the FAQ section) are never on the avoid list.
+  const outlineHasFaq = outline.some((s) => /frequently asked|\bfaq\b/i.test(s.heading));
   for (const label of ["pros_cons", "faq", "definition_first"]) {
+    if (label === "faq" && outlineHasFaq) continue;
     const share = formats.find((f) => f.label === label)?.share ?? 0;
     if (share < 0.1) avoid.push(`${cap(FORMAT_PHRASE[label])}: the overview ${share === 0 ? "never uses" : "rarely uses"} it.`);
   }
@@ -658,9 +687,9 @@ export function fakeBrief(input: BriefInput): BriefOutput {
     matrix: { topics: topicRows, entities: entityRows },
     common_to_all: common,
     gaps,
-    page_notes: pages.map((p) => ({ page_ref: p.ref, does_differently: (p.tags as Tags)?.approach ?? `Cited in ${pct(p.share)}% of overviews.` })),
+    page_notes: pages.map((p) => ({ page_ref: p.ref, does_differently: (p.tags as Tags)?.approach ?? "Not tagged yet, so its approach is unknown." })),
     brief: {
-      answer_first: { text: answerText, max_words: maxWords },
+      answer_first: { text: answerText, max_words: budget },
       must_cover,
       entities: briefEntities,
       format,
@@ -683,12 +712,12 @@ export function fakeBrief(input: BriefInput): BriefOutput {
 
 // ------------------------------------------------------------------ E. draft score
 
-function firstParagraph(markdown: string): string {
-  for (const block of markdown.split(/\n\s*\n/)) {
-    const t = block.trim();
-    if (t && !t.startsWith("#")) return clean(t);
-  }
-  return "";
+/** The draft's body paragraphs in order, headings left out. */
+function bodyParagraphs(markdown: string): string[] {
+  return markdown
+    .split(/\n\s*\n/)
+    .map((block) => clean(block.split("\n").filter((line) => !/^\s{0,3}#/.test(line)).join(" ")))
+    .filter((t) => wordList(t).length > 0);
 }
 
 export function fakeDraftScore(input: DraftScoreInput): DraftScoreOutput {
@@ -707,20 +736,50 @@ export function fakeDraftScore(input: DraftScoreInput): DraftScoreOutput {
     const s = status(n.idea);
     return { idea: n.idea, status: s.state, note: s.state === "covered" ? "The draft includes this." : s.state === "partial" ? "Touched on, but without the evidence the idea calls for." : "Not in the draft yet." };
   });
-  const lead = firstParagraph(draft);
-  const leadWords = wordList(lead).length;
+  // The brief's max_words is how far into the page the answer may start, so count the body words
+  // before the first paragraph that carries the answer.
   const af = brief.answer_first;
-  const leadCov = af ? coverage(tokens(af.text), tokens(lead)) : 0;
-  const answerState = af && leadCov >= 0.5 && leadWords <= af.max_words * 1.5 ? "covered" as const : leadCov >= 0.25 ? "partial" as const : "missing" as const;
+  const answerTk = af ? tokens(af.text) : new Set<string>();
+  const paragraphs = bodyParagraphs(draft);
+  let answerAt = -1;
+  let wordsBefore = 0;
+  for (let i = 0; af && i < paragraphs.length; i++) {
+    if (coverage(answerTk, tokens(paragraphs[i])) >= 0.5) {
+      answerAt = i;
+      break;
+    }
+    wordsBefore += wordList(paragraphs[i]).length;
+  }
+  const leadCov = af && paragraphs.length ? coverage(answerTk, tokens(paragraphs[0])) : 0;
+  const answerState = af && answerAt >= 0 && wordsBefore <= af.max_words
+    ? "covered" as const
+    : answerAt >= 0 || leadCov >= 0.25
+    ? "partial" as const
+    : "missing" as const;
+  const answerNote = !af
+    ? "The brief has no answer to check against."
+    : answerAt === 0
+    ? "The draft opens with the answer."
+    : answerAt > 0
+    ? `The answer starts after ${wordsBefore} words; the brief allows ${af.max_words}.`
+    : leadCov > 0
+    ? "The opening touches on the answer but does not give it."
+    : "The draft does not give the answer yet.";
 
   const sentences = clean(draft).split(/(?<=[.!?])\s+/).filter((s) => wordList(s).length > 0);
   const avg = sentences.length ? sentences.reduce((a, s) => a + wordList(s).length, 0) / sentences.length : 0;
   const clarity = sentences.length ? Math.max(0, Math.min(10, Math.round(10 - Math.max(0, avg - 18) / 3))) : 0;
 
   const fixes: string[] = [];
-  if (answerState !== "covered" && af) fixes.push(`Open with the answer in under ${af.max_words} words, for example: "${af.text}"`);
+  if (answerState !== "covered" && af) {
+    fixes.push(
+      answerAt > 0
+        ? `Move the direct answer up: it starts after ${wordsBefore} words, and the brief wants it within the first ${af.max_words}.`
+        : `Give the direct answer within the first ${af.max_words} words of the page, for example: "${af.text}"`,
+    );
+  }
   for (const t of topics.filter((x) => x.status === "missing")) fixes.push(`Add a section that covers: ${t.topic}`);
-  for (const e of (brief.entities ?? []).filter((e) => !mentionsName(draft, e.name)).slice(0, 4)) fixes.push(`Mention ${e.name} (${e.note.replace(/\.$/, "")}).`);
+  for (const e of (brief.entities ?? []).filter((e) => !mentionsName(draft, e.name)).slice(0, 4)) fixes.push(`Mention ${e.name}: ${lowerFirst(withPeriod(e.note))}`);
   for (const t of topics.filter((x) => x.status === "partial")) fixes.push(`Expand the point on: ${t.topic}`);
   for (const n of ideas.filter((x) => x.status === "missing").slice(0, 2)) fixes.push(`Add something new to cite: ${n.idea}`);
   if (clarity < 7) fixes.push(`Shorten sentences; they average ${Math.round(avg)} words.`);
@@ -728,10 +787,7 @@ export function fakeDraftScore(input: DraftScoreInput): DraftScoreOutput {
   return {
     topics,
     new_to_cite: ideas,
-    answer_first: {
-      status: answerState,
-      note: answerState === "covered" ? "The draft opens with the answer." : `The first paragraph has ${leadWords} words and ${pct(leadCov)}% of the answer's key terms.`,
-    },
+    answer_first: { status: answerState, note: answerNote },
     clarity: { score: clarity, note: sentences.length ? `${sentences.length} sentences, ${Math.round(avg)} words on average.` : "The draft is empty." },
     fixes: fixes.slice(0, 10).map((fix, i) => ({ priority: i + 1, fix })),
   };

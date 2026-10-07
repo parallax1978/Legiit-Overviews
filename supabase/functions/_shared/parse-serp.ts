@@ -95,6 +95,17 @@ export function stripImages(md: string): string {
     .trim();
 }
 
+const MONTH = "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\.?";
+const DATE_PREFIX = new RegExp(`^(?:${MONTH}\\s+\\d{1,2},\\s*\\d{4}|\\d{1,2}\\s+${MONTH}\\s+\\d{4})(?:\\s*[\u2014\u2013]|\\s+-)(?:\\s+|$)`);
+
+/**
+ * Removes the publication date Google puts before a reference's text ("Sep 18, 2026 — " or
+ * "18 Sep 2026 – "): the page itself does not carry it, so it would only blur passage matching.
+ */
+export function stripDatePrefix(text: string): string {
+  return text.replace(DATE_PREFIX, "");
+}
+
 // ------------------------------------------------------------------ builder
 
 interface Draft {
@@ -300,7 +311,8 @@ class Builder {
     const url = stripTextFragment(rawUrl.trim());
     const key = normalizeUrl(url);
     const known = this.byKey.get(key);
-    const passage = str(ref?.text);
+    const text = str(ref?.text);
+    const passage = text && str(stripDatePrefix(text));
     if (known !== undefined) {
       const c = this.citations[known];
       c.title ??= str(ref?.title);

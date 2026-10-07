@@ -32,6 +32,12 @@ export function keywordProblem(raw: string): string | null {
 }
 
 const TRACKING_PARAM = /^(utm_.+|gclid|fbclid|msclkid|mc_cid|mc_eid|ref|ref_src|igshid|yclid|_hsenc|_hsmi|srsltid)$/i;
+/** YouTube parameters that pick a start time or record how a link was shared; `v` names the video. */
+const YOUTUBE_PARAM = /^(t|start|si|feature)$/i;
+
+function isYouTube(host: string): boolean {
+  return host === "youtu.be" || host === "youtube.com" || host.endsWith(".youtube.com");
+}
 
 /** Removes Google text-fragment anchors (#:~:text=...) that DataForSEO keeps on reference URLs. */
 export function stripTextFragment(url: string): string {
@@ -41,7 +47,8 @@ export function stripTextFragment(url: string): string {
 
 /**
  * Canonical key for a URL: lowercase host without www., no scheme, no default port, no fragment,
- * no tracking parameters, remaining parameters sorted, no trailing slash, no index.html.
+ * no tracking parameters (on YouTube also no start time or share parameters, so one video is one
+ * key), remaining parameters sorted, no trailing slash, no index.html.
  * Unparseable input is returned lowercased and trimmed.
  */
 export function normalizeUrl(raw: string): string {
@@ -57,8 +64,9 @@ export function normalizeUrl(raw: string): string {
   path = path.replace(/\/(index|default)\.(html?|php|aspx?)$/i, "/");
   if (path.length > 1) path = path.replace(/\/+$/, "");
   if (path === "/") path = "";
+  const youtube = isYouTube(host);
   const params = [...u.searchParams.entries()]
-    .filter(([k]) => !TRACKING_PARAM.test(k))
+    .filter(([k]) => !TRACKING_PARAM.test(k) && !(youtube && YOUTUBE_PARAM.test(k)))
     .sort(([a], [b]) => a.localeCompare(b));
   const query = params.length ? "?" + params.map(([k, v]) => `${k}=${v}`).join("&") : "";
   return `${host}${port}${path}${query}`;

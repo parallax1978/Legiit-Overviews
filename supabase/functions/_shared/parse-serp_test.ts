@@ -1,6 +1,6 @@
 import { assert, assertEquals, assertMatch, assertNotEquals } from "@std/assert";
 import { normalizeUrl, stripTextFragment } from "./normalize.ts";
-import { parseCapture, parsedCapturedAt, sentenceSpans, sha256Hex, stripImages } from "./parse-serp.ts";
+import { parseCapture, parsedCapturedAt, sentenceSpans, sha256Hex, stripDatePrefix, stripImages } from "./parse-serp.ts";
 import type { ParsedCapture } from "./types.ts";
 
 const FIXTURES = new URL("./fixtures/", import.meta.url);
@@ -110,6 +110,7 @@ Deno.test("DataForSEO doc fixture: section kinds, marker citations, text fragmen
   assertEquals(p.citations.map((c) => c.reg_domain), ["autoevolution.com", "pistonheads.com", "bmw-m.com", "newcenturybmw.com", "youtube.com"]);
   assertEquals(p.citations[0].url, "https://www.autoevolution.com/cars/bmw-m4-f82-2014.html");
   assert(p.citations[0].passage!.startsWith("The load capacity"));
+  assert(p.citations[1].passage!.startsWith("* SPECIFICATION | 2014 BMW M4"), "Google's date prefix is dropped");
   assertEquals(p.sections[2].citation_idx, [4]);
   assertEquals(p.sentences.filter((s) => s.kind === "table_row").length, 4);
   assertEquals(p.sentences.find((s) => s.kind === "table_row")!.text, "Aspect | Sanity Testing | Regression Testing");
@@ -284,6 +285,39 @@ Deno.test("items without overview markdown still give sentences; markers without
   assertEquals(numbered.sentences.map((s) => [s.text, s.citations]), [["Tally is free.", [1]], ["Jotform has templates.", [0]]]);
   assertEquals(numbered.sections.length, 1, "markdown without items is kept as one section");
   assertEquals(numbered.sections[0].citation_idx, [0, 1]);
+});
+
+Deno.test("reference passages lose the date Google puts in front of them", () => {
+  const cases: [string, string][] = [
+    ["Sep 18, 2026 \u2014 Reviewers rate Typeform highly.", "Reviewers rate Typeform highly."],
+    ["18 Sep 2026 \u2013 Reviewers rate Typeform highly.", "Reviewers rate Typeform highly."],
+    ["September 18, 2026 - Reviewers rate Typeform highly.", "Reviewers rate Typeform highly."],
+    ["Sept. 8, 2026\u00a0\u2014\u00a0 * Pricing | Jotform", "* Pricing | Jotform"],
+    ["May 12, 2014 \u2014", ""],
+    // Not a leading date, or not followed by a dash: kept as written.
+    ["Typeform launched on Sep 18, 2026 \u2014 with new plans.", "Typeform launched on Sep 18, 2026 \u2014 with new plans."],
+    ["Sep 18, 2026 Reviewers rate Typeform highly.", "Sep 18, 2026 Reviewers rate Typeform highly."],
+    ["18 Sep 2026-03 build notes", "18 Sep 2026-03 build notes"],
+    ["Top 10, 2026 \u2014 the best form builders", "Top 10, 2026 \u2014 the best form builders"],
+  ];
+  for (const [raw, want] of cases) assertEquals(stripDatePrefix(raw), want, raw);
+
+  const ref = (url: string, text: string) => ({ type: "ai_overview_reference", url, title: "T", text });
+  const p = parseCapture({
+    language_code: "en",
+    items: [{
+      type: "ai_overview",
+      markdown: "Typeform is rated highly.[[1]] Tally is free.[[2]]",
+      references: [
+        ref("https://www.typeform.com/reviews/", "Sep 18, 2026 \u2014 Reviewers rate Typeform highly."),
+        ref("https://www.typeform.com/reviews/", "Reviewers rate Typeform highly."),
+        ref("https://tally.so/", "Oct 1, 2026 \u2014"),
+      ],
+    }],
+  });
+  assertEquals(p.citations[0].passage, "Reviewers rate Typeform highly.");
+  assertEquals((p.citations[0] as any).passages, ["Reviewers rate Typeform highly."], "the dated copy is the same passage");
+  assertEquals(p.citations[1].passage, null, "a date alone is no passage");
 });
 
 Deno.test("parsedCapturedAt reads DataForSEO datetimes as ISO UTC", () => {

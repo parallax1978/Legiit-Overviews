@@ -3,7 +3,7 @@
 // consolidateInput -> fakeConsolidate, pages -> pageTagInput -> fakePageTag, metrics -> briefInput ->
 // fakeBrief -> renderBrief checks, and the brief -> fakeDraftScore. Every output is validated with
 // the real zod schemas.
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertMatch } from "@std/assert";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { renderBrief } from "../supabase/functions/_shared/brief-render.ts";
 import { normalizeUrl, regDomain } from "../supabase/functions/_shared/normalize.ts";
@@ -237,6 +237,23 @@ Deno.test("brief validates, uses only input refs and passes the code checks", ()
   const rendered = renderBrief(out, briefContext(row, refs, {}));
   assert(rendered.checks.passed, JSON.stringify(rendered.checks, null, 1));
   assert(rendered.markdown.length > 500);
+
+  // Figures come from code: the prose carries no percentages or sample sizes of its own.
+  const prose = [
+    ...out.gaps.map((g) => g.why),
+    ...out.page_notes.map((p) => p.does_differently),
+    ...out.brief.must_cover.map((m) => m.why),
+    ...out.brief.entities.map((e) => e.note),
+    ...out.brief.new_to_cite.map((n) => n.why_google_lacks_it),
+  ];
+  for (const text of prose) assert(!/\d+\s*%|\bn\s*=\s*\d+|\d+ of \d+/i.test(text), `figure in brief prose: ${text}`);
+  // One word budget: the one code computed, wherever the brief speaks of where the answer starts.
+  assertEquals(out.brief.answer_first.max_words, input.answer_word_budget);
+  const budgets = [out.brief.outline[0].purpose, out.brief.avoid[0]].map((t) => Number(t.match(/first (\d+) words/)?.[1]));
+  assertEquals(budgets, [input.answer_word_budget, input.answer_word_budget]);
+  // Avoid never contradicts the outline.
+  assert(out.brief.outline.some((s) => /frequently asked/i.test(s.heading)));
+  assert(!out.brief.avoid.some((a) => /\bFAQ\b/i.test(a)), JSON.stringify(out.brief.avoid));
 });
 
 Deno.test("draft score validates and tracks the brief's topics", () => {
@@ -254,6 +271,13 @@ Deno.test("draft score validates and tracks the brief's topics", () => {
   const empty = DraftScoreOutput.parse(fakeDraftScore({ keyword: KEYWORD, language: "en", brief: brief.brief, draft_markdown: "Hello." }));
   assert(empty.topics.every((t) => t.status === "missing"));
   assert(empty.fixes.length > 0 && empty.fixes[0].priority === 1);
+  assertEquals(empty.fixes[0].fix, `Give the direct answer within the first ${brief.brief.answer_first.max_words} words of the page, for example: "${brief.brief.answer_first.text}"`);
+
+  // The answer is there but starts too far down the page.
+  const intro = "Forms are everywhere. ".repeat(Math.ceil(brief.brief.answer_first.max_words / 3) + 1).trim();
+  const late = DraftScoreOutput.parse(fakeDraftScore({ keyword: KEYWORD, language: "en", brief: brief.brief, draft_markdown: `# Forms\n\n${intro}\n\n${good.split("\n\n").slice(1).join("\n\n")}` }));
+  assertEquals(late.answer_first.status, "partial");
+  assertMatch(late.fixes[0].fix, /^Move the direct answer up: it starts after \d+ words, and the brief wants it within the first \d+\.$/);
 });
 
 Deno.test("tasks are detected from the SDK's JSON schemas; unknown schemas still get valid output", () => {

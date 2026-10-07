@@ -35,6 +35,19 @@ Deno.test("normalizeUrl", () => {
   assertEquals(normalizeUrl("https://www.autoevolution.com/cars/x.html#:~:text=The%20load"), "autoevolution.com/cars/x.html");
 });
 
+Deno.test("normalizeUrl: one YouTube video is one key whatever the start time or share link", () => {
+  const key = "youtube.com/watch?v=dQw4w9WgXcQ";
+  assertEquals(normalizeUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), key);
+  assertEquals(normalizeUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=125s"), key);
+  assertEquals(normalizeUrl("https://youtube.com/watch?t=42&v=dQw4w9WgXcQ&feature=youtu.be&si=AbC123"), key);
+  assertEquals(normalizeUrl("https://m.youtube.com/watch?v=dQw4w9WgXcQ&start=30"), "m.youtube.com/watch?v=dQw4w9WgXcQ");
+  assertEquals(normalizeUrl("https://youtu.be/dQw4w9WgXcQ?si=AbC123&t=10"), "youtu.be/dQw4w9WgXcQ");
+  assertEquals(normalizeUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL1"), "youtube.com/watch?list=PL1&v=dQw4w9WgXcQ", "other parameters stay");
+  // Elsewhere t, start, si and feature can change the page, so they are kept.
+  assertEquals(normalizeUrl("https://example.com/search?t=crm&start=10"), "example.com/search?start=10&t=crm");
+  assertEquals(normalizeUrl("https://notyoutube.com/watch?v=1&t=5"), "notyoutube.com/watch?t=5&v=1");
+});
+
 Deno.test("regDomain uses the public suffix list", () => {
   assertEquals(regDomain("blog.example.co.uk"), "example.co.uk");
   assertEquals(regDomain("customer.github.io"), "customer.github.io");
