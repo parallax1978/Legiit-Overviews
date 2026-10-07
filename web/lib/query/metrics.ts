@@ -1,10 +1,11 @@
 // Server loaders for the Live and Patterns tabs: series_metrics over a window, the latest capture with
-// its citations, and capture statuses for the timeline. Request-cached with React cache(); RLS applies.
+// its citations, capture statuses for the timeline, and the exact organic overlap counts. Request-cached
+// with React cache(); RLS applies.
 import "server-only";
 import { cache } from "react";
 import type { Loaded } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
-import type { CitationRow, ParsedOrganic, ParsedSentence, SeriesMetrics, SnapshotFormats, SnapshotStatus } from "@/lib/types";
+import type { CitationRow, MetricEvidence, ParsedOrganic, ParsedSentence, SeriesMetrics, SnapshotFormats, SnapshotStatus } from "@/lib/types";
 
 function arr<T>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
@@ -19,6 +20,10 @@ export function normalizeMetrics(raw: unknown): SeriesMetrics {
     present: m.present ?? 0,
     errors: m.errors ?? 0,
     days: m.days ?? 0,
+    // Metrics stored before these existed shared one denominator (present) and had no pending count.
+    extracted: m.extracted ?? m.present ?? 0,
+    extraction_pending: m.extraction_pending ?? 0,
+    answer_lead: m.answer_lead ?? undefined,
     presence_rate: m.presence_rate ?? null,
     change_rate: m.change_rate ?? null,
     confidence: m.confidence ?? "low",
@@ -143,21 +148,25 @@ export const getCaptureStatuses = cache(async (seriesId: string, from: string): 
   return { data: (data ?? []) as CaptureStatusRow[], error: null };
 });
 
+/** Organic overlap counted exactly: cited (render, URL) pairs, and how many rank in the organic top 10 and 20. */
+export interface OverlapCounts {
+  occurrences: number;
+  top10: number;
+  top20: number;
+}
+
 /**
- * Renders with an overview in [from, to) whose claims Claude hasn't read yet (extraction pending,
- * submitted, or reused but not copied). series_metrics counts them in every share's n, so shares of
- * claims, entities and formats read slightly low until they are done. Null when the count fails.
+ * The numerators and denominator of series_metrics' organic_overlap, from metric_evidence (kind
+ * overlap) with one item each, so the Patterns tab can show the exact n. Null when either call fails.
  */
-export const getUnreadRenders = cache(async (seriesId: string, from: string, to: string): Promise<number | null> => {
+export const getOverlapCounts = cache(async (seriesId: string, from: string, to: string): Promise<OverlapCounts | null> => {
   const supabase = await createClient();
-  const { count, error } = await supabase
-    .from("snapshots")
-    .select("id", { count: "exact", head: true })
-    .eq("series_id", seriesId)
-    .eq("status", "present")
-    .in("extraction", ["pending", "submitted", "reused"])
-    .gte("captured_at", from)
-    .lt("captured_at", to);
-  if (error) return null;
-  return count ?? 0;
+  const call = (key: "top10" | "top20") =>
+    supabase.rpc("metric_evidence", { p_series_id: seriesId, p_kind: "overlap", p_key: key, p_from: from, p_to: to, p_limit: 1 });
+  const [top10, top20] = await Promise.all([call("top10"), call("top20")]);
+  if (top10.error || top20.error) return null;
+  const a = (top10.data ?? {}) as Partial<MetricEvidence>;
+  const b = (top20.data ?? {}) as Partial<MetricEvidence>;
+  if (typeof a.occurrences !== "number" || typeof a.citations !== "number" || typeof b.citations !== "number") return null;
+  return { occurrences: a.occurrences, top10: a.citations, top20: b.citations };
 });

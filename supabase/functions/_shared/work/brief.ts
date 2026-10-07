@@ -49,15 +49,16 @@ export interface BriefRow {
   keyword: string;
   language: string;
   display_keyword: string;
+  own_url?: string | null;
+  /** Stored by set-own-page; user-writable, so the own domain is taken from own_url when there is one. */
   own_url_key: string | null;
   /** Aliases of the series' live entities that have any, by entity id. */
   entity_aliases?: Record<string, string[]> | null;
   pages: { url_key: string; url: string; measures: Record<string, unknown> | null; tags: unknown }[];
 }
 
-function ownDomain(ownUrlKey: string | null): string | null {
-  if (!ownUrlKey) return null;
-  const host = ownUrlKey.split("/")[0].split(":")[0];
+function ownDomain(row: Pick<BriefRow, "own_url" | "own_url_key">): string | null {
+  const host = row.own_url ? hostOfUrl(row.own_url) : (row.own_url_key ?? "").split("/")[0].split(":")[0];
   return host ? regDomain(host) : null;
 }
 
@@ -76,7 +77,7 @@ function orderedPages(row: BriefRow) {
 
 /** Winners' median words before the answer; the user's own page doesn't count. */
 export function briefAnswerBudget(row: BriefRow): number {
-  const own = ownDomain(row.own_url_key);
+  const own = ownDomain(row);
   return answerBudget(
     orderedPages(row)
       .filter(({ page }) => !own || regDomain(hostOfUrl(page.url)) !== own)
@@ -142,7 +143,7 @@ export function briefInput(row: BriefRow): { input: BriefPromptInput; refs: Reco
     input: {
       keyword: row.keyword,
       language: row.language,
-      own_domain: ownDomain(row.own_url_key),
+      own_domain: ownDomain(row),
       window: { from: row.window_start, to: row.window_end, renders: m?.renders ?? row.renders, present: m?.present ?? 0 },
       claims,
       entities,

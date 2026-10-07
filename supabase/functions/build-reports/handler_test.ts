@@ -163,6 +163,7 @@ Deno.test("build-reports: creation rules, page selection, passages and stage mov
       assertEquals(details[3].passages[0].found, true);
       assertEquals(details[3].passages[0].heading, "Section 3");
       assertEquals(details[3].passages[0].url_key, expected[3]);
+      assertEquals(details[3].passages[0].renders, 41, "page 3 is quoted in the 41 window captures (n = 8..63) where n % 12 >= 3");
       assertEquals(details[9].passages[0].found, false, "page 9 failed to parse");
       // The own page is cached under its URL's key, never the stored own_url_key; the foreign row is re-parsed.
       const { data: victim } = await db.from("pages").select("url_key").eq("url_key", victimKey).throwOnError();

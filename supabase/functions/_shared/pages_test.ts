@@ -2,6 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { serviceClient } from "./db.ts";
 import {
   ensurePages,
+  foreignUrl,
   locatePassages,
   markdownFromPageContent,
   measurePage,
@@ -102,6 +103,17 @@ Some paragraph.
   assertEquals(m.tables, 0);
 });
 
+Deno.test("measurePage: comparison blocks are tables and lists naming two or more entities", () => {
+  const blocks = (md: string) => measurePage(`# Form builders\n\nSome words about forms.\n\n${md}\n`, null, "https://x.example/a").comparison_blocks;
+  assertEquals(blocks("| Tool | Best for |\n|---|---|\n| Jotform | Teams |\n| Typeform | Surveys |\n| Tally | Free forms |"), 1);
+  assertEquals(blocks("| Step | Action | Time |\n|---|---|---|\n| 1 | Sign up | 2 min |\n| 2 | Build a form | 5 min |"), 0);
+  assertEquals(blocks("| Step | Action |\n|---|---|\n| Step 1 | Sign up |\n| Step 2 | Build |"), 0, "an enumeration is not a comparison");
+  assertEquals(blocks("| Tool | Price |\n|---|---|\n| Jotform | $34 |"), 0, "one entity compares nothing");
+  assertEquals(blocks("- Jotform: best overall\n- Tally - best free option"), 1);
+  assertEquals(blocks("- Price: $29 a month\n- Pros: easy to use\n- Cons: few templates"), 0, "attribute lists are not comparisons");
+  assertEquals(blocks("- Jotform: best overall\n- Jotform: also fast"), 0, "the same name twice is one entity");
+});
+
 Deno.test("measurePage: empty page", () => {
   const m = measurePage("", null, "https://example.com");
   assertEquals(m.word_count, 0);
@@ -180,6 +192,16 @@ Deno.test("needsParse", () => {
   assertEquals(needsParse({ url_key: "a", parse_status: "ok", parsed_at: ago(7) }, 7, now), true);
   assertEquals(needsParse({ url_key: "a", parse_status: "failed", parsed_at: ago(0.5) }, 7, now), false);
   assertEquals(needsParse({ url_key: "a", parse_status: "failed", parsed_at: ago(1.1) }, 7, now), true);
+  // A stale page whose re-parse failed recently keeps its content and waits a day before the next try.
+  assertEquals(needsParse({ url_key: "a", parse_status: "ok", parsed_at: ago(8), parse_attempted_at: ago(0.5) }, 7, now), false);
+  assertEquals(needsParse({ url_key: "a", parse_status: "ok", parsed_at: ago(8), parse_attempted_at: ago(1.1) }, 7, now), true);
+  assertEquals(needsParse({ url_key: "a", parse_status: "failed", parsed_at: ago(3), parse_attempted_at: ago(0.5) }, 7, now), false);
+});
+
+Deno.test("foreignUrl: a cached row whose URL does not normalise to its key", () => {
+  assertEquals(foreignUrl({ url_key: "a.com/x", url: "https://www.a.com/x/?utm_source=g" }), false);
+  assertEquals(foreignUrl({ url_key: "victim.example/best", url: "https://attacker.example/x" }), true);
+  assertEquals(foreignUrl(undefined), false);
 });
 
 // ------------------------------------------------------------------ ensurePages against a stub DataForSEO
@@ -195,11 +217,12 @@ function dfsPage(markdown: string, statusCode = 200) {
 
 Deno.test("ensurePages parses missing and stale pages, keeps fresh ones, records failures", async () => {
   const calls: string[] = [];
+  let failAll = false;
   const server = Deno.serve({ port: 0, onListen: () => {} }, async (req) => {
     const body = await req.json();
     const url: string = body[0].url;
     calls.push(url);
-    if (url.includes("broken")) {
+    if (url.includes("broken") || failAll) {
       return Response.json({
         status_code: 20000, status_message: "Ok.",
         tasks: [{ id: "t", status_code: 40400, status_message: "Not Found.", data: {}, result: null }],
@@ -249,6 +272,30 @@ Deno.test("ensurePages parses missing and stale pages, keeps fresh ones, records
     assertEquals(calls.length, 0);
     assertEquals(again.fresh.length, 5);
     assertEquals((await ensurePages([])).parsed, []);
+
+    // The cache is shared: a page is never written under a key its URL does not normalise to, and a
+    // fresh row stored under another URL is parsed again from the key's own URL.
+    const refused = await ensurePages([{ url_key: keys[0], url: "https://attacker.example/x" }]);
+    assertEquals([refused.rejected, refused.parsed, refused.fresh], [[keys[0]], [], []]);
+    assertEquals(calls.length, 0);
+    await db.from("pages").update({ url: "https://attacker.example/x" }).eq("url_key", keys[0]).throwOnError();
+    const healed = await ensurePages([{ url_key: keys[0], url: `https://${keys[0]}` }]);
+    assertEquals(healed.parsed, [keys[0]]);
+    const { data: fixed } = await db.from("pages").select("url, markdown").eq("url_key", keys[0]).single().throwOnError();
+    assertEquals(fixed!.url, `https://${keys[0]}`);
+    assert(fixed!.markdown.includes("Tally is the best free form builder"));
+
+    // A failed re-parse of a page that parsed before keeps its content, tags and parsed_at, so
+    // unchanged content is not tagged again; only the attempt is recorded.
+    await db.from("pages").update({ parsed_at: old, parse_attempted_at: old, tag_status: "done", tags: { topics: [] } }).eq("url_key", keys[2]).throwOnError();
+    const before = new Date().toISOString();
+    failAll = true;
+    const down = await ensurePages([{ url_key: keys[2], url: `https://${keys[2]}` }]);
+    assertEquals(down.failed, [keys[2]]);
+    const { data: after } = await db.from("pages").select("parse_status, parsed_at, parse_attempted_at, tag_status, tags, markdown").eq("url_key", keys[2]).single().throwOnError();
+    assertEquals([after!.parse_status, Date.parse(after!.parsed_at), after!.tag_status], ["ok", Date.parse(old), "done"]);
+    assert(after!.markdown.includes("Tally is the best free form builder"));
+    assert(after!.parse_attempted_at >= before);
   } finally {
     await db.from("pages").delete().in("url_key", keys);
     await server.shutdown();

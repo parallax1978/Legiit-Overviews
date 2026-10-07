@@ -25,7 +25,8 @@ export interface PageDetail {
   url_key: string;
   ref: string; // P<n>
   share: number;
-  passages: PassageLocation[];
+  /** Google's passages from the page, most quoted first; renders: distinct renders that quoted it. */
+  passages: (PassageLocation & { renders: number | null })[];
 }
 
 interface ReportRow {
@@ -231,7 +232,9 @@ async function processReport(report: ReportRow, now: Date, budget: number, deadl
   const details: PageDetail[] = keys.map((k, i) => {
     const page = pages.get(k);
     const markdown = page?.parse_status === "ok" && !foreignUrl(page) ? page.markdown : null;
-    return { url_key: k, ref: `P${i + 1}`, share: shares.get(k) ?? 0, passages: locatePassages(markdown, passages.get(k) ?? [], k) };
+    const quoted = passages.get(k);
+    const located = locatePassages(markdown, quoted?.passages ?? [], k).map((p, j) => ({ ...p, renders: quoted?.counts[j] ?? null }));
+    return { url_key: k, ref: `P${i + 1}`, share: shares.get(k) ?? 0, passages: located };
   });
 
   // The escape covers slow tagging, not parse starvation: it needs every page to have been parsed
@@ -263,15 +266,20 @@ async function loadPages(keys: string[]): Promise<Map<string, PageRow>> {
   return new Map(rows.map((r) => [r.url_key, r]));
 }
 
-async function windowPassages(report: ReportRow, keys: string[]): Promise<Map<string, string[]>> {
+interface QuotedPassages {
+  passages: string[];
+  counts: number[];
+}
+
+async function windowPassages(report: ReportRow, keys: string[]): Promise<Map<string, QuotedPassages>> {
   if (!keys.length) return new Map();
   const rows = must(
     await serviceClient().rpc("window_passages", {
       p_series_id: report.series_id, p_from: report.window_start, p_to: report.window_end, p_url_keys: keys,
     }),
     "window_passages",
-  ) as { url_key: string; passages: string[] }[];
-  return new Map(rows.map((r) => [r.url_key, r.passages]));
+  ) as { url_key: string; passages: string[]; counts?: number[] }[];
+  return new Map(rows.map((r) => [r.url_key, { passages: r.passages ?? [], counts: r.counts ?? [] }]));
 }
 
 export async function handle(req: Request): Promise<Response> {

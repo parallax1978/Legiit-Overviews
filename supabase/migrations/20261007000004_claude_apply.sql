@@ -830,7 +830,7 @@ as $$
     'page_urls', to_jsonb(r.page_urls),
     'page_details', coalesce(r.page_details, '[]'::jsonb),
     'keyword', se.keyword, 'language', se.language_code,
-    'display_keyword', tq.display_keyword, 'own_url_key', tq.own_url_key,
+    'display_keyword', tq.display_keyword, 'own_url', tq.own_url, 'own_url_key', tq.own_url_key,
     'entity_aliases', (
       select coalesce(jsonb_object_agg(e.id, to_jsonb(e.aliases)), '{}'::jsonb)
       from public.entities e

@@ -22,8 +22,24 @@ const RULE = /^\s*([-*_])(\s*\1){2,}\s*$/;
 const HEADING = /^\s{0,3}#{1,6}\s/;
 /** A proper name: one to five capitalised words (joiners allowed), as a product or brand is written. */
 const NAME = "\\p{Lu}[\\p{L}\\p{N}.&'’+]*(?:\\s+(?:[\\p{Lu}\\p{N}][\\p{L}\\p{N}.&'’+]*|of|and|for|by|&)){0,4}";
-const NAMED_ITEM = new RegExp(`^${NAME}\\s*(?:[:–—]|\\s-)\\s*\\S`, "u");
+const NAMED_ITEM = new RegExp(`^(${NAME})\\s*(?:[:–—]|\\s-)\\s*\\S`, "u");
 const NAME_CELL = new RegExp(`^${NAME}$`, "u");
+/** Capitalised labels that head attribute rows and items, not entities ("Price: $29", "Pros: fast"). */
+const GENERIC_LABELS = new Set([
+  "pros", "cons", "price", "prices", "pricing", "cost", "costs", "plan", "plans", "features", "feature", "best for", "rating",
+  "ratings", "score", "verdict", "note", "notes", "tip", "tips", "summary", "overview", "support", "integrations", "templates",
+  "platforms", "yes", "no", "free", "paid", "total", "why", "what", "how", "who", "when", "where", "example", "examples",
+]);
+/** "Step 1", "Day 2": numbered labels of one kind enumerate steps, not entities. */
+const ENUMERATED = /^(\S+)\s+\d+$/u;
+
+/** The distinct entity-like names among candidate labels (lower-cased). */
+function entityNames(labels: string[]): Set<string> {
+  const names = labels.map((c) => cleanInline(c).trim()).filter((c) => NAME_CELL.test(c) && !GENERIC_LABELS.has(c.toLowerCase()));
+  const kinds = new Set(names.map((n) => ENUMERATED.exec(n)?.[1].toLowerCase() ?? n));
+  if (kinds.size === 1 && names.every((n) => ENUMERATED.test(n))) return new Set();
+  return new Set(names.map((n) => n.toLowerCase()));
+}
 
 /** Visible text of a markdown page: link text kept, link targets, images, tags and markup removed. */
 export function plainText(markdown: string): string {
@@ -78,9 +94,7 @@ function cellsOf(row: string): string[] {
 
 /** A table compares entities when at least two of its rows lead with distinct proper names. */
 function comparesEntities(columns: number, firstCells: string[]): boolean {
-  if (columns < 2) return false;
-  const names = new Set(firstCells.map((c) => cleanInline(c).trim()).filter((c) => NAME_CELL.test(c)).map((c) => c.toLowerCase()));
-  return names.size >= 2;
+  return columns >= 2 && entityNames(firstCells).size >= 2;
 }
 
 /** Pipe tables: runs of lines starting with "|", or GFM tables found by their separator line. */
@@ -149,7 +163,7 @@ function contentTables(pageContent: any): TableStats {
 interface ListStats {
   lists: number;
   items: number;
-  namedLists: number; // lists with 2+ top-level items that start with a capitalised name and a dash or colon
+  namedLists: number; // lists whose top-level items start with 2+ distinct names followed by a dash or colon
 }
 
 function markdownLists(lines: Line[], skip: Set<number>): ListStats {
@@ -157,11 +171,11 @@ function markdownLists(lines: Line[], skip: Set<number>): ListStats {
   let inList = false;
   let ordered = false;
   let blanks = 0;
-  let named = 0;
+  let named: string[] = [];
   const close = () => {
-    if (inList && named >= 2) stats.namedLists++;
+    if (inList && entityNames(named).size >= 2) stats.namedLists++;
     inList = false;
-    named = 0;
+    named = [];
   };
   lines.forEach((line, i) => {
     if (line.fenced || skip.has(i)) {
@@ -186,7 +200,8 @@ function markdownLists(lines: Line[], skip: Set<number>): ListStats {
         ordered = isOrdered;
       }
       stats.items++;
-      if (topLevel && NAMED_ITEM.test(cleanInline(m[3]))) named++;
+      const name = topLevel ? NAMED_ITEM.exec(cleanInline(m[3]))?.[1] : undefined;
+      if (name) named.push(name);
       blanks = 0;
       return;
     }
