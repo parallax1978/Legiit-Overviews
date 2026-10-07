@@ -72,7 +72,7 @@ The draft scorer is the only live request (`liveStructured` in `claude.ts`), run
 
 - Creates reports for tracked queries with status `tracking`. History starts at the series' first non-error snapshot. Windows always end at creation time: `preliminary` (3 days) once history reaches 3 days and the query has no preliminary or full report yet; `full` (7 days) once history reaches 7 days and the query has no full report; `refresh` (28 days) every 28 days after the full report.
 - Stores `series_metrics(series, window_start, window_end)` in `reports.metrics` and `renders`.
-- Picks the 10 most-cited URLs by source survival in the window plus the own URL, writes `page_urls`, parses missing or stale pages (`pages.ts`), and writes `page_details` with Google's passages located in each page.
+- Picks the 10 most-cited non-platform URLs by source survival in the window plus the own URL, writes `page_urls`, parses missing or stale pages (`pages.ts`), and writes `page_details` with Google's passages located in each page.
 - Moves a report from `pages` to `brief` once every page is parsed (or failed) and every parsed page is tagged (or failed).
 
 ## SQL the app and functions call
@@ -84,7 +84,7 @@ All are in `public`, callable by `authenticated` users for series they track and
 | `series_metrics(p_series_id uuid, p_from timestamptz, p_to timestamptz) returns jsonb` | `SeriesMetrics` (types.ts) |
 | `metric_evidence(p_series_id uuid, p_kind text, p_key text, p_from timestamptz, p_to timestamptz, p_limit int default 50) returns jsonb` | `{ total, items: [{ snapshot_id, captured_at, sentences: [{ i, text, citations }], note }] }`. Kinds: `claim` and `unsupported` (key: group id; note: the claim text), `entity` (entity id; note: role and label), `source` (url_key; sentences citing it; note: Google's passage), `domain` (reg_domain), `format` (label; no sentences) |
 | `my_queries() returns jsonb` | `[{ tracked_query_id, display_keyword, series_id, keyword, location_code, location_name, language_code, device, status, created_at, history_days, renders_7d, present_7d, presence_rate_7d, last_captured_at, last_status, own_url, own_level_7d, report: { id, kind, stage } or null }]` for the caller |
-| `tracking_summary(p_tracked_query_id uuid) returns jsonb` | `{ own_url, brand_names, renders_7d, cited_7d, survival_7d, renders_28d, cited_28d, survival_28d, brand_7d, latest: { captured_at, level, quoted_heading } or null, daily: [{ day, renders, present, cited, best_level, brand }] }` for the last 28 days |
+| `tracking_summary(p_tracked_query_id uuid) returns jsonb` | `{ own_url, brand_names, renders_7d, present_7d, cited_7d, survival_7d, renders_28d, present_28d, cited_28d, survival_28d, brand_7d, latest: { captured_at, level, quoted_heading } or null, daily: [{ day, renders, present, cited, best_level, brand }] }` for the last 28 days; survival = cited / present |
 
 Survival buckets: `core` >= 0.8, `recurring` >= 0.4, `rotating` < 0.4. Confidence by non-error renders: `low` < 10, `medium` 10 to 20, `high` > 20.
 
