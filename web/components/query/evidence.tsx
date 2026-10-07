@@ -112,7 +112,7 @@ export function EvidenceTrigger({ seriesId, kind, evidenceKey, from, to, title, 
         open={open}
         onClose={() => setOpen(false)}
         eyebrow={KIND_EYEBROWS[kind]}
-        title={title}
+        title={<span className="[overflow-wrap:anywhere]">{title}</span>}
         description={subtitle}
         footer={
           canLoadMore ? (
@@ -167,8 +167,14 @@ export function EvidenceTrigger({ seriesId, kind, evidenceKey, from, to, title, 
   );
 }
 
+function normalizeText(s: string): string {
+  return s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
 function EvidenceRow({ item, kind }: { item: EvidenceItem; kind: EvidenceKind }) {
-  const notes = noteParts(item.note, kind);
+  const sentenceText = normalizeText(item.sentences.map((s) => s.text).join(" "));
+  // A claim note that repeats its sentence word for word adds nothing.
+  const notes = noteParts(item.note, kind).filter((n) => !((kind === "claim" || kind === "unsupported") && normalizeText(n) === sentenceText));
   return (
     <li className="rounded-lg border border-line bg-white p-3.5">
       <p className="text-xs font-medium text-ink-muted">

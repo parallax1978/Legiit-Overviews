@@ -1,6 +1,6 @@
 // Server data for the Brief and Draft score tabs: the query's reports, the selected report with its
 // stored brief, page progress for reports still being built, and draft scores. Also the pure helpers
-// those tabs share (typed refs, page anchors, brief comparison). RLS scopes every read.
+// those tabs share (typed refs, brief comparison). RLS scopes every read.
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
@@ -57,19 +57,6 @@ export function parseRef(ref: string | null | undefined): TypedRef | null {
   if (!id) return null;
   if (kind === "claim" || kind === "entity" || kind === "page") return { kind, id };
   return null;
-}
-
-/** Anchor id of a page on the Pages tab: "page-" + the url_key slugged. */
-export function pageAnchor(urlKey: string): string {
-  return `page-${slugify(urlKey)}`;
-}
-
-/** Lowercase, non-alphanumerics to single dashes, trimmed of dashes. */
-export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 /** Text compared across briefs: NFKC, lowercase, punctuation and symbols removed, spaces collapsed. */

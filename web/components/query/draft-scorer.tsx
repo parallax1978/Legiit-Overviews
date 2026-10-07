@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/feedback";
 import { Field, Input, Textarea, describedBy } from "@/components/ui/form";
-import { FileTextIcon, LinkIcon, LoaderIcon } from "@/components/ui/icons";
+import { ClockIcon, FileTextIcon, LinkIcon, LoaderIcon } from "@/components/ui/icons";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { formatCount } from "@/lib/format";
@@ -176,7 +176,7 @@ export function DraftScorer({ trackedQueryId, running }: DraftScorerProps) {
       <Card padding="lg" role="status" aria-live="polite">
         <div className="flex items-start gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-faint text-brand">
-            <LoaderIcon className={timedOut ? undefined : "animate-spin"} />
+            {timedOut ? <ClockIcon /> : <LoaderIcon className="animate-spin" />}
           </span>
           <div className="min-w-0 flex-1">
             {timedOut ? (
@@ -200,6 +200,16 @@ export function DraftScorer({ trackedQueryId, running }: DraftScorerProps) {
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => router.refresh()}>
                     Refresh history
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setJob(null);
+                      setTimedOut(false);
+                    }}
+                  >
+                    Score another draft
                   </Button>
                 </div>
               </>

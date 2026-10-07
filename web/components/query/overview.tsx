@@ -129,7 +129,7 @@ function OverviewTable({ blocks, byIdx }: { blocks: Block[]; byIdx: Map<number, 
       );
     });
   return (
-    <div className="overflow-x-auto rounded-lg border border-line">
+    <div className="relative overflow-x-auto rounded-lg border border-line">
       <table className="w-full border-collapse">
         {head && (
           <thead>

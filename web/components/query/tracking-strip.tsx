@@ -81,10 +81,11 @@ export function TrackingStrip({ daily, brandTracked }: { daily: TrackingDay[]; b
                   <div
                     className={cn(
                       "relative w-full flex-1 overflow-hidden rounded-sm",
-                      c.empty || c.renders === 0 ? "bg-surface-alt" : c.present === 0 ? "bg-surface-sunken/60" : "bg-surface-sunken",
+                      c.empty || c.renders === 0 ? "bg-transparent" : c.present === 0 ? "bg-surface-sunken/50" : "bg-surface-sunken",
                       "group-hover/day:ring-1 group-hover/day:ring-line-strong group-focus/day:ring-1 group-focus/day:ring-brand",
                     )}
                   >
+                    {(c.empty || c.renders === 0) && <div className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-line-strong" />}
                     {c.cited > 0 && (
                       <div
                         className={cn("absolute inset-x-0 bottom-0 rounded-sm", c.best_level ? LEVEL_FILL[c.best_level] : "bg-ink-soft")}
@@ -123,7 +124,11 @@ export function TrackingStrip({ daily, brandTracked }: { daily: TrackingDay[]; b
         ))}
         <li className="inline-flex items-center gap-1.5">
           <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-surface-sunken ring-1 ring-inset ring-line" />
-          Overview shown, not cited
+          Not cited
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-0.5 w-2.5 rounded-full bg-line-strong" />
+          No captures
         </li>
         {brandTracked && (
           <li className="inline-flex items-center gap-1.5">

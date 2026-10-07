@@ -63,6 +63,8 @@ export function CaptureTimeline({ captures, now, trackingStart, days = 7, classN
   }
 
   const rows = Array.from({ length: days }, (_, k) => today - k * DAY);
+  const hasBefore = !Number.isNaN(start) && start > today - (days - 1) * DAY + SLOT;
+  const legend: SlotState[] = ["present", "absent", "error", "missing", "upcoming", ...(hasBefore ? (["before"] as SlotState[]) : [])];
   const hours = Array.from({ length: 8 }, (_, s) => s * 3);
 
   return (
@@ -80,7 +82,7 @@ export function CaptureTimeline({ captures, now, trackingStart, days = 7, classN
       </div>
       <p className="mt-2 text-right text-[11px] text-ink-soft">Hours in UTC, newest day first</p>
       <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-muted">
-        {(["present", "absent", "error", "missing", "upcoming"] as SlotState[]).map((s) => (
+        {legend.map((s) => (
           <li key={s} className="inline-flex items-center gap-1.5">
             <span aria-hidden="true" className={cn("h-3 w-3 rounded-[3px]", SLOT_CLASSES[s])} />
             {STATE_NAMES[s]}

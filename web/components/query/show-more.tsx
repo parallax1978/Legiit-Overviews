@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 import { formatCount } from "@/lib/format";
 
 export interface ShowMoreProps {
-  /** Rendered rows: <NumberedRow>s for "list", <TR>s for "table", any elements for "plain". */
+  /** Rendered rows: <NumberedRow>s for "list", <TR>s for "table", <li>s for "plain" (an unstyled <ol>). */
   items: ReactNode[];
   /** Rows shown before "Show all". Default 25. */
   initial?: number;
@@ -31,14 +31,14 @@ export function ShowMore({ items, initial = 25, noun, variant = "list", head, co
     <div className={className}>
       {variant === "list" && <ol className={cn("divide-y divide-line", containerClassName)}>{shown}</ol>}
       {variant === "table" && (
-        <div className={cn("overflow-x-auto", containerClassName)}>
+        <div className={cn("relative overflow-x-auto", containerClassName)}>
           <table className="w-full border-collapse text-left text-sm">
             {head}
             <TBody>{shown}</TBody>
           </table>
         </div>
       )}
-      {variant === "plain" && <div className={containerClassName}>{shown}</div>}
+      {variant === "plain" && <ol className={cn("list-none", containerClassName)}>{shown}</ol>}
       {toggle && (
         <div className="flex justify-center border-t border-line px-4 py-3">
           <Button

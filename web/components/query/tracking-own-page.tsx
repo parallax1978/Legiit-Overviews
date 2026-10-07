@@ -180,7 +180,14 @@ export function TrackingOwnPage({ trackedQueryId, ownUrl, brandNames, parsedAt }
     void save(url);
   }
 
-  const urlHint = "The page you want Google to cite for this search.";
+  const urlHint =
+    ownUrl && url.trim() === ownUrl && parsedAt ? (
+      <>
+        The page you want Google to cite for this search. We read it <LocalTime value={parsedAt} format="relative" />.
+      </>
+    ) : (
+      "The page you want Google to cite for this search."
+    );
   const brandHint = `Press Enter or type a comma to add a name. Up to ${MAX_BRANDS}.`;
   const busy = saving || refreshing;
 
@@ -189,13 +196,6 @@ export function TrackingOwnPage({ trackedQueryId, ownUrl, brandNames, parsedAt }
       <CardHeader
         title="Your page"
         description="Every capture's citations are checked against this URL, and the answer text against your brand names."
-        action={
-          ownUrl && parsedAt ? (
-            <span className="text-xs text-ink-muted">
-              Page read <LocalTime value={parsedAt} format="relative" />
-            </span>
-          ) : null
-        }
       />
       <form onSubmit={onSubmit} noValidate className="mt-5 space-y-5">
         <Field id="own-url" label="Page URL" hint={urlHint} error={urlError}>

@@ -112,7 +112,7 @@ export default async function LiveTab({ params }: { params: Promise<{ id: string
 
       <div className="grid gap-6 lg:grid-cols-2">
         {timeline}
-        {metricsRes.data ? <ChangesCard m={metricsRes.data} now={now} /> : null}
+        {metricsRes.data ? <ChangesCard m={metricsRes.data} now={now} patternsHref={`/queries/${q.id}/patterns?window=7d`} /> : null}
       </div>
 
       <OrganicCard snapshot={organicSnap} />
@@ -196,7 +196,7 @@ function LatestCard({ latest, shown }: { latest: LiveSnapshot; shown: LiveSnapsh
       )}
 
       <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <section aria-label="AI Overview" className="min-w-0 rounded-lg border border-line bg-white p-4 sm:p-5">
+        <section aria-label="AI Overview" className="min-w-0 self-start rounded-lg border border-line bg-white p-4 sm:p-5">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-faint text-brand">
               <OverviewGlyph className="h-3.5 w-3.5" />
@@ -236,7 +236,7 @@ function TimelineCard({ captures, now, trackingStart }: { captures: CaptureStatu
         title="Captures, last 7 days"
         description={
           counted.length
-            ? `${formatShare(present / counted.length, counted.length)} showed an overview${errors ? `; ${plural(errors, "capture")} failed and ${errors === 1 ? "isn't" : "aren't"} counted` : ""}.`
+            ? `${formatCount(present)} of ${plural(counted.length, "capture")} showed an overview (${formatShare(present / counted.length, counted.length)})${errors ? `; ${plural(errors, "capture")} failed and ${errors === 1 ? "isn't" : "aren't"} counted` : ""}.`
             : "No captures in the last 7 days yet."
         }
       />
@@ -245,7 +245,7 @@ function TimelineCard({ captures, now, trackingStart }: { captures: CaptureStatu
   );
 }
 
-function ChangesCard({ m, now }: { m: SeriesMetrics; now: number }) {
+function ChangesCard({ m, now, patternsHref }: { m: SeriesMetrics; now: number; patternsHref: string }) {
   const days = m.daily.filter((d) => d.renders > 0);
   const last = days[days.length - 1];
   const prev = days[days.length - 2];
@@ -266,7 +266,7 @@ function ChangesCard({ m, now }: { m: SeriesMetrics; now: number }) {
       </EmptyInline>
     );
   } else {
-    body = <DayDiff diff={last} className="mt-4" />;
+    body = <DayDiff diff={last} limit={6} moreHref={`${patternsHref}#daily`} className="mt-4" />;
   }
 
   return (
@@ -305,9 +305,11 @@ function OrganicCard({ snapshot }: { snapshot: LiveSnapshot }) {
           description={
             <>
               Capture of <LocalTime value={snapshot.captured_at} format="datetime" />.{" "}
-              {snapshot.status === "present"
-                ? `${plural(citedInTop, "result")} in the top 10 ${citedInTop === 1 ? "is" : "are"} also cited in the overview.`
-                : "No overview in this capture, so nothing is cited."}
+              {!top.length
+                ? null
+                : snapshot.status === "present"
+                  ? `${plural(citedInTop, "result")} in the top 10 ${citedInTop === 1 ? "is" : "are"} also cited in the overview.`
+                  : "No overview in this capture, so nothing is cited."}
             </>
           }
         />

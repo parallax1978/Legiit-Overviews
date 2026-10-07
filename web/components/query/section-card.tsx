@@ -21,14 +21,14 @@ export function SectionCard({ id, label, description, action, children, classNam
   return (
     <Card padding="none" className={cn("scroll-mt-20", className)} id={id}>
       <section aria-labelledby={`${id}-label`}>
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-5 pt-5">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-col gap-x-4 gap-y-2 px-5 pt-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 sm:flex-1">
             <SectionLabel id={`${id}-label`} role="heading" aria-level={2}>
               {label}
             </SectionLabel>
             {description && <div className="mt-1 text-sm leading-6 text-ink-muted">{description}</div>}
           </div>
-          {action && <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>}
+          {action && <div className="flex flex-wrap items-center gap-2 sm:max-w-[50%] sm:shrink-0">{action}</div>}
         </div>
         <div className={cn("mt-4", bodyClassName)}>{children}</div>
       </section>

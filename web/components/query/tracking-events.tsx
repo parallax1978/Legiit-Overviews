@@ -53,7 +53,7 @@ export function TrackingEvents({ events }: { events: CitationEventRow[] }) {
                   <Chip tone={kind.tone} dot>
                     {kind.label}
                   </Chip>
-                  {e.level && e.kind !== "brand_mention" && <span className="text-sm font-medium text-ink">{matchLevelLabel(e.level)}</span>}
+                  {e.level && (e.kind === "first_seen" || e.kind === "regained") && <span className="text-sm font-medium text-ink">{matchLevelLabel(e.level)}</span>}
                 </div>
                 <p className="mt-1.5 text-sm text-ink-muted">{summary(e)}</p>
                 {e.quoted_heading && (

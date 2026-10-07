@@ -1,5 +1,6 @@
 // DayDiff: what one UTC day added and dropped against the previous day with captures (claims,
 // brands and entities, cited URLs), as green and red chips.
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { MinusIcon, PlusIcon, SectionLabel } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -45,8 +46,11 @@ interface Group {
   dropped: { key: string; text: string; title?: string }[];
 }
 
-/** The day's changes grouped by claims, entities and citations; groups without changes are left out. */
-export function DayDiff({ diff, className }: { diff: DailyDiff; className?: string }) {
+/**
+ * The day's changes grouped by claims, entities and citations; groups without changes are left out.
+ * With `limit`, each group shows at most that many chips (added first) and a "more" link to `moreHref`.
+ */
+export function DayDiff({ diff, limit, moreHref, className }: { diff: DailyDiff; limit?: number; moreHref?: string; className?: string }) {
   const groups: Group[] = [
     {
       label: "Claims",
@@ -77,20 +81,48 @@ export function DayDiff({ diff, className }: { diff: DailyDiff; className?: stri
               {g.dropped.length > 0 && `${g.dropped.length} dropped`}
             </span>
           </SectionLabel>
-          <ul className="mt-1.5 flex flex-wrap gap-1.5">
-            {g.added.map((x) => (
-              <DiffChip key={`a-${x.key}`} kind="added" title={x.title}>
-                {x.text}
-              </DiffChip>
-            ))}
-            {g.dropped.map((x) => (
-              <DiffChip key={`d-${x.key}`} kind="dropped" title={x.title}>
-                {x.text}
-              </DiffChip>
-            ))}
-          </ul>
+          <GroupChips group={g} limit={limit} moreHref={moreHref} />
         </div>
       ))}
     </div>
+  );
+}
+
+function GroupChips({ group, limit, moreHref }: { group: Group; limit?: number; moreHref?: string }) {
+  const all = [...group.added.map((x) => ({ ...x, kind: "added" as const })), ...group.dropped.map((x) => ({ ...x, kind: "dropped" as const }))];
+  const shown = limit ? all.slice(0, limit) : all;
+  const rest = all.length - shown.length;
+  return (
+    <ul className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      {shown.map((x) => (
+        <DiffChip key={`${x.kind}-${x.key}`} kind={x.kind} title={x.title}>
+          {x.text}
+        </DiffChip>
+      ))}
+      {rest > 0 && moreHref && (
+        <li className="text-xs">
+          <Link href={moreHref} className="font-medium text-brand hover:text-brand-strong">
+            {rest} more
+          </Link>
+        </li>
+      )}
+      {rest > 0 && !moreHref && (
+        <li className="has-[details[open]]:basis-full">
+          <details className="group/more">
+            <summary className="cursor-pointer text-xs font-medium text-brand hover:text-brand-strong group-open/more:mb-1.5">
+              <span className="group-open/more:hidden">Show {rest} more</span>
+              <span className="hidden group-open/more:inline">Show fewer</span>
+            </summary>
+            <ul className="flex flex-wrap gap-1.5">
+              {all.slice(shown.length).map((x) => (
+                <DiffChip key={`${x.kind}-${x.key}`} kind={x.kind} title={x.title}>
+                  {x.text}
+                </DiffChip>
+              ))}
+            </ul>
+          </details>
+        </li>
+      )}
+    </ul>
   );
 }

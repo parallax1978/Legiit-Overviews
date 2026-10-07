@@ -42,7 +42,7 @@ export function TrackingStats({ summary }: { summary: TrackingSummaryData }) {
         label="Latest match"
         icon={<TrendingUpIcon />}
         tone={latest?.level === "exact_url" || latest?.level === "path_prefix" ? "good" : latest?.level ? "brand" : "ink"}
-        value={latest?.level ? matchLevelLabel(latest.level) : <span className="text-ink-soft">Not cited yet</span>}
+        value={latest?.level ? matchLevelLabel(latest.level) : <span className="text-ink-soft">Not cited</span>}
         caption={
           latest ? (
             <span className="block">
@@ -54,7 +54,7 @@ export function TrackingStats({ summary }: { summary: TrackingSummaryData }) {
               <LocalTime value={latest.captured_at} format="relative" />
             </span>
           ) : (
-            "No capture in the last 28 days cites it"
+            "None in the last 28 days"
           )
         }
       />
