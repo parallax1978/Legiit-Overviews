@@ -35,7 +35,7 @@ export function presenceEvidence(w: WindowRef, m: Pick<SeriesMetrics, "presence_
     from: w.from,
     to: w.to,
     title: `Overview shown, ${windowLabel.toLowerCase()}`,
-    subtitle: `${formatShare(m.presence_rate, m.renders)}: ${formatCount(m.present)} of ${plural(m.renders, "capture")} showed one`,
+    subtitle: `${formatCount(m.present)} of ${plural(m.renders, "capture")} showed an AI Overview (${formatShare(m.presence_rate, m.renders)})`,
     keyOptions: [
       { value: "all", label: "All" },
       { value: "present", label: "Overview shown" },
@@ -254,7 +254,7 @@ function AnswerLead({ lead }: { lead: SeriesMetrics["answer_lead"] }) {
       <p className="mt-0.5 text-xs text-ink-muted">
         {position ? (
           <>
-            When there is one, the direct answer is usually {position} (median, n={formatCount(lead.n)}).
+            When there is one, the direct answer is usually {position} (the median over the overviews that have one).
           </>
         ) : (
           <>None of the {plural(lead.n, "overview")} analysed gives a direct answer.</>

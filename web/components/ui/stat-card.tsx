@@ -46,7 +46,9 @@ export function StatCard({ label, value, caption, icon, tone = "ink", href, onCl
     </>
   );
   const classes = cn(
-    "block rounded-card border border-line bg-white p-4 text-left shadow-card",
+    // A button centres its content vertically; a column keeps it at the top like the other cards.
+    !href && onClick ? "flex w-full flex-col items-stretch" : "block",
+    "rounded-card border border-line bg-white p-4 text-left shadow-card",
     (href || onClick) && "transition-colors hover:border-line-strong hover:bg-surface-alt/50",
     className,
   );
@@ -59,7 +61,7 @@ export function StatCard({ label, value, caption, icon, tone = "ink", href, onCl
   }
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={cn(classes, "w-full")} title={title} aria-haspopup={aria["aria-haspopup"]}>
+      <button type="button" onClick={onClick} className={classes} title={title} aria-haspopup={aria["aria-haspopup"]}>
         {body}
       </button>
     );

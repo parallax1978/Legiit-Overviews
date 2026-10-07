@@ -93,7 +93,8 @@ create table public.citations (
   reg_domain text not null,
   title text,
   source text,
-  passage text,                          -- the text Google used from that page
+  passage text,                          -- the text Google used from that page (passages[1])
+  passages text[] not null default '{}', -- every distinct passage Google used from that page in this capture
   unique (snapshot_id, idx)
 );
 create index citations_url_key_idx on public.citations (url_key);
