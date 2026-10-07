@@ -29,7 +29,7 @@ Font: **Inter Variable** (`@fontsource-variable/inter`), fallback `Inter, ui-san
 }
 ```
 
-Logo mark: 32px rounded square (radius 8px on a 32px mark; the SVG uses rx 16 on 64) with a diagonal gradient `#8A12DC` to `#1863DC`, white glyph. Legiit Keywords uses a magnifier; Legiit Overviews uses a sparkle/overview glyph in the same style. Wordmark: "Legiit" in ink, product word in brand purple, 16px, weight 700, tight tracking ("Legiit" + "Overviews"). The gradient headline accent runs from `#a855f7` through `#d946ef` to `#ec4899`.
+Logo mark: 28px rounded square in the header (`h-7 w-7 rounded-lg`; the SVG uses rx 16 on 64) with a diagonal gradient `#8A12DC` to `#1863DC`, white glyph. Legiit Keywords uses a magnifier; Legiit Overviews uses a sparkle/overview glyph in the same style. Wordmark: "Legiit" in ink, product word in brand purple, 15px, weight 700, tight tracking ("Legiit" + "Overviews"). The gradient headline accent runs from `#a855f7` through `#d946ef` to `#ec4899`.
 
 ## Type scale
 
@@ -53,16 +53,16 @@ Logo mark: 32px rounded square (radius 8px on a 32px mark; the SVG uses rx 16 on
 - **Numbered rows:** a 28px circle in `brand-faint` with a brand-colored number; title 15px 600; meta line in ink-muted 12px; right-aligned status chips.
 - **Status chips:** rounded-full, 12px 500 text, 2x8 padding, a 6px dot in the text color. Green `good` on `good-soft` ("Clear opening", "Reachable"), amber `warn` on `warn-soft` ("Partial opening"), red `bad` on `bad-soft`, purple `brand` on `brand-faint` for neutral/category tags. Grey tags: ink-muted on `surface-sunken`.
 - **Progress bars:** 6px tall, rounded, brand purple fill on `surface-sunken`.
-- **Section labels inside cards:** uppercase 11px tracked ink-soft ("WHY THIS SITE CAN WIN IT", "DEMAND", "OPENING").
+- **Section labels inside cards:** uppercase 11px tracked ("WHY THIS SITE CAN WIN IT", "DEMAND", "OPENING"). The live site uses `ink-soft`; the app renders them `ink-muted` on purpose, because `#94a3b8` on white is 2.6:1 and fails AA.
 - **Inputs:** 40px tall, white, `line` border, 8px radius (rounded-full when paired with a pill button on dark), placeholder `ink-soft`, focus ring brand.
 - **Check list items:** small brand-colored check icon then ink-muted 14px text.
 
 ## Layouts
 
-- **Marketing page:** white header; dark hero on `plum` with a subtle dot grid (`radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px)` at 24px) and a large blurred purple glow; left column eyebrow + h1 + paragraph (`white/75`) + input-and-button row + small note; right column a white product card. Below: a white strip of four check-marked proof points. Sections alternate white and `surface-alt` backgrounds with about 96px vertical padding, each with eyebrow + h2 + muted intro. Final CTA section repeats the dark hero style. Footer: white, wordmark + "· A Legiit product", links row, divider, small legal links, copyright.
+- **Marketing page:** white header; dark hero on `plum` with a subtle dot grid (`radial-gradient(#ffffff0f 1px, transparent 1px)` at 22px) and a large blurred purple glow; left column eyebrow + h1 + paragraph (`white/75`) + input-and-button row + small note; right column a white product card. Below: a white strip of four check-marked proof points. Sections alternate white and `surface-alt` backgrounds with about 96px vertical padding, each with eyebrow + h2 + muted intro. Final CTA section repeats the dark hero style. Footer: white, wordmark + "· A Legiit product", links row, divider, small legal links, copyright.
 - **Login:** split screen. Left half `plum` with dot grid and glow: logo top-left, eyebrow, two-line headline with the gradient accent line, three check-marked points, "A Legiit product." bottom-left. Right half `surface-alt` with a centered white card (about 384px): "Sign in" 24px 700, muted subline, Email label and input, full-width primary button "Email me a sign-in link", small muted terms line, "Have a password? Sign in with it instead" link.
 - **App / report pages:** white header (logo, right-side pill tag or account menu), page background `surface-alt` or white, content column about 864px (`max-w-4xl`) centered. Page header: small uppercase muted kicker ("AI OVERVIEW"), 24px title, muted meta line ("Sep 21, 2026 · US · en"), a one-paragraph summary at 18px. Then a 4-up stat card row, then section headings at 18px 600 with cards below. Recommendation cards: numbered circle at left, title and action chip on one line, body text, a 3-column label/value row (uppercase labels), grey keyword tags, bullet lists, and a bottom row of grey tags separated by a divider.
 
-## Screenshots
+## Verification
 
-Captured screenshots of the live site are in the session scratchpad: `brand/shots/home-desktop.png` (full page), `crop-hero.png`, `crop-plan.png`, `crop-footer.png`, `page-login-top.png`, `page-share-...-top.png` and `-mid.png` (the shared report page, which shows the in-app report layout).
+Re-verified on 2026-10-07 against the live stylesheet (`/_next/static/css/...css` on legiitkeywords.com): every token above is present with the same value, the font is Inter Variable, buttons are `rounded-full`, cards use `--radius-card: .75rem`. Two app deviations found and scheduled for session 4 of `PLAN.md`: `--color-ink-muted` must be `#64748b` (the app had darkened it) and input focus rings must use `ring-brand-soft`. To re-check later: download the homepage, follow its stylesheet link, and grep the hex values in the Tokens block.

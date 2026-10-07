@@ -1,5 +1,7 @@
 # Deploying
 
+> Status 2026-10-07: this runbook is the manual path from the first build and is replaced by `scripts/deploy.ts` in session 3 of `PLAN.md` (section 12). Two things it does not yet say that a real deploy needs: Supabase Auth must send mail through Resend SMTP (the built-in sender allows 2 emails an hour, only to project team members), and the `locations` and `platform_domains` rows move into a migration so step 3 disappears. What the founder provides, with the environment variable names, is `PLAN.md` section 11.
+
 Production runs on a Supabase project (database, auth, Storage, Edge Functions, Cron) and Vercel (the `web/` app).
 
 ## Supabase
