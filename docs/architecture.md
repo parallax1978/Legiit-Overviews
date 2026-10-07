@@ -60,7 +60,9 @@ web/                     Next.js app
 
 Prompts carry short refs instead of ids: `C<n>` canonical claims, `E<n>` entities, `P<n>` pages. In stored output (`reports.analysis`) every ref is replaced by a typed ref: `claim:<group uuid>`, `entity:<entity uuid>`, `page:<url_key>`. Refs that don't resolve are dropped and listed in `brief_checks.dropped_refs`.
 
-`reports.brief_checks`: `{ passed: boolean, checks: [{ name, passed, detail }], dropped_refs: string[] }`.
+`reports.brief_checks`: `{ passed: boolean, checks: [{ name, passed, detail }], dropped_refs: string[] }`. Check names: `must_cover_recurrence`, `entity_recurrence`, `outline_covers_must_cover`, `refs_resolve`. Items that fail the recurrence checks are removed from the stored brief.
+
+`collect-batches` also runs `release_stuck_work()`: work whose result failed to apply goes back for another attempt (extractions to `pending` with an attempt counted, page tags to `failed`, briefs retried until two attempts fail). `consolidated_at` is set to the submission time, so groups created while a consolidation ran count as new the next night.
 
 The draft scorer is the only live request (`liveStructured` in `claude.ts`), run as a background task by `score-draft`.
 

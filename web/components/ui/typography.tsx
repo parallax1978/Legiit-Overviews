@@ -87,8 +87,8 @@ export function MetaList({ items, className }: { items: ReactNode[]; className?:
     <span className={cn("inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5", className)}>
       {shown.map((item, i) => (
         <span key={i} className="inline-flex items-center gap-x-1.5">
-          {i > 0 && <span aria-hidden="true">·</span>}
           {item}
+          {i < shown.length - 1 && <span aria-hidden="true">·</span>}
         </span>
       ))}
     </span>
