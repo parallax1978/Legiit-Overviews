@@ -273,20 +273,25 @@ export function createDataForSeoMock(opts: DataForSeoMockOptions) {
       const language = typeof t.language_code === "string" ? t.language_code : "en";
       const limit = typeof t.limit === "number" ? t.limit : 100;
       const seed = seedKeywordInfo(t.keyword);
-      const related = relatedKeywordsFor(t.keyword).slice(0, limit);
-      const items = related.map((r) => ({
-        se_type: "google",
-        keyword_data: keywordData(r.keyword, location, language, r.search_volume, r.ai_overview),
-        depth: 1,
-        related_keywords: related.filter((x) => x !== r).slice(0, 4).map((x) => x.keyword),
-      }));
+      const seedData = keywordData(String(t.keyword), location, language, seed.search_volume, seed.ai_overview);
+      const related = relatedKeywordsFor(t.keyword);
+      // Like the real API, items[0] is the seed itself at depth 0, followed by its siblings at depth 1.
+      const items = [
+        { se_type: "google", keyword_data: seedData, depth: 0, related_keywords: related.slice(0, 8).map((x) => x.keyword) },
+        ...related.map((r) => ({
+          se_type: "google",
+          keyword_data: keywordData(r.keyword, location, language, r.search_volume, r.ai_overview),
+          depth: 1,
+          related_keywords: related.filter((x) => x !== r).slice(0, 4).map((x) => x.keyword),
+        })),
+      ].slice(0, Math.max(1, limit));
       return taskOut(id, 20000, "Ok.", path, data, [{
         se_type: "google",
         seed_keyword: t.keyword,
-        seed_keyword_data: t.include_seed_keyword ? keywordData(String(t.keyword), location, language, seed.search_volume, seed.ai_overview) : null,
+        seed_keyword_data: t.include_seed_keyword ? seedData : null,
         location_code: location,
         language_code: language,
-        total_count: related.length,
+        total_count: related.length + 1,
         items_count: items.length,
         items,
       }], 0.0103);

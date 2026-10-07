@@ -617,7 +617,7 @@ function findSource(url: string): { scenario: Scenario; source: SourceSpec } | n
   } catch {
     return null;
   }
-  for (const seg of path) {
+  for (const seg of path.filter((x) => /[-_]/.test(x))) {
     for (const cand of [seg, seg.replace(/^the-/, ""), seg.replace(/-software$/, "")]) {
       const kw = cand.replace(/[-_]+/g, " ").trim();
       if (!kw || kw.length > 120) continue;
