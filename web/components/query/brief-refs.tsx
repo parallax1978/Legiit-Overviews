@@ -94,12 +94,16 @@ export function PageChip({ urlKey, ctx }: { urlKey: string; ctx: RefContext }) {
 
 /**
  * Chips for a list of typed refs of any kind; refs that don't parse are skipped. A claim whose label
- * repeats `heading` (the row's title) shows only its share.
+ * the row's title (`heading`) already contains shows only its share.
  */
 export function RefChips({ refs, ctx, heading, className }: { refs: string[]; ctx: RefContext; heading?: string; className?: string }) {
   const parsed = refs.map(parseRef).filter((r) => r !== null);
   if (parsed.length === 0) return null;
-  const same = (label: string | undefined) => !!heading && !!label && normText(label) === normText(heading);
+  const head = heading ? normText(heading) : "";
+  const same = (label: string | undefined) => {
+    const l = label ? normText(label) : "";
+    return !!head && !!l && head.includes(l);
+  };
   return (
     <div className={cn("flex flex-wrap gap-1.5", className)}>
       {parsed.map((r) =>

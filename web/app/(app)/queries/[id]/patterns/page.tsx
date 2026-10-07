@@ -32,11 +32,7 @@ import { getTrackedQuery } from "@/lib/queries";
 import { getSeriesMetrics } from "@/lib/query/metrics";
 import { currentTime, parseWindow } from "@/lib/query/window";
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const { data } = await getTrackedQuery(id);
-  return { title: data ? `Patterns: ${data.display_keyword}` : "Patterns" };
-}
+export const metadata = { title: "Patterns" };
 
 export default async function PatternsTab({
   params,

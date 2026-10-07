@@ -2,6 +2,7 @@
 // Tab pages load their own data; getTrackedQuery(id) is cached per request, so calling it again is free.
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { StatusChip } from "@/components/ui/chip";
 import { Alert, ErrorCard } from "@/components/ui/feedback";
@@ -14,10 +15,13 @@ import { deviceLabel, plural } from "@/lib/format";
 import { getTrackedQuery } from "@/lib/queries";
 import { QueryActions } from "./query-actions";
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const { data } = await getTrackedQuery(id);
-  return { title: data?.display_keyword ?? "Query" };
+  const keyword = data?.display_keyword ?? "Query";
+  // Live gets "<keyword> · Legiit Overviews"; each tab sets a plain title ("Patterns") that becomes
+  // "Patterns · <keyword> · Legiit Overviews".
+  return { title: { default: keyword, template: `%s · ${keyword} · Legiit Overviews` } };
 }
 
 export default async function QueryLayout({ children, params }: { children: ReactNode; params: Promise<{ id: string }> }) {

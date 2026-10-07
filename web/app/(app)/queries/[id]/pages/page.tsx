@@ -2,6 +2,7 @@
 // Google quotes each page, then the platform note and the coverage matrix with what winners share, the
 // gaps and how each page differs. Before a report exists it shows how far history is from unlocking one.
 import type { ReactNode } from "react";
+import { RefChips, type RefContext } from "@/components/query/brief-refs";
 import { CoverageMatrix, MatrixLegend, type CellState, type MatrixColumn, type MatrixRow } from "@/components/query/coverage-matrix";
 import { displayUrl, pageAnchorId } from "@/components/query/page-anchor";
 import { PageCard } from "@/components/query/page-card";
@@ -25,14 +26,12 @@ import {
 import { formatCount, formatShare, hostOf, plural, REPORT_KIND_LABELS, REPORT_STAGE_LABELS } from "@/lib/format";
 import { getTrackedQuery, type TrackedQueryDetail } from "@/lib/queries";
 import { getPagesData, type PageInfo, type PagesReportRow } from "@/lib/query/pages";
+import { withoutFigures } from "@/lib/query/prose";
+import { getRefMetrics } from "@/lib/query/ref-metrics";
 import { currentTime, historyDays } from "@/lib/query/window";
 import type { ReportPageDetail, SeriesMetrics } from "@/lib/types";
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const { data } = await getTrackedQuery(id);
-  return { title: data ? `Pages: ${data.display_keyword}` : "Pages" };
-}
+export const metadata = { title: "Pages" };
 
 export default async function PagesTab({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -81,10 +80,7 @@ export default async function PagesTab({ params }: { params: Promise<{ id: strin
             <h2 id="pages-heading" className="text-lg font-semibold tracking-tight text-ink">
               Cited pages
             </h2>
-            <p className="mt-0.5 text-sm text-ink-muted">
-              The {plural(details.length, "page")} Google cited most in the window{ownKey && details.some((d) => d.url_key === ownKey) ? ", plus yours" : ""}, in
-              order of how often. Measured in code, tagged by Claude.
-            </p>
+            <p className="mt-0.5 text-sm text-ink-muted">{pagesIntro(details, ownKey)}</p>
           </div>
           <PageIndex details={details} titles={titles} />
           {details.map((d) => (
@@ -95,12 +91,22 @@ export default async function PagesTab({ params }: { params: Promise<{ id: strin
 
       <PlatformNote metrics={metrics} />
 
-      <MatrixSection report={report} details={details} pages={pages} ownKey={ownKey} />
+      <MatrixSection report={report} details={details} pages={pages} ownKey={ownKey} queryId={q.id} seriesId={q.series_id} />
     </div>
   );
 }
 
 // ------------------------------------------------------------------ header, progress, empty
+
+/** The page list's intro: says whether the user's page is one of the most cited or was added after them. */
+function pagesIntro(details: ReportPageDetail[], ownKey: string | null): string {
+  const own = ownKey ? details.find((d) => d.url_key === ownKey) : undefined;
+  // build-reports adds the own page after the most-cited ones when it isn't among them.
+  const appended = !!own && own === details[details.length - 1] && (details.length > 10 || own.share === 0);
+  const count = appended ? details.length - 1 : details.length;
+  const yours = !own ? "" : appended ? ", plus yours" : `, including yours (${own.ref})`;
+  return `The ${plural(count, "page")} Google cited most in the window${yours}, in order of how often. Measured in code, tagged by Claude.`;
+}
 
 function ReportHeader({ report }: { report: PagesReportRow }) {
   const tone = report.stage === "ready" ? "good" : report.stage === "failed" ? "bad" : "brand";
@@ -293,16 +299,20 @@ function cellsOf(cells: { page_ref: string; state: CellState }[]): Record<string
   return out;
 }
 
-function MatrixSection({
+async function MatrixSection({
   report,
   details,
   pages,
   ownKey,
+  queryId,
+  seriesId,
 }: {
   report: PagesReportRow;
   details: ReportPageDetail[];
   pages: Record<string, PageInfo>;
   ownKey: string | null;
+  queryId: string;
+  seriesId: string;
 }) {
   const analysis = parseAnalysis(report.analysis);
   if (!analysis) {
@@ -323,10 +333,18 @@ function MatrixSection({
   const refOf = new Map(details.map((d) => [d.url_key, d.ref]));
   const topicRows: MatrixRow[] = analysis.matrix.topics.map((t, i) => ({ key: `t${i}`, label: t.topic, cells: cellsOf(t.cells) }));
   const entityRows: MatrixRow[] = analysis.matrix.entities.map((e, i) => ({ key: `e${i}`, label: e.entity, cells: cellsOf(e.cells) }));
-  const claimLabels = new Map<string, string>([
-    ...(report.metrics?.claims ?? []).map((c) => [c.group_id, c.label] as [string, string]),
-    ...(report.metrics?.unsupported_claims ?? []).map((c) => [c.group_id, c.label] as [string, string]),
-  ]);
+  // Gap chips read series_metrics over the report window, like the Brief tab, so each share matches
+  // the captures its drawer lists.
+  const refMetrics = await getRefMetrics(seriesId, report.window_start, report.window_end, report.metrics, analysis.gaps.flatMap((g) => g.claim_refs));
+  const ctx: RefContext = {
+    queryId,
+    seriesId,
+    from: report.window_start,
+    to: report.window_end,
+    present: refMetrics?.metrics.present ?? 0,
+    claims: refMetrics?.claims ?? new Map(),
+    entities: refMetrics?.entities ?? new Map(),
+  };
 
   return (
     <>
@@ -357,20 +375,16 @@ function MatrixSection({
         <SectionCard id="gaps" label="Gaps no page fills" description="What the overview needs that none of the cited pages gives it.">
           {analysis.gaps.length ? (
             <ul className="space-y-4 px-5 pb-5">
-              {analysis.gaps.map((g, i) => (
-                <li key={i}>
-                  <p className="text-sm font-semibold text-ink">{g.gap}</p>
-                  {g.why && <p className="mt-0.5 text-sm leading-6 text-ink-muted">{g.why}</p>}
-                  {g.claim_refs.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {g.claim_refs.map((r) => {
-                        const label = r.startsWith("claim:") ? claimLabels.get(r.slice(6)) : undefined;
-                        return label && label.trim() !== g.gap.trim() ? <Tag key={r}>{label}</Tag> : null;
-                      })}
-                    </div>
-                  )}
-                </li>
-              ))}
+              {analysis.gaps.map((g, i) => {
+                const why = withoutFigures(g.why);
+                return (
+                  <li key={i}>
+                    <p className="text-sm font-semibold text-ink">{g.gap}</p>
+                    {why && <p className="mt-0.5 text-sm leading-6 text-ink-muted">{why}</p>}
+                    <RefChips refs={g.claim_refs} ctx={ctx} heading={g.gap} className="mt-1.5" />
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <SectionEmpty>Between them, the cited pages cover everything the overview uses.</SectionEmpty>
