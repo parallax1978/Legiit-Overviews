@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This repository holds the plan for Legiit Overviews, a SaaS that automates a six-step process for winning Google AI Overviews. Read `PLAN.md` first. Product code lives under `packages/` and `apps/` once Milestone 0 starts; until then this file governs how the plan is executed.
+This repository holds the plan for Legiit Overviews, a SaaS that automates a six-step process for winning Google AI Overviews. Read `PLAN.md` first. Product code lives under `packages/` and `apps/` once Milestone 1 starts; until then this file governs how the plan is executed.
 
 ## What to read before working
 
@@ -11,7 +11,7 @@ This repository holds the plan for Legiit Overviews, a SaaS that automates a six
 
 ## How to execute a task
 
-1. Work on exactly one task (T0.1, T0.2, ...) per session, in order. Do not skip ahead into a later milestone; milestones have exit criteria recorded in `docs/decisions/`.
+1. Work on exactly one task (T1.1, T1.2, ...) per session, in order. Do not skip ahead into a later milestone; record each milestone's exit numbers in `docs/decisions/`.
 2. Create the files the task names. Keep `packages/core` free of framework imports; `apps/cli` and `apps/web` import it.
 3. Write the acceptance test the task describes before or alongside the code. A task is done when `pnpm typecheck && pnpm lint && pnpm test` pass.
 4. Commit with the task id first in the subject line, then tick the task in `docs/progress.md`.
@@ -19,7 +19,7 @@ This repository holds the plan for Legiit Overviews, a SaaS that automates a six
 
 ## Hard rules
 
-- Never request any google.com host from code. Capture goes through `packages/core/src/providers/` only. A test enforces this.
+- Capture goes through the DataForSEO adapter in `packages/core/src/providers/` only; never request any google.com host from code. A test enforces this.
 - Never hard-code a Claude model ID. Use the aliases in `packages/core/src/config/models.ts` (`MODEL_EXTRACT`, `MODEL_MATRIX`, `MODEL_BRIEF`). A test greps for literal `claude-` strings.
 - Never store AI Overview images, Knowledge Panel media or full third-party page text beyond the 14-day raw cache. At most 5 quotes of 200 characters per cited page are kept.
 - Never train, fine-tune or distil anything on AI Overview text.
@@ -33,15 +33,15 @@ This repository holds the plan for Legiit Overviews, a SaaS that automates a six
 
 - `pnpm typecheck` (tsc --noEmit), `pnpm lint` (Biome), `pnpm test` (Vitest), `pnpm test:e2e` (Playwright)
 - `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`, `pnpm db:studio`
-- `pnpm jobs:dev` (Inngest dev server), `pnpm pilot <command>` (Milestone 0 CLI)
+- `pnpm jobs:dev` (Inngest dev server), `pnpm cli <command>` (fixtures, capture, report, patterns, eval)
 
 ## Pinned versions
 
-To be filled in by T0.1 with the exact versions installed.
+To be filled in by T1.1 with the exact versions installed.
 
 ## Conventions
 
 - TypeScript strict; zod-validated `env.ts`; no `any` without a comment.
 - Tests live next to code as `*.test.ts`; fixtures under `tests/fixtures/`; evals under `tests/evals/`.
 - Prompts and their zod schemas are versioned together under `packages/core/src/prompts/` and the version is stamped on every derived row.
-- Prose for users says "AI Overviews in Google Search". The footer on every route carries the trademark line in `PLAN.md` section 2, decision 14.
+- Prose for users says "AI Overviews in Google Search". The footer on every route carries the trademark line in `PLAN.md` section 3, decision 12.

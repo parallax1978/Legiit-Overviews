@@ -62,10 +62,12 @@ Gathered 2026-10-06. Each bullet is backed by a finding in the numbered files in
 
 ## What the research settles (carried into PLAN.md as constraints)
 
-1. Validate before building: a two-week concierge pilot with a CLI and fixtures, selling ten playbooks by hand through Legiit, gates the SaaS build.
+Note (2026-10-07): the founder dropped the pilot gate and made DataForSEO the unconditional capture API; see `docs/decisions/0002-no-pilot-gate-dataforseo-primary.md`. Items 1 and 4 below are superseded accordingly.
+
+1. (Superseded) A concierge pilot before the build.
 2. Capture is a global pool keyed on normalised query, country, language, location, device and provider; customers subscribe to series. Tenancy applies to queries, analyses and briefs, not snapshots.
 3. Cadence is a tier feature, and LLM extraction runs only on unique content, because extraction, not scraping, is the cost driver.
-4. DataForSEO primary (pending written confirmation on its terms), SerpApi Production fallback, provider health scoring, a product-owned canary set.
+4. (Superseded in part) DataForSEO is the capture API; provider health scoring and a product-owned canary set stay.
 5. Snapshot status and variant taxonomy, a fixture corpus in week one, capture days computed in the series' timezone, and minimum sample rules before a report is shown.
 6. A standalone own-page matcher module with match levels.
 7. Retention: raw payloads 90 days, normalised rows forever, cited-page HTML 14 days, short quotes only, no images, no training.

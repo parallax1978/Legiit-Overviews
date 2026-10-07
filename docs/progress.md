@@ -2,50 +2,45 @@
 
 Tick a task when its acceptance test passes and the commit is pushed. Record milestone exits in `docs/decisions/`.
 
-## Milestone 0: pilot kernel
+## Milestone 1: capture engine
 
-- [ ] T0.1 Monorepo scaffold
-- [ ] T0.2 Query intake
-- [ ] T0.3 SerpProvider interface and DataForSEO adapter
-- [ ] T0.4 SerpApi adapter and provider health
-- [ ] T0.5 Normaliser and fixture corpus
-- [ ] T0.6 Pilot storage and scheduled capture (7 capture days)
-- [ ] T0.7 Metrics module and gate report
-- [ ] T0.8 Claim extraction, embeddings, clustering, eval
-- [ ] T0.9 Cited-page pipeline and playbook generator
-- [ ] T0.10 Economics, legal register, gate decision (ADR 0002)
-
-## Milestone 1: cloud capture pool and safety rails
-
-- [ ] T1.1 apps/web scaffold
-- [ ] T1.2 Full schema, migrations, RLS, seed
-- [ ] T1.3 Slot scheduler
-- [ ] T1.4 Postback, normalise, sweeper, failover
-- [ ] T1.5 Provider health, canary, cost ledger, kill switches
-- [ ] T1.6 Extraction, clustering and metrics jobs
+- [ ] T1.1 Monorepo scaffold
+- [ ] T1.2 DataForSEO adapter
+- [ ] T1.3 Normaliser and fixture corpus
+- [ ] T1.4 Query intake
+- [ ] T1.5 Pool schema and storage
+- [ ] T1.6 Scheduler, postback, sweeper
+- [ ] T1.7 Metrics module and report
 - [ ] Milestone 1 exit recorded (ADR 0003)
 
-## Milestone 2: the seven-day loop UI
+## Milestone 2: analysis engine
 
-- [ ] T2.1 Auth, organisations, abuse controls
-- [ ] T2.2 Add-query flow
-- [ ] T2.3 Query dashboard
-- [ ] T2.4 Patterns and 7-day report
-- [ ] T2.5 Emails
+- [ ] T2.1 Claim extraction and clustering
+- [ ] T2.2 Extraction and metrics jobs
+- [ ] T2.3 Cited-page pipeline
+- [ ] T2.4 Coverage matrix
+- [ ] T2.5 Cost measurement
 - [ ] Milestone 2 exit recorded (ADR 0004)
 
-## Milestone 3: reverse-engineering, brief and billing
+## Milestone 3: the app and the seven-day loop
 
-- [ ] T3.1 Cited-page jobs
-- [ ] T3.2 Coverage matrix and brief jobs
-- [ ] T3.3 Sources, heatmap and brief UI
-- [ ] T3.4 Billing, plans and the Playbook SKU
+- [ ] T3.1 apps/web scaffold and full schema
+- [ ] T3.2 Auth, organisations, abuse controls
+- [ ] T3.3 Add-query flow
+- [ ] T3.4 Query dashboard and patterns report
+- [ ] T3.5 Emails and guardrails
 - [ ] Milestone 3 exit recorded (ADR 0005)
 
-## Milestone 4: publish, track and launch
+## Milestone 4: brief and billing
 
-- [ ] T4.1 Own-page matcher module
-- [ ] T4.2 Publish and track flow
-- [ ] T4.3 Legal and launch surface
-- [ ] T4.4 Launch operations
-- [ ] Milestone 4 exit and month-2 decision recorded (ADR 0006)
+- [ ] T4.1 Brief generation
+- [ ] T4.2 Sources, heatmap, brief and draft-score UI
+- [ ] T4.3 Billing and plans
+- [ ] Milestone 4 exit recorded (ADR 0006)
+
+## Milestone 5: publish, track and launch
+
+- [ ] T5.1 Own-page matcher module
+- [ ] T5.2 Publish and track flow
+- [ ] T5.3 Marketing, legal pages and launch
+- [ ] Milestone 5 exit recorded (ADR 0007)

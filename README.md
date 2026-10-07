@@ -19,7 +19,7 @@ Nothing in this repo is product code yet. It is the plan a Claude Code session e
 
 ## How the plan was made
 
-On 2026-10-06, seven research agents worked from primary sources (vendor docs, pricing pages, Google documentation, published studies). The top plan-critical claims were handed to independent fact-checkers told to refute them. A completeness critic listed gaps and contradictions. Three product architects then wrote independent proposals (MVP-first, analysis-engine-first, distribution-first) that three judges scored; the MVP-first proposal won unanimously and the best ideas from the others were grafted in. `PLAN.md` is the result.
+On 2026-10-06, seven research agents worked from primary sources (vendor docs, pricing pages, Google documentation, published studies). The top plan-critical claims were handed to independent fact-checkers told to refute them. A completeness critic listed gaps and contradictions. Three product architects then wrote independent proposals (MVP-first, analysis-engine-first, distribution-first) that three judges scored; the MVP-first proposal won unanimously and the best ideas from the others were grafted in. On the founder's direction the pilot-and-sell gate was removed and DataForSEO became the unconditional capture API (ADR 0002). `PLAN.md` is the result.
 
 ## Trademark note
 
