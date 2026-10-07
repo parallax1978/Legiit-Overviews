@@ -112,7 +112,7 @@ export function EvidenceTrigger({ seriesId, kind, evidenceKey, from, to, title, 
         open={open}
         onClose={() => setOpen(false)}
         eyebrow={KIND_EYEBROWS[kind]}
-        title={kind === "format" ? humanize(title) : title}
+        title={title}
         description={subtitle}
         footer={
           canLoadMore ? (
@@ -197,9 +197,15 @@ function EvidenceRow({ item, kind }: { item: EvidenceItem; kind: EvidenceKind })
           {kind === "entity" || kind === "domain" ? (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {notes.map((n) => (
-                <Chip key={n} tone={kind === "entity" && n.startsWith("Recommended") ? "brand" : "grey"} size="sm" className="whitespace-normal">
+                <span
+                  key={n}
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-xs",
+                    kind === "entity" && n.startsWith("Recommended") ? "bg-brand-faint text-brand-strong" : "bg-surface-sunken text-ink",
+                  )}
+                >
                   {n}
-                </Chip>
+                </span>
               ))}
             </div>
           ) : (
