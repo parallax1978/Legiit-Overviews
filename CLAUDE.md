@@ -1,47 +1,18 @@
 # CLAUDE.md
 
-This repository holds the plan for Legiit Overviews, a SaaS that automates a six-step process for winning Google AI Overviews. Read `PLAN.md` first. Product code lives under `packages/` and `apps/` once Milestone 1 starts; until then this file governs how the plan is executed.
+Legiit Overviews tracks a Google AI Overview daily, finds the patterns with Claude, and writes a brief for a page that can get cited. Read `PLAN.md`; it is short and it is the spec.
 
-## What to read before working
+Stack: DataForSEO (data), Claude API (analysis), Supabase (database, auth, Edge Functions, Cron), Next.js on Vercel (frontend).
 
-- `PLAN.md` sections 1, 2, 3 and 6: product, the APIs, settled decisions, the task you are on.
-- The spec files a task references under `docs/spec/`.
-- `docs/research/00-summary.md` for the evidence; the numbered research files only when a task touches that vendor or topic.
-- `docs/progress.md` to see which task is next.
+## How to work
 
-## How to execute a task
+- Do the build steps in `PLAN.md` section 6 in order, one per session. Tick them in `docs/progress.md` when the "done when" check passes.
+- Edge Functions live in `supabase/functions/`, shared code in `supabase/functions/_shared/`, migrations in `supabase/migrations/`, the app in `app/`.
+- If DataForSEO's real response differs from the plan, follow the real response and update `PLAN.md`.
 
-1. Work on exactly one task (T1.1, T1.2, ...) per session, in order. Do not skip ahead into a later milestone; record each milestone's exit numbers in `docs/decisions/`.
-2. Create the files the task names. Keep `packages/core` free of framework imports; `apps/cli` and `apps/web` import it.
-3. Write the acceptance test the task describes before or alongside the code. A task is done when `pnpm typecheck && pnpm lint && pnpm test` pass.
-4. Commit with the task id first in the subject line, then tick the task in `docs/progress.md`.
-5. If the research or the plan turns out to be wrong about a vendor, an API shape or a price, fix the code to reality, note the correction in `docs/decisions/` with the date, and keep going. Do not silently diverge from the plan.
+## Rules
 
-## Hard rules
-
-- Capture goes through the DataForSEO adapter in `packages/core/src/providers/` only; never request any google.com host from code. A test enforces this.
-- Never hard-code a Claude model ID. Use the aliases in `packages/core/src/config/models.ts` (`MODEL_EXTRACT`, `MODEL_MATRIX`, `MODEL_BRIEF`). A test greps for literal `claude-` strings.
-- Never store AI Overview images, Knowledge Panel media or full third-party page text beyond the 14-day raw cache. At most 5 quotes of 200 characters per cited page are kept.
-- Never train, fine-tune or distil anything on AI Overview text.
-- Every tenant query goes through `db.forOrg(orgId)` or `withOrg(orgId, tx)`. Capture-pool tables have no organisation column.
-- Every Inngest function declares `concurrency` and a throttle where it calls a vendor.
-- Never run `drizzle-kit push` or `vercel --prod` by hand. CI does migrations and production deploys.
-- Use Claude structured outputs via `client.messages.parse` with `zodOutputFormat`; check `stop_reason` before trusting `parsed_output`. Scheduled LLM work goes through the Message Batches API.
-- Pin versions: Next.js 16.3.x, TypeScript 6.x, Drizzle ORM 0.45.x. Record the exact installed versions below when scaffolding. Avoid any package released the same day you install it.
-
-## Commands (once scaffolded)
-
-- `pnpm typecheck` (tsc --noEmit), `pnpm lint` (Biome), `pnpm test` (Vitest), `pnpm test:e2e` (Playwright)
-- `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:seed`, `pnpm db:studio`
-- `pnpm jobs:dev` (Inngest dev server), `pnpm cli <command>` (fixtures, capture, report, patterns, eval)
-
-## Pinned versions
-
-To be filled in by T1.1 with the exact versions installed.
-
-## Conventions
-
-- TypeScript strict; zod-validated `env.ts`; no `any` without a comment.
-- Tests live next to code as `*.test.ts`; fixtures under `tests/fixtures/`; evals under `tests/evals/`.
-- Prompts and their zod schemas are versioned together under `packages/core/src/prompts/` and the version is stamped on every derived row.
-- Prose for users says "AI Overviews in Google Search". The footer on every route carries the trademark line in `PLAN.md` section 3, decision 12.
+- The Claude model ID is defined once in `supabase/functions/_shared/claude.ts`.
+- Use structured outputs (`output_config.format` with a JSON schema) and check `stop_reason` before parsing.
+- Every table users can see has row-level security. Edge Functions use the service role key; the browser never sees it or any API key.
+- Keep secrets in Supabase secrets and Vercel env vars, never in the repo.
