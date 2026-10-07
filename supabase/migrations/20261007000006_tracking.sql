@@ -2,11 +2,13 @@
 -- held, matching while paused, a bounded brand list, and the daily loss check in one place.
 --   citation_events.own_url_key   the page an event was about, so a new URL starts with a clean history
 --   platform_daily.pairs          the (series, domain) pairs behind domain_turnover, for its noise floor
---   brand_names_ok                at most 10 brand names of 2 to 60 trimmed characters (check constraint)
+--   brand_names_ok                at most 10 brand names of 2 to 60 trimmed characters, no two equal
+--                                 ignoring case (check constraint)
 --   citation_losses               queries whose page is out at p_ref: new losses and held ones to release
 --                                 (replaces lost_candidates from 0002)
 --   platform_event_notifications  one notification per user with an active query, in SQL (no row cap)
---   own_match_events              events scoped to the own URL; history citations dated, with their loss
+--   own_match_events              events scoped to the own URL; history citations dated, with their loss;
+--                                 a comeback while the loss is still held is held too
 --   record_own_match              matches recorded while paused, without events or notifications
 --   tracking_summary              the latest citation comes from the 28-day window like the rest
 --   compute_platform_daily        records pairs
@@ -26,7 +28,8 @@ alter table public.platform_daily add column if not exists pairs int;
 create index if not exists tracked_queries_series_all_idx on public.tracked_queries (series_id);
 
 -- Brand names are matched against every overview of the series, so the list is bounded even when
--- written directly through the column grant: at most 10, each 2 to 60 characters with no outer spaces.
+-- written directly through the column grant: at most 10, each 2 to 60 characters with no outer
+-- spaces, no two the same ignoring case (set-own-page writes the same rules).
 create or replace function public.brand_names_ok(p_names text[])
 returns boolean
 language sql immutable set search_path = ''
@@ -36,6 +39,7 @@ as $$
       select 1 from unnest(p_names) b
       where b is null or b <> btrim(b) or length(b) < 2 or length(b) > 60
     )
+    and coalesce(cardinality(p_names), 0) = (select count(distinct lower(b)) from unnest(p_names) b)
 $$;
 
 alter table public.tracked_queries drop constraint if exists tracked_queries_brand_names_check;
@@ -79,7 +83,7 @@ as $$
     where s.series_id = q.series_id and s.status = 'present'
       and s.captured_at >= p_ref - interval '48 hours'
   ) w
-  where q.own_url is not null and q.status <> 'paused'
+  where q.own_url is not null and q.own_url_key is not null and q.status <> 'paused'
     and (p_tracked_query_ids is null or q.id = any(p_tracked_query_ids))
     and (last_event.kind in ('first_seen', 'regained') or (last_event.kind = 'lost' and last_event.held))
     and w.present > 0 and w.cited = 0
@@ -106,11 +110,12 @@ $$;
 -- Events and notifications for one match. Callers decide the match is new; this decides which events
 -- it is: first_seen (none yet for the page), regained (the page's latest citation event is lost, from
 -- before this capture), brand_mention (none yet). Citation events carry the own URL key they were
--- about, so a new URL starts with a clean history. Events are timed at the render (the snapshot's
--- captured_at) unless p_at is given: then the citation is history (re-matching after the URL was set),
--- the notification says when the page was cited, and when no matched present render of the last 48
--- hours cites it any more the loss is recorded at once, without a notification of its own, so the
--- nightly check does not report it again.
+-- about, so a new URL starts with a clean history. A comeback while the loss is still held for a
+-- platform event is recorded held too, without a notification: the user was never told of the loss.
+-- Events are timed at the render (the snapshot's captured_at) unless p_at is given: then the citation
+-- is history (re-matching after the URL was set), the notification says when the page was cited, and
+-- when no matched present render of the last 48 hours cites it any more the loss is recorded at once,
+-- without a notification of its own, so the nightly check does not report it again.
 create or replace function public.own_match_events(
   p_tracked_query_id uuid,
   p_snapshot_id uuid,
@@ -129,9 +134,11 @@ declare
   v_key text;
   v_last_kind text;
   v_last_at timestamptz;
+  v_last_held boolean;
   v_captured timestamptz;
   v_at timestamptz;
   v_kind text;
+  v_held boolean := false;
   v_level text;
   v_when text := '';
   v_body text;
@@ -154,7 +161,7 @@ begin
   end if;
 
   if p_level is not null then
-    select e.kind, e.created_at into v_last_kind, v_last_at
+    select e.kind, e.created_at, e.held_for_platform_event into v_last_kind, v_last_at, v_last_held
     from public.citation_events e
     where e.tracked_query_id = p_tracked_query_id and e.kind in ('first_seen', 'lost', 'regained')
       and e.own_url_key is not distinct from v_key
@@ -168,12 +175,15 @@ begin
       v_kind := 'first_seen';
     elsif p_allow_regained and v_last_kind = 'lost' and v_captured > v_last_at then
       v_kind := 'regained';
+      v_held := coalesce(v_last_held, false);
     end if;
 
     if v_kind is not null then
       v_level := replace(replace(p_level, '_url', ' URL'), '_', ' ');
-      insert into public.citation_events (tracked_query_id, snapshot_id, kind, level, quoted_heading, own_url_key, created_at)
-      values (p_tracked_query_id, p_snapshot_id, v_kind, p_level, p_quoted_heading, v_key, v_at);
+      insert into public.citation_events (
+        tracked_query_id, snapshot_id, kind, level, quoted_heading, own_url_key, held_for_platform_event, created_at
+      )
+      values (p_tracked_query_id, p_snapshot_id, v_kind, p_level, p_quoted_heading, v_key, v_held, v_at);
       v_events := v_events || v_kind;
       v_body := 'Google''s AI Overview cited your page'
         || case v_kind when 'regained' then ' again' else '' end
@@ -193,13 +203,15 @@ begin
         end if;
       end if;
 
-      insert into public.notifications (user_id, tracked_query_id, kind, title, body, link)
-      values (
-        v_user, p_tracked_query_id, v_kind,
-        case v_kind when 'first_seen' then 'Cited' else 'Cited again' end || v_when || ': ' || v_keyword,
-        v_body,
-        v_link
-      );
+      if not v_held then
+        insert into public.notifications (user_id, tracked_query_id, kind, title, body, link)
+        values (
+          v_user, p_tracked_query_id, v_kind,
+          case v_kind when 'first_seen' then 'Cited' else 'Cited again' end || v_when || ': ' || v_keyword,
+          v_body,
+          v_link
+        );
+      end if;
     end if;
   end if;
 

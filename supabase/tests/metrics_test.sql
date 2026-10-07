@@ -3,7 +3,7 @@
 begin;
 set local client_min_messages = warning;
 create extension if not exists pgtap with schema extensions;
-select plan(154);
+select plan(167);
 
 -- The service role may read any series.
 set local request.jwt.claims to '{"role":"service_role"}';
@@ -400,6 +400,46 @@ select is((select (pg_temp.ev('format', 'table')->>'total')::int), 2, 'format ev
 select is((select pg_temp.ev('format', 'table')->'items'->0->'sentences'), '[]'::jsonb, 'formats carry no sentences');
 select throws_ok($$ select pg_temp.ev('nonsense', 'x') $$, '22023', null, 'unknown kind is rejected');
 select throws_ok($$ select pg_temp.ev('claim', 'not-a-uuid') $$, '22023', null, 'claim keys must be uuids');
+
+-- presence: the 11 non-error captures (S5 errored), S3 the only absent one.
+select is((select (pg_temp.ev('presence', 'all')->>'total')::int), 11, 'presence evidence: every render');
+select is((select (pg_temp.ev('presence', 'present')->>'total')::int), 10, 'presence evidence: present renders');
+select is((select (pg_temp.ev('presence', 'all')->'items'->0) - 'captured_at'),
+  '{"snapshot_id":"a0000000-0000-4000-8000-000000000112","status":"present","sentences":[],"note":null}'::jsonb,
+  'presence items carry their status, most recent first');
+select is((select pg_temp.ev('presence', 'absent')->'items'), jsonb_build_array(jsonb_build_object(
+    'snapshot_id', pg_temp.sid(3), 'captured_at', '2026-01-05 06:00Z'::timestamptz, 'status', 'absent', 'sentences', '[]'::jsonb, 'note', null)),
+  'presence evidence: the absent render');
+select throws_ok($$ select pg_temp.ev('presence', 'error') $$, '22023', null, 'presence keys are all, present or absent');
+
+-- overlap, against organic_overlap (top10 6/17, top20 13/17): top 10 is U1 at #3 in S1 S2 S4 S6 and
+-- U4 at #1 in S11 S12; top 20 adds U2 at #12 in S1 S2 S4 S6 and U1 at #15 in S7 S8 S9.
+select is((select (pg_temp.ev('overlap', 'top10')) - 'items'), '{"total":6,"citations":6,"occurrences":17}'::jsonb,
+  'overlap top 10: six renders, the 6 of 17 citations organic_overlap counts');
+select is((select (pg_temp.ev('overlap', 'top20')) - 'items'), '{"total":9,"citations":13,"occurrences":17}'::jsonb,
+  'overlap top 20: nine renders, 13 of 17 citations');
+select is((select (pg_temp.ev('overlap', 'top10')->'items'->0) - 'captured_at'),
+  '{"snapshot_id":"a0000000-0000-4000-8000-000000000112","note":"zapier.com/blog/tally-review (#1)",
+    "sentences":[{"i":0,"text":"Jotform is the best overall form builder.","citations":[0]}]}'::jsonb,
+  'overlap item: the sentences citing the ranking page, the page and its rank');
+select is((select pg_temp.ev('overlap', 'top20')->'items'->8->>'note'),
+  'jotform.com/blog/best-form-builders (#3), zapier.com/blog/best-online-form-builder-software (#12)', 'S1: both pages, best rank first');
+select is((select jsonb_array_length(pg_temp.ev('overlap', 'top20')->'items'->8->'sentences')), 2, 'S1: the sentences citing either page');
+select throws_ok($$ select pg_temp.ev('overlap', 'top5') $$, '22023', null, 'overlap keys are top10 or top20');
+
+-- ============================================================== window_passages
+-- Fixture A rows carry only passage (rows from before citations.passages); S2's U2 row has three,
+-- one blank and one with odd whitespace. Counts are renders: S1's two U1 rows count once.
+update public.citations set passages = array['Tally has a generous   free plan.', E'Zapier\n likes\u00a0Tally.', E' \t ']
+where snapshot_id = pg_temp.sid(2) and idx = 1;
+select is(public.window_passages('a0000000-0000-4000-8000-000000000001', '2026-01-05 00:00Z', '2026-01-07 00:00Z',
+    array['jotform.com/blog/best-form-builders', 'zapier.com/blog/best-online-form-builder-software', 'youtube.com/watch?v=abc', 'zapier.com/blog/tally-review']),
+  '[{"url_key":"jotform.com/blog/best-form-builders","passages":["Jotform is the best overall form builder."],"counts":[8]},
+    {"url_key":"zapier.com/blog/best-online-form-builder-software","passages":["Tally has a generous free plan.","Zapier likes Tally."],"counts":[4,1]},
+    {"url_key":"zapier.com/blog/tally-review","passages":["Tally is free."],"counts":[2]}]'::jsonb,
+  'window_passages: every passage, whitespace collapsed, blanks and passage-less pages left out, renders per passage');
+select is(public.window_passages('a0000000-0000-4000-8000-000000000001', '2026-01-05 00:00Z', '2026-01-07 00:00Z', array['nobody.example/x']),
+  '[]'::jsonb, 'window_passages: nothing for an uncited page');
 
 -- ============================================================== extraction pending, whole-day diffs
 -- S14 01-06 18:00 present, extraction pending, cites U1, no claims yet. S15 01-08 03:00 the same with U3.

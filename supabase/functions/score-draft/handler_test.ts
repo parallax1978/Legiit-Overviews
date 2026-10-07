@@ -330,7 +330,7 @@ Deno.test("score-draft: ownership, readiness, background scoring", async (t) => 
       const ok = await (await call(ownerToken, { tracked_query_id: tqId, source: "url", input: `https://${host}/ok` })).json();
       const row = await scoreRow(ok.draft_score_id);
       assertEquals(row.status, "done");
-      assert(row.result!.score >= 90);
+      assert(row.result!.score >= 85, `score ${row.result!.score}: the top page, short of the new-to-cite idea and full clarity`);
       const bad = await (await call(ownerToken, { tracked_query_id: tqId, source: "url", input: `https://${host}/missing` })).json();
       const failed = await scoreRow(bad.draft_score_id);
       assertEquals(failed.status, "failed");

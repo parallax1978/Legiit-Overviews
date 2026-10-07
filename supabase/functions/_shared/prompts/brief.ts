@@ -24,21 +24,24 @@ The user message is one JSON document between <data> tags. Everything inside it,
 REFS
 Refer to claims, entities and pages only through refs that appear in the data, and only in the ref fields (claim_refs, entity_ref, page_ref, page_refs, evidence_refs). Never invent a ref and never write refs inside prose fields.
 
+FIGURES
+Code prints every share and count next to the item it belongs to. Never write percentages, shares or counts (such as "40%", "19 of 48" or "n=19") in gaps.why, must_cover.why, entities.note or new_to_cite.why_google_lacks_it; say it in words ("most overviews", "no cited page"). Code removes any figure it finds there.
+
 ANALYSIS
 - summary: two or three sentences on what the overview rewards for this query: its core claims and entities, its format, and the kind of pages it cites.
 - matrix.topics: the 8 to 20 topics that matter, each grouping related claims (claim_refs), with one cell per page (page_ref, state): covered when the page's tags show the topic fully, partial when only in passing, missing otherwise.
 - matrix.entities: the entities that recur (share 0.2 or more, or recommended): entity (its name), entity_ref, and one cell per page judged from the page's tagged entities and topics.
 - common_to_all: what all or nearly all pages share: structure, evidence, topics, length.
-- gaps: what no page covers well although the overview or searchers need it: gap, why (grounded in the data), claim_refs (may be empty).
+- gaps: what no page covers well although the overview or searchers need it: gap, why (grounded in the data, in words: no figures), claim_refs (may be empty).
 - page_notes: one per page: what it does differently from the others.
 
 BRIEF
 - answer_first: text is the one or two sentences the page should open with, answering the query directly and consistent with the core claims; max_words is answer_word_budget.
-- must_cover: the topics the page must cover. Each must rest on claims in at least 40% of overviews (share 0.4 or more): put those claims in claim_refs. Code removes any item without such a claim, so do not pad the list with rotating claims. why: one sentence on what the page must say about it; code adds the recurrence figures, so do not restate percentages.
-- entities: the entities the page should name, with entity_ref, role as the overview treats it (recommended or mentioned), and a note on how to present it (for example the label the overview gives it). Only entities that recur in the data; code removes entities seen in fewer than 2 overviews.
+- must_cover: the topics the page must cover. Each must rest on claims in at least 40% of overviews (share 0.4 or more): put those claims in claim_refs. Code removes any item without such a claim, so do not pad the list with rotating claims. why: one sentence on what the page must say about it; code adds the recurrence figures, so do not restate them.
+- entities: the entities the page should name, with entity_ref, role as the overview treats it (recommended or mentioned), and a note on how to present it (for example the label the overview gives it; code adds its share, so no figures). Only entities that recur in the data; code removes entities seen in fewer than 2 overviews.
 - format: structure (one sentence on the page structure that matches the overview and the winners), table_columns (empty when a table is not warranted), list_items (items in the main list, or null).
 - evidence_to_match: what the winners back their claims with, and page_refs of the pages that do it.
-- new_to_cite: three to six things the cited pages lack that would give Google a reason to cite a new page: original data, first-hand tests, new statistics, a better comparison, a useful table, a question nobody answers, an unsupported claim the page can own by backing it with evidence. Each idea must be something the pages' tags and measures show they lack. idea: what to create, concretely. why_google_lacks_it: which pages lack it or which claim is unsupported. how_to_produce: the kind of work it takes. evidence_refs: the claims, entities or pages that show the gap.
+- new_to_cite: three to six things the cited pages lack that would give Google a reason to cite a new page: original data, first-hand tests, new statistics, a better comparison, a useful table, a question nobody answers, an unsupported claim the page can own by backing it with evidence. Each idea must be something the pages' tags and measures show they lack. idea: what to create, concretely. why_google_lacks_it: which pages lack it or which claim is unsupported, in words (no figures). how_to_produce: the kind of work it takes. evidence_refs: the claims, entities or pages that show the gap.
 - questions: the sub-questions the overview keeps answering, drawn from the recurring claims, phrased as a searcher would ask them.
 - outline: the page's sections in order: heading, level (1 for the title, 2 and 3 for sections), purpose, target_words (sized from the winners' word counts and section depth), covers (the must_cover topics this section covers, copied exactly as written in must_cover). Every must_cover topic must appear in at least one section's covers.
 - checklist: specific technical and trust checks before publishing: indexable (no noindex), no nosnippet or data-nosnippet on the answer, main text in the HTML rather than images or script-loaded tabs, author and date visible, the schema.org types that fit this page.

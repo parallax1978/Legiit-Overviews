@@ -91,14 +91,23 @@ function num(v: unknown): number | null {
 
 /**
  * The day's own sampling noise around the baseline mean: for the rates the binomial deviation over
- * the day's renders or pairs, so a flat baseline (sd 0) never turns one series' ordinary move into a
- * Google-wide shift.
+ * the day's renders or pairs (the rate smoothed by one success and one failure, so a baseline flat at
+ * 0 or 1 still has some), so a flat baseline (sd 0) never turns an ordinary move into a shift.
  */
 function noiseFloor(m: PlatformMetric, mean: number, today: PlatformDaily): number {
   if (m === "citations_per_render") return MIN_SD_CITATIONS;
   const n = m === "presence_rate" ? today.renders : today.pairs ?? 0;
-  const p = Math.min(Math.max(mean, 0), 1);
-  return n > 0 ? Math.sqrt(p * (1 - p) / n) : 0;
+  if (!(n > 0)) return 0;
+  const p = (Math.min(Math.max(mean, 0), 1) * n + 1) / (n + 2);
+  return Math.sqrt(p * (1 - p) / n);
+}
+
+/**
+ * Whether the day can be judged at all: enough baseline days, and a pool of renders and series large
+ * enough to stand for Google rather than for one query's ordinary variation.
+ */
+export function canJudge(today: PlatformDaily, history: PlatformDaily[]): boolean {
+  return history.length >= MIN_BASELINE_DAYS && today.renders >= MIN_RENDERS && today.series_count >= MIN_SERIES;
 }
 
 /** Compares each metric with the trailing days; a shift is beyond SIGMAS deviations (at least the day's noise) and MIN_CHANGE. */
@@ -163,7 +172,7 @@ export async function detectPlatformEvents(opts: DetectOptions = {}): Promise<De
   const summary: DetectSummary = {
     day, metrics, baseline: null, shifted: [], event: false, platform_notifications: 0, lost: 0, held: 0, released: 0, lost_notifications: 0,
   };
-  if (history.length >= MIN_BASELINE_DAYS && metrics.renders >= MIN_RENDERS && metrics.series_count >= MIN_SERIES) {
+  if (canJudge(metrics, history)) {
     summary.baseline = compareWithBaseline(metrics, history);
     summary.shifted = METRICS.filter((m) => summary.baseline![m].shifted);
   }
@@ -196,12 +205,15 @@ export async function detectPlatformEvents(opts: DetectOptions = {}): Promise<De
     for (const c of candidates) {
       if (c.held_event_id) {
         if (held) continue;
-        must(
+        const released = must(
           await db.from("citation_events")
             .update({ held_for_platform_event: false, snapshot_id: c.latest_snapshot_id, created_at: ref.toISOString() })
-            .eq("id", c.held_event_id),
+            .eq("id", c.held_event_id)
+            .eq("held_for_platform_event", true)
+            .select("id"),
           "release lost event",
-        );
+        ) as { id: string }[];
+        if (!released.length) continue; // released by a run that overlapped this one
         summary.released++;
       } else {
         must(

@@ -1,6 +1,8 @@
 // Task D batch work: the coverage matrix and brief for each report whose pages are ready.
-// Pending: reports.stage = 'brief' and brief_submitted = false. The result goes through brief-render
-// (typed refs, code checks, Markdown), then apply_brief moves the report to 'ready' and notifies.
+// Pending: reports.stage = 'brief' and brief_submitted = false. The report's metrics are recomputed
+// when its request is built, so merges from a consolidation that ran after the report was created
+// (and captures extracted late) are in the brief and its figures. The result goes through
+// brief-render (typed refs, code checks, Markdown), then apply_brief moves the report to 'ready'.
 // A request that errored, expired, was truncated, refused or came back invalid is reported by
 // throwing and nothing else: release_stuck_work then resubmits the report, and fails it once two
 // attempts have failed. Only an invalid request fails the report at once.
@@ -21,6 +23,8 @@ export const BRIEF_MAX_TOKENS_RETRY = 128000;
 const MAX_CLAIMS = 60;
 const MAX_ENTITIES = 40;
 const MAX_PASSAGES = 5;
+/** series_metrics calls run at once while requests are built. */
+const METRICS_CONCURRENCY = 4;
 
 export interface PageDetail {
   url_key: string;
@@ -197,6 +201,29 @@ async function failBrief(reportId: string, error: string): Promise<void> {
   );
 }
 
+/**
+ * Recomputes the report's metrics over its window and stores them (metrics and renders), so the
+ * brief and the stored figures agree with the live claim groups and entities. On failure the
+ * stored metrics are kept.
+ */
+async function refreshMetrics(row: BriefRow): Promise<void> {
+  const db = serviceClient();
+  const { data, error } = await db.rpc("series_metrics", { p_series_id: row.series_id, p_from: row.window_start, p_to: row.window_end });
+  if (error || !data) {
+    console.error(`report ${row.id}: metrics not recomputed: ${error?.message ?? "no data"}`);
+    return;
+  }
+  const metrics = data as SeriesMetrics;
+  must(
+    await db.from("reports").update({ metrics, renders: metrics.renders, updated_at: new Date().toISOString() })
+      .eq("id", row.id).eq("stage", "brief"),
+    "save brief metrics",
+  );
+  const { daily: _daily, ...rest } = metrics;
+  row.metrics = rest;
+  row.renders = metrics.renders;
+}
+
 async function loadRow(reportId: string): Promise<BriefRow | null> {
   return must(await serviceClient().rpc("brief_context", { p_report_id: reportId }), "brief_context") as BriefRow | null;
 }
@@ -222,6 +249,7 @@ export const briefWork: ScopedWork = {
       await serviceClient().rpc("brief_pending", { p_limit: limit, p_series_ids: scope?.seriesIds ?? null }),
       "brief_pending",
     ) as BriefRow[];
+    for (const part of chunks(rows, METRICS_CONCURRENCY)) await Promise.all(part.map(refreshMetrics));
     const truncated = rows.length ? await truncatedBefore(rows.map((r) => r.id)) : new Set<string>();
     return rows.map((row) => {
       const { input, refs } = briefInput(row);

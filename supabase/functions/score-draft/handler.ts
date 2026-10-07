@@ -187,7 +187,7 @@ async function markFailed(id: string, e: unknown): Promise<void> {
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
-  let timer: number | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(message)), ms);
   });

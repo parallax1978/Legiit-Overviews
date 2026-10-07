@@ -531,7 +531,10 @@ $$;
  * The renders behind one number in series_metrics, most recent first:
  * { total, items: [{ snapshot_id, captured_at, sentences: [{ i, text, citations }], note }] }.
  * Kinds: claim | unsupported (key: claim group id), entity (entity id), source (url_key),
- * domain (reg_domain), format (label).
+ * domain (reg_domain), format (label), presence ('all' | 'present' | 'absent': the non-error
+ * captures, each item with its status), overlap ('top10' | 'top20': renders citing a page that also
+ * ranks in that render's organic top 10 / 20; note lists those pages with their rank, and the result
+ * adds citations and occurrences, the numerator and denominator of organic_overlap).
  */
 create or replace function public.metric_evidence(
   p_series_id uuid, p_kind text, p_key text, p_from timestamptz, p_to timestamptz, p_limit int default 50
@@ -541,17 +544,22 @@ language plpgsql stable security definer set search_path = '' set timezone = 'UT
 as $$
 declare
   v_limit int := least(greatest(coalesce(p_limit, 50), 1), 500);
+  v_rank int;
   v_id uuid;
   v_next uuid;
   v_result jsonb;
 begin
   perform public.assert_series_access(p_series_id);
 
-  if p_kind is null or p_kind not in ('claim', 'unsupported', 'entity', 'source', 'domain', 'format') then
+  if p_kind is null or p_kind not in ('claim', 'unsupported', 'entity', 'source', 'domain', 'format', 'presence', 'overlap') then
     raise exception 'unknown evidence kind %', p_kind using errcode = '22023';
   end if;
   if p_key is null then
     raise exception 'missing key' using errcode = '22023';
+  end if;
+  if (p_kind = 'presence' and p_key not in ('all', 'present', 'absent'))
+     or (p_kind = 'overlap' and p_key not in ('top10', 'top20')) then
+    raise exception 'invalid key %', p_key using errcode = '22023';
   end if;
 
   if p_kind in ('claim', 'unsupported', 'entity') then
@@ -638,6 +646,73 @@ begin
     )
     select jsonb_build_object(
       'total', (select count(*) from hits),
+      'items', coalesce((
+        select jsonb_agg(jsonb_build_object(
+            'snapshot_id', h.id, 'captured_at', h.captured_at,
+            'sentences', public.snapshot_sentences(h.sentences, public.sentences_citing(h.sentences, h.cidx)),
+            'note', h.note
+          ) order by h.captured_at desc, h.id)
+        from (select * from hits order by captured_at desc, id limit v_limit) h
+      ), '[]'::jsonb))
+    into v_result;
+
+  elsif p_kind = 'presence' then
+    with hits as (
+      select s.id, s.captured_at, s.status
+      from public.snapshots s
+      where s.series_id = p_series_id and s.status <> 'error'
+        and s.captured_at >= p_from and s.captured_at < p_to
+        and (p_key = 'all' or s.status = p_key)
+    )
+    select jsonb_build_object(
+      'total', (select count(*) from hits),
+      'items', coalesce((
+        select jsonb_agg(jsonb_build_object(
+            'snapshot_id', h.id, 'captured_at', h.captured_at, 'status', h.status, 'sentences', '[]'::jsonb, 'note', null
+          ) order by h.captured_at desc, h.id)
+        from (select * from hits order by captured_at desc, id limit v_limit) h
+      ), '[]'::jsonb))
+    into v_result;
+
+  elsif p_kind = 'overlap' then
+    v_rank := case p_key when 'top10' then 10 else 20 end;
+    with pres as materialized (
+      select s.id, s.captured_at, s.sentences, s.organic
+      from public.snapshots s
+      where s.series_id = p_series_id and s.status = 'present'
+        and s.captured_at >= p_from and s.captured_at < p_to
+    ),
+    -- best organic rank of each url_key in each render, as series_metrics ranks them
+    org as (
+      select p.id as snapshot_id, o.url_key, min(o.rank) as rank
+      from pres p
+      cross join lateral jsonb_to_recordset(
+        case when jsonb_typeof(p.organic) = 'array' then p.organic else '[]'::jsonb end
+      ) as o(rank numeric, url_key text)
+      where o.url_key is not null and o.rank is not null
+      group by p.id, o.url_key
+    ),
+    cits as materialized (
+      select ci.snapshot_id, ci.idx, ci.url_key, org.rank
+      from pres p
+      join public.citations ci on ci.snapshot_id = p.id
+      left join org on org.snapshot_id = ci.snapshot_id and org.url_key = ci.url_key
+    ),
+    inside as materialized (
+      select * from cits where rank <= v_rank
+    ),
+    hits as (
+      select p.id, p.captured_at, p.sentences,
+             array_agg(i.idx order by i.idx) as cidx,
+             (select string_agg(d.url_key || ' (#' || d.rank::bigint || ')', ', ' order by d.rank, d.url_key)
+                from (select distinct i2.url_key, i2.rank from inside i2 where i2.snapshot_id = p.id) d) as note
+      from pres p join inside i on i.snapshot_id = p.id
+      group by p.id, p.captured_at, p.sentences
+    )
+    select jsonb_build_object(
+      'total', (select count(*) from hits),
+      'citations', (select count(*) from (select distinct snapshot_id, url_key from inside) x),
+      'occurrences', (select count(*) from (select distinct snapshot_id, url_key from cits) x),
       'items', coalesce((
         select jsonb_agg(jsonb_build_object(
             'snapshot_id', h.id, 'captured_at', h.captured_at,
@@ -915,30 +990,34 @@ end;
 $$;
 
 /**
- * Distinct passages Google quoted from each url_key in a series window:
- * [{ url_key, passages: text[] }] (at most 20 per url_key, most frequent first).
+ * Distinct passages Google quoted from each url_key in a series window, read from every passage of
+ * each citation (rows written before citations.passages existed fall back to passage), whitespace
+ * collapsed: [{ url_key, passages: text[], counts: int[] }] ordered by url_key, at most 20 passages
+ * per url_key, most quoted first; counts[i] is the number of present renders that quoted passages[i].
  */
 create or replace function public.window_passages(p_series_id uuid, p_from timestamptz, p_to timestamptz, p_url_keys text[])
 returns jsonb
 language sql stable security definer set search_path = ''
 as $$
   with p as (
-    select ci.url_key, btrim(x) as passage, count(*) as n
+    select ci.url_key, t.passage, count(distinct s.id) as n
     from public.citations ci
     join public.snapshots s on s.id = ci.snapshot_id
     cross join lateral unnest(case when ci.passages = '{}' and ci.passage is not null then array[ci.passage] else ci.passages end) x
+    cross join lateral (select btrim(regexp_replace(x, '[\s\u00a0]+', ' ', 'g')) as passage) t
     where ci.url_key = any(p_url_keys)
       and s.series_id = p_series_id and s.status = 'present'
       and s.captured_at >= p_from and s.captured_at < p_to
-      and btrim(x) <> ''
-    group by ci.url_key, btrim(x)
+      and t.passage <> ''
+    group by ci.url_key, t.passage
   ),
   ranked as (
-    select url_key, passage, row_number() over (partition by url_key order by n desc, passage) as rn from p
+    select url_key, passage, n, row_number() over (partition by url_key order by n desc, passage) as rn from p
   )
-  select coalesce(jsonb_agg(jsonb_build_object('url_key', k.url_key, 'passages', k.passages)), '[]'::jsonb)
+  select coalesce(jsonb_agg(jsonb_build_object('url_key', k.url_key, 'passages', k.passages, 'counts', k.counts) order by k.url_key), '[]'::jsonb)
   from (
-    select url_key, jsonb_agg(passage order by rn) as passages from ranked where rn <= 20 group by url_key
+    select url_key, jsonb_agg(passage order by rn) as passages, jsonb_agg(n order by rn) as counts
+    from ranked where rn <= 20 group by url_key
   ) k
 $$;
 

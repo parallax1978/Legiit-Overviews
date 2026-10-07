@@ -9,6 +9,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Brand name length after trimming; tracked_queries_brand_names_check enforces the same bounds. */
 const MIN_BRAND_LENGTH = 2;
 const MAX_BRAND_LENGTH = 60;
+const BRAND_RULES = `Add at most ${MAX_BRANDS} brand names of ${MIN_BRAND_LENGTH} to ${MAX_BRAND_LENGTH} characters each.`;
 const MAX_URL_LENGTH = 2048;
 
 export async function handle(req: Request): Promise<Response> {
@@ -38,10 +39,10 @@ export async function handle(req: Request): Promise<Response> {
   if (brands instanceof Response) return brands;
 
   const ownUrlKey = ownUrl ? normalizeUrl(ownUrl) : null;
-  must(
-    await db.from("tracked_queries").update({ own_url: ownUrl, own_url_key: ownUrlKey, brand_names: brands }).eq("id", id),
-    "save own page settings",
-  );
+  const saved = await db.from("tracked_queries").update({ own_url: ownUrl, own_url_key: ownUrlKey, brand_names: brands }).eq("id", id);
+  // check_violation: tracked_queries_brand_names_check judged a name this code accepted.
+  if (saved.error?.code === "23514") return fail(BRAND_RULES);
+  must(saved, "save own page settings");
   if (ownUrlKey !== tq.own_url_key) {
     // Matches describe the page they were made for: a new (or no) page starts from nothing, and the
     // re-match below rewrites the last 28 days. Rows older than that would otherwise keep the old
@@ -80,12 +81,12 @@ function parseBrands(v: unknown): string[] | Response {
     const name = raw.normalize("NFKC").trim().replace(/\s+/g, " ");
     const key = name.toLowerCase();
     if (!name || seen.has(key)) continue;
-    if (name.length < MIN_BRAND_LENGTH || name.length > MAX_BRAND_LENGTH) {
-      return fail(`Brand names are ${MIN_BRAND_LENGTH} to ${MAX_BRAND_LENGTH} characters.`);
-    }
+    // Characters as Postgres counts them (code points), so the check constraint agrees.
+    const length = [...name].length;
+    if (length < MIN_BRAND_LENGTH || length > MAX_BRAND_LENGTH) return fail(BRAND_RULES);
     seen.add(key);
     out.push(name);
   }
-  if (out.length > MAX_BRANDS) return fail(`Add at most ${MAX_BRANDS} brand names.`);
+  if (out.length > MAX_BRANDS) return fail(BRAND_RULES);
   return out;
 }

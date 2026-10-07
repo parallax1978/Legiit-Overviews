@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { answerBudget, type BriefContext, briefMarkdown, renderBrief } from "./brief-render.ts";
+import { answerBudget, type BriefContext, briefMarkdown, renderBrief, stripFigures } from "./brief-render.ts";
 import { BriefOutput } from "./schemas.ts";
 
 const G1 = "11111111-1111-4111-8111-111111111111";
@@ -172,6 +172,58 @@ Deno.test("brief Markdown escapes emphasis and HTML from model text", () => {
   o.summary = "Use <script>alert(1)</script> and *stars*";
   const { markdown } = renderBrief(o, ctx());
   assertStringIncludes(markdown, "Use &lt;script>alert(1)&lt;/script> and \\*stars\\*");
+});
+
+Deno.test("renderBrief accepts an entity ref only for the entity the model named", () => {
+  const o = output();
+  o.matrix.entities = [{ entity: "Tally", entity_ref: "E1", cells: [] }];
+  o.brief.entities = [
+    // E1 is Jotform: the ref is wrong, the name is right, so Tally keeps Tally's figures.
+    { name: "Tally", entity_ref: "E1", role: "recommended", note: "Best free option." },
+    // An alias of the referenced entity is the same entity.
+    { name: "Jotform Forms", entity_ref: "E1", role: "recommended", note: "Lead with it." },
+    // Neither the ref nor the name points at an entity in the data.
+    { name: "Wufoo", entity_ref: "E3", role: "mentioned", note: "Old." },
+  ];
+  const c = ctx({
+    entities: { ...ctx().entities, [E1]: { name: "Jotform", share: 0.81, renders: 39, aliases: ["Jotform Forms"] } },
+  });
+  const { analysis, checks, markdown } = renderBrief(o, c);
+  assertEquals(analysis.matrix.entities[0].entity_ref, `entity:${E3}`);
+  assertEquals(analysis.brief.entities.map((e) => [e.name, e.entity_ref]), [["Tally", `entity:${E3}`], ["Jotform Forms", `entity:${E1}`]]);
+  assertStringIncludes(markdown, "- **Tally** (recommended) in 60% of AI Overviews (29 of 48).");
+  assert(!markdown.includes("Tally** (recommended) in 81%"));
+  assertStringIncludes(checks.checks.find((x) => x.name === "entity_recurrence")!.detail, "Wufoo (not in the data)");
+  assert(checks.dropped_refs.includes("E1") && checks.dropped_refs.includes("E3"));
+});
+
+Deno.test("renderBrief strips figures the model wrote into prose and records it", () => {
+  const o = output();
+  o.gaps[0].why = "No page shows test results (n=19).";
+  o.brief.entities[0].note = "Lead with it; it is recommended in 62% of AI Overviews.";
+  o.brief.new_to_cite[0].why_google_lacks_it = "Only 2 of 10 pages time anything, 20% of pages.";
+  const { analysis, checks, markdown } = renderBrief(o, ctx());
+  assertEquals(analysis.gaps[0].why, "No page shows test results.");
+  assertEquals(analysis.brief.entities[0].note, "Lead with it; it is recommended.");
+  assertEquals(analysis.brief.new_to_cite[0].why_google_lacks_it, "Only 2 of 10 pages time anything.");
+  assertEquals(analysis.brief.must_cover[0].why, "In three quarters of overviews.", "prose without figures is untouched");
+  const check = checks.checks.find((x) => x.name === "no_figures_in_prose")!;
+  assertEquals(check.passed, false);
+  assertStringIncludes(check.detail, 'gap "No hands-on tests"');
+  assertStringIncludes(check.detail, 'entity "Jotform"');
+  assertStringIncludes(check.detail, 'new-to-cite "Run a timed build test"');
+  assertStringIncludes(markdown, "- **Jotform** (recommended) in 81% of AI Overviews (39 of 48). Lead with it; it is recommended.");
+  assert(!markdown.includes("62%") && !markdown.includes("n=19"));
+  assertEquals(renderBrief(output(), ctx()).checks.checks.find((x) => x.name === "no_figures_in_prose")!.passed, true);
+});
+
+Deno.test("stripFigures removes percentages and n= counts with the words around them", () => {
+  assertEquals(stripFigures("Tally is the free pick, named in 40% of overviews."), "Tally is the free pick, named.");
+  assertEquals(stripFigures("Named as the best free option (19 of 48, 40%)."), "Named as the best free option.");
+  assertEquals(stripFigures("40% of overviews call it the free pick."), "Call it the free pick.");
+  assertEquals(stripFigures("Recommended in about 62.5% of AI Overviews; lead with it."), "Recommended; lead with it.");
+  assertEquals(stripFigures("iPhone users see it in 30 percent of renders, n = 12."), "iPhone users see it.");
+  assertEquals(stripFigures("No cited page measures build time."), null);
 });
 
 Deno.test("answerBudget is the median words before the answer, 60 when unknown", () => {

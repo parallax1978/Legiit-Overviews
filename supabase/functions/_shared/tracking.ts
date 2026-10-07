@@ -63,10 +63,11 @@ export function matchSnapshot(
   const brand = findBrand(overviewText, tq.brand_names ?? []);
   let quoted: string | null = null;
   if (best?.level === "exact_url" && ownPage?.markdown) {
+    // Google may quote several passages of the page in one capture: the first one under a heading wins.
     for (const passage of new Set([...(best.c.passages ?? []), best.c.passage])) {
       if (!passage) continue;
       const loc = locatePassage(ownPage.markdown, passage);
-      if (loc.found) {
+      if (loc.found && loc.heading) {
         quoted = loc.heading;
         break;
       }
@@ -95,10 +96,9 @@ export async function applyMatches(snapshotId: string): Promise<string[]> {
     "load snapshot",
   ) as SnapshotRow | null;
   if (!snap || snap.status === "error") return [];
-  const tqs = (must(
-    await db.from("tracked_queries").select("id, own_url_key, brand_names").eq("series_id", snap.series_id),
-    "load tracked queries",
-  ) as TrackedForMatch[]).filter(isConfigured);
+  const tqs = (await selectAll<TrackedForMatch>((from, to) =>
+    db.from("tracked_queries").select("id, own_url_key, brand_names").eq("series_id", snap.series_id).order("id").range(from, to)
+  )).filter(isConfigured);
   if (!tqs.length) return [];
 
   const citations = snap.status === "present"
@@ -359,12 +359,15 @@ function overviewText(s: SnapshotRow): string {
 }
 
 async function ownPages(ids: string[]): Promise<Map<string, OwnPageForMatch>> {
-  if (!ids.length) return new Map();
-  const rows = must(
-    await serviceClient().from("own_pages").select("tracked_query_id, markdown, resolved_url").in("tracked_query_id", ids),
-    "load own pages",
-  ) as (OwnPageForMatch & { tracked_query_id: string })[];
-  return new Map(rows.map((r) => [r.tracked_query_id, r]));
+  const out = new Map<string, OwnPageForMatch>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const rows = must(
+      await serviceClient().from("own_pages").select("tracked_query_id, markdown, resolved_url").in("tracked_query_id", ids.slice(i, i + 100)),
+      "load own pages",
+    ) as (OwnPageForMatch & { tracked_query_id: string })[];
+    for (const r of rows) out.set(r.tracked_query_id, r);
+  }
+  return out;
 }
 
 /**

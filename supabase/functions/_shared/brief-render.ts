@@ -121,6 +121,30 @@ class Resolver {
 const norm = (s: string) => s.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]+/gu, " ").replace(/\s+/g, " ").trim();
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+const FIGURE = String.raw`(?:\d+(?:[.,]\d+)?\s*(?:%|per\s?cent\b)|\bn\s*=\s*\d+)`;
+/** A figure in parentheses, with whatever else the parentheses hold: "(40%)", "(n=19)", "(19 of 48, 40%)". */
+const FIGURE_PARENS = new RegExp(String.raw`\s*\([^()]*${FIGURE}[^()]*\)`, "gi");
+/** A bare figure with the words that only make sense with it: "in about 40% of overviews", ", n=19". */
+const FIGURE_PHRASE = new RegExp(
+  String.raw`(?:\s*,)?\s*(?:\b(?:in|at|across|on|for|by|with)\s+)?(?:\b(?:about|around|roughly|nearly|almost|over|under|only|just)\s+)?` +
+    String.raw`${FIGURE}(?:\s+of\s+(?:the\s+|all\s+)?(?:ai\s+)?(?:overviews?|renders?|captures?|answers?|pages?|sources?|cases?|the\s+time))?`,
+  "gi",
+);
+const HAS_FIGURE = new RegExp(FIGURE, "i");
+
+/**
+ * Prose without the percentages and n= counts the model wrote into it: counts come from code, which
+ * prints them next to the item, so a figure in prose could only disagree with them. Returns null
+ * when the text holds no figure.
+ */
+export function stripFigures(text: string): string | null {
+  if (!HAS_FIGURE.test(text)) return null;
+  let out = text.replace(FIGURE_PARENS, "").replace(FIGURE_PHRASE, "");
+  out = out.replace(/\s+([.,;:!?])/g, "$1").replace(/([,;:])(?=[.!?]|$)/g, "").replace(/^[\s,;:.]+/, "").replace(/\s{2,}/g, " ").trim();
+  // A sentence whose opening figure was removed starts with a capital again.
+  return out && !text.trimStart().startsWith(out.slice(0, 8)) ? out[0].toUpperCase() + out.slice(1) : out;
+}
+
 /** Resolves refs, runs the code checks, drops failing items and renders Markdown. */
 export function renderBrief(output: BriefOutput, ctx: BriefContext): RenderedBrief {
   const facts = factMaps(ctx);
@@ -191,6 +215,20 @@ export function renderBrief(output: BriefOutput, ctx: BriefContext): RenderedBri
   const covered = new Set(b.outline.flatMap((s) => s.covers.map(norm)));
   const uncovered = b.must_cover.filter((m) => !covered.has(norm(m.topic))).map((m) => m.topic);
 
+  // Check 4: no prose field restates a figure; code prints the counts beside the item.
+  const figures: string[] = [];
+  const clean = <T>(items: T[], field: keyof T & string, label: (x: T) => string, where: string): T[] =>
+    items.map((x) => {
+      const stripped = stripFigures(String(x[field] ?? ""));
+      if (stripped === null) return x;
+      figures.push(`${where} "${label(x)}"`);
+      return { ...x, [field]: stripped } as T;
+    });
+  o.gaps = clean(o.gaps, "why", (g) => g.gap, "gap");
+  b.must_cover = clean(b.must_cover, "why", (m) => m.topic, "must-cover");
+  b.entities = clean(b.entities, "note", (e) => e.name, "entity");
+  b.new_to_cite = clean(b.new_to_cite, "why_google_lacks_it", (n) => n.idea, "new-to-cite");
+
   const dropped = [...r.dropped].sort();
   const checks: BriefCheck[] = [
     {
@@ -213,6 +251,13 @@ export function renderBrief(output: BriefOutput, ctx: BriefContext): RenderedBri
       detail: uncovered.length
         ? `No outline section covers: ${uncovered.join("; ")}.`
         : `The outline covers all ${b.must_cover.length} must-cover topics.`,
+    },
+    {
+      name: "no_figures_in_prose",
+      passed: figures.length === 0,
+      detail: figures.length
+        ? `Removed percentages and counts the model wrote into the text of ${figures.join("; ")}; the figures shown come from the data.`
+        : "No text restates a percentage or count; every figure comes from the data.",
     },
     {
       name: "refs_resolve",
@@ -242,7 +287,7 @@ const HOW_TO: Record<string, string> = {
   new_statistics: "New statistics",
   better_comparison: "Better comparison",
   useful_table: "Useful table",
-  unanswered_question: "Answer a question no page answers",
+  unanswered_question: "Answer a question few pages answer",
   better_examples: "Better examples",
 };
 
