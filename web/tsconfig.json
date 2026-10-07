@@ -40,7 +40,9 @@
     ".next-review-brand/types/**/*.ts",
     ".next-review-brand/dev/types/**/*.ts",
     ".next-review-data/types/**/*.ts",
-    ".next-review-data/dev/types/**/*.ts"
+    ".next-review-data/dev/types/**/*.ts",
+    ".next-fix/types/**/*.ts",
+    ".next-fix/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

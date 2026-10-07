@@ -8,12 +8,18 @@ import { must, serviceClient } from "./db.ts";
 import { chunks, errorText } from "./work/common.ts";
 import { LIMITS, type ScopedWork, WORK, WORK_ORDER, type WorkScope } from "./work/index.ts";
 
-/** Serialized request bytes per batch; what doesn't fit stays pending for the next run. */
+/** Serialized request bytes per batch; what doesn't fit goes in the next batch of the run. */
 export const MAX_BATCH_BYTES = 32 * 1024 * 1024;
+/** Batches created per kind in one run: the runner pages through pending work while a page is full. */
+export const MAX_BATCHES_PER_KIND = 10;
 /** Bytes of batch_items rows per insert request. */
 const ITEM_INSERT_BYTES = 2 * 1024 * 1024;
 /** collectAll stops starting new work after this long, leaving the rest for the next run. */
 const COLLECT_BUDGET_MS = 110_000;
+/** Collected and failed batches (with their items) are deleted after this long. */
+const BATCH_RETENTION = "30 days";
+/** After a failed creation, an unrecorded batch this recent with the same request count is ours. */
+const ORPHAN_WINDOW_MS = 10 * 60_000;
 
 export interface SubmitOptions {
   /** Restrict collection (tests). */
@@ -69,14 +75,44 @@ async function recordBatch(batchId: string, kind: WorkKind, requests: BatchReque
   }
 }
 
-async function submitKind(kind: WorkKind, opts: SubmitOptions): Promise<{ id: string; requests: number } | null> {
+/**
+ * A batch creation whose response was lost (a gateway error or a dropped connection after the
+ * request went through) leaves a batch that runs and is billed but is never collected. Creation is
+ * not retried by the SDK, so after such an error the recent batches are listed and any unrecorded
+ * one of this size is cancelled; the work stays pending and is resubmitted next run.
+ */
+async function cancelOrphans(requestCount: number): Promise<void> {
+  const since = Date.now() - ORPHAN_WINDOW_MS;
+  const known = new Set<string>();
+  for await (const b of anthropic().messages.batches.list({ limit: 20 })) {
+    if (Date.parse(b.created_at) < since) break;
+    const c = b.request_counts;
+    if (c.processing + c.succeeded + c.errored + c.canceled + c.expired !== requestCount) continue;
+    if (!known.size) {
+      const rows = must(await serviceClient().from("batches").select("id").gte("created_at", new Date(since).toISOString()), "load recent batches") as { id: string }[];
+      for (const r of rows) known.add(r.id);
+    }
+    if (known.has(b.id)) continue;
+    console.warn(`batch ${b.id} was created but never recorded; cancelling it`);
+    await anthropic().messages.batches.cancel(b.id).catch((e) => console.error(`cancel ${b.id}: ${errorText(e)}`));
+  }
+}
+
+async function createBatch(kind: WorkKind, requests: BatchRequest[]): Promise<string> {
   const work = WORK[kind];
-  const requests = withinBudget(await work.collect(opts.limits?.[kind] ?? LIMITS[kind], opts.scope));
-  if (!requests.length) return null;
-  // If creation throws, nothing has been recorded or marked and the work stays pending.
-  const batch = await anthropic().messages.batches.create({
-    requests: requests.map(({ custom_id, params }) => ({ custom_id, params })),
-  });
+  let batch: Anthropic.Messages.Batches.MessageBatch;
+  try {
+    batch = await anthropic().messages.batches.create(
+      { requests: requests.map(({ custom_id, params }) => ({ custom_id, params })) },
+      { maxRetries: 0 },
+    );
+  } catch (e) {
+    // A rejected request (4xx) created nothing; anything else may have.
+    if (!(e instanceof Anthropic.APIError && typeof e.status === "number" && e.status < 500)) {
+      await cancelOrphans(requests.length).catch((c) => console.error(`orphan check: ${errorText(c)}`));
+    }
+    throw e;
+  }
   try {
     await recordBatch(batch.id, kind, requests);
   } catch (e) {
@@ -84,19 +120,34 @@ async function submitKind(kind: WorkKind, opts: SubmitOptions): Promise<{ id: st
     throw e;
   }
   await work.markSubmitted(requests.map((r) => r.custom_id), batch.id);
-  return { id: batch.id, requests: requests.length };
+  return batch.id;
 }
 
-/** Creates one batch per kind with pending work, in registry order. One kind failing doesn't stop the others. */
+/** Pages through a kind's pending work, one batch per page, until a page comes back short. */
+async function submitKind(kind: WorkKind, opts: SubmitOptions): Promise<{ id: string; requests: number }[]> {
+  const work = WORK[kind];
+  const limit = opts.limits?.[kind] ?? LIMITS[kind];
+  const out: { id: string; requests: number }[] = [];
+  for (let page = 0; page < MAX_BATCHES_PER_KIND; page++) {
+    const collected = await work.collect(limit, opts.scope);
+    const requests = withinBudget(collected);
+    if (!requests.length) break;
+    out.push({ id: await createBatch(kind, requests), requests: requests.length });
+    if (collected.length < limit && requests.length === collected.length) break;
+  }
+  return out;
+}
+
+/** Creates batches for every kind with pending work, in registry order. One kind failing doesn't stop the others. */
 export async function submitAll(opts: SubmitOptions = {}): Promise<SubmitSummary> {
   const summary: SubmitSummary = { counts: { extract: 0, consolidate: 0, page_tag: 0, brief: 0 }, batches: [], errors: [] };
   for (const kind of WORK_ORDER) {
     if (opts.kinds && !opts.kinds.includes(kind)) continue;
     try {
-      const done = await submitKind(kind, opts);
-      if (!done) continue;
-      summary.counts[kind] = done.requests;
-      summary.batches.push({ kind, ...done });
+      for (const done of await submitKind(kind, opts)) {
+        summary.counts[kind] += done.requests;
+        summary.batches.push({ kind, ...done });
+      }
     } catch (e) {
       console.error(`submit ${kind}: ${errorText(e)}`);
       summary.errors.push({ kind, error: errorText(e) });
@@ -128,8 +179,10 @@ export interface BatchCollectSummary {
 export interface CollectSummary {
   batches: BatchCollectSummary[];
   reused: { copied: number; reset: number } | null;
-  /** Work whose result failed to apply, released for another attempt (or failed). */
-  released: { snapshots: number; pages: number; briefs: number } | null;
+  /** Work whose result failed, released for another attempt (or failed). */
+  released: { snapshots: number; pages: number; briefs: number; series: number } | null;
+  /** Old collected and failed batches deleted. */
+  purged: number | null;
   errors: { batch_id: string | null; error: string }[];
 }
 
@@ -206,17 +259,18 @@ class ItemMarks {
     return this.applied.length + this.failed.length;
   }
 
+  /** Marks the items; their refs are cleared, since a retry builds a fresh request. */
   async flush(): Promise<void> {
     const db = serviceClient();
     for (const part of chunks(this.applied, 200)) {
       must(
-        await db.from("batch_items").update({ status: "applied", error: null }).eq("batch_id", this.batchId).in("custom_id", part),
+        await db.from("batch_items").update({ status: "applied", error: null, refs: {} }).eq("batch_id", this.batchId).in("custom_id", part),
         "mark batch items applied",
       );
     }
     for (const f of this.failed) {
       must(
-        await db.from("batch_items").update({ status: "failed", error: f.error }).eq("batch_id", this.batchId).eq("custom_id", f.custom_id),
+        await db.from("batch_items").update({ status: "failed", error: f.error, refs: {} }).eq("batch_id", this.batchId).eq("custom_id", f.custom_id),
         "mark batch item failed",
       );
     }
@@ -326,13 +380,13 @@ async function collectBatch(b: BatchRow, deadline: number): Promise<BatchCollect
 }
 
 /**
- * Applies the results of every ended batch, oldest first; then releases work whose result failed to
- * apply, and copies extractions into reused snapshots whose original is done (resetting those whose
- * original failed). One bad result or one bad batch never stops the rest.
+ * Applies the results of every ended batch, oldest first; then releases work whose result failed,
+ * copies extractions into reused snapshots whose original is done (promoting the copies of one that
+ * failed), and purges old batches. One bad result or one bad batch never stops the rest.
  */
 export async function collectAll(opts: CollectOptions = {}): Promise<CollectSummary> {
   const deadline = Date.now() + (opts.deadlineMs ?? COLLECT_BUDGET_MS);
-  const summary: CollectSummary = { batches: [], reused: null, released: null, errors: [] };
+  const summary: CollectSummary = { batches: [], reused: null, released: null, purged: null, errors: [] };
   let q = serviceClient().from("batches").select("id, kind, status, ended_at")
     .in("status", ["in_progress", "ended"]).order("created_at").limit(500);
   if (opts.batchIds) q = q.in("id", opts.batchIds);
@@ -352,11 +406,12 @@ export async function collectAll(opts: CollectOptions = {}): Promise<CollectSumm
     summary.released = must(
       await serviceClient().rpc("release_stuck_work", { p_series_ids: opts.seriesIds ?? null }),
       "release_stuck_work",
-    ) as { snapshots: number; pages: number; briefs: number };
+    ) as CollectSummary["released"];
     summary.reused = must(
       await serviceClient().rpc("sync_reused_extractions", { p_series_ids: opts.seriesIds ?? null }),
       "sync_reused_extractions",
     ) as { copied: number; reset: number };
+    summary.purged = must(await serviceClient().rpc("purge_batches", { p_keep: BATCH_RETENTION }), "purge_batches") as number;
   } catch (e) {
     summary.errors.push({ batch_id: null, error: errorText(e) });
   }

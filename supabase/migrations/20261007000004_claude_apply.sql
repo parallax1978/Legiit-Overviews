@@ -6,6 +6,26 @@
 -- Refs: prompts carry short refs (C<n> claim groups, E<n> entities, P<n> pages); the map from ref to
 -- id is stored in batch_items.refs and passed back here as p_refs.
 
+-- ---------------------------------------------------------------- schema additions
+
+-- Page tags are retried up to 3 times; a failed re-parse records its attempt without touching
+-- parsed_at, so unchanged content is not tagged again.
+alter table public.pages add column if not exists tag_attempts int not null default 0;
+alter table public.pages add column if not exists parse_attempted_at timestamptz;
+
+-- "new since consolidated_at" checks, per-group render counts (index-only) and merge re-pointing.
+create index if not exists claim_groups_series_created_idx on public.claim_groups (series_id, created_at);
+create index if not exists entities_series_created_idx on public.entities (series_id, created_at);
+create index if not exists claims_group_snapshot_idx on public.claims (group_id, snapshot_id);
+create index if not exists entity_mentions_entity_snapshot_idx on public.entity_mentions (entity_id, snapshot_id);
+create index if not exists claim_groups_merged_into_idx on public.claim_groups (merged_into) where merged_into is not null;
+create index if not exists entities_merged_into_idx on public.entities (merged_into) where merged_into is not null;
+
+-- Service-role RPCs through PostgREST otherwise inherit the authenticator's 8s statement_timeout,
+-- which the batch applies (a large consolidation) and pending queries can exceed. PostgREST applies
+-- the impersonated role's settings at the start of each transaction.
+alter role service_role set statement_timeout = '120s';
+
 -- ---------------------------------------------------------------- helpers
 
 -- A JSON number that is an integer, as int; null for anything else.
@@ -343,9 +363,50 @@ begin
 end;
 $$;
 
+-- The reused copies of a failed original: the earliest becomes the new original (same_as null,
+-- pending, no attempts) and the others are re-pointed to it, so the content is extracted once more,
+-- not once per copy. After two originals of the same content have failed the copies fail too, so a
+-- deterministic failure (a refusal, say) stops costing money. Returns the number of copies touched.
+create or replace function public.promote_reused_copies(p_original uuid)
+returns int
+language plpgsql set search_path = ''
+as $$
+declare
+  v_orig record;
+  v_new uuid;
+  v_failed int;
+  v_n int;
+begin
+  select id, series_id, content_hash into v_orig from public.snapshots where id = p_original;
+  if not found then return 0; end if;
+
+  select count(*) into v_failed
+  from public.snapshots s
+  where s.series_id = v_orig.series_id and s.content_hash is not distinct from v_orig.content_hash
+    and s.same_as is null and s.extraction = 'failed';
+  if v_failed >= 2 then
+    update public.snapshots set extraction = 'failed' where same_as = p_original and extraction = 'reused';
+    get diagnostics v_n = row_count;
+    return v_n;
+  end if;
+
+  select s.id into v_new
+  from public.snapshots s
+  where s.same_as = p_original and s.extraction = 'reused'
+  order by s.captured_at, s.created_at, s.id
+  limit 1;
+  if v_new is null then return 0; end if;
+
+  update public.snapshots set same_as = null, extraction = 'pending', extraction_attempts = 0 where id = v_new;
+  update public.snapshots set same_as = v_new where same_as = p_original and extraction = 'reused' and id <> v_new;
+  get diagnostics v_n = row_count;
+  return v_n + 1;
+end;
+$$;
+
 -- A failed extraction attempt (errored, expired, canceled, refused or invalid output): back to
 -- pending, or failed at the third attempt. Only a snapshot still submitted is counted, so a repeated
--- delivery of the same failure counts once. Reused copies of a failed original are reset to pending.
+-- delivery of the same failure counts once. The reused copies of a failed original are promoted.
 create or replace function public.fail_extraction(p_snapshot_id uuid)
 returns text
 language plpgsql set search_path = ''
@@ -359,14 +420,14 @@ begin
   where id = p_snapshot_id and extraction = 'submitted'
   returning extraction into v_status;
   if v_status = 'failed' then
-    update public.snapshots set extraction = 'pending' where same_as = p_snapshot_id and extraction = 'reused';
+    perform public.promote_reused_copies(p_snapshot_id);
   end if;
   return v_status;
 end;
 $$;
 
--- Reused snapshots: copy from originals that are done; reset to pending those whose original failed
--- (same_as is kept) or is gone.
+-- Reused snapshots: copy from originals that are done; promote the copies of originals that failed;
+-- reset to pending those whose original is gone.
 create or replace function public.sync_reused_extractions(p_series_ids uuid[] default null)
 returns jsonb
 language plpgsql set search_path = ''
@@ -375,6 +436,7 @@ declare
   v_id uuid;
   v_copied int := 0;
   v_reset int := 0;
+  v_n int;
 begin
   for v_id in
     select s.id
@@ -387,14 +449,23 @@ begin
     if public.copy_reused_extraction(v_id) then v_copied := v_copied + 1; end if;
   end loop;
 
+  for v_id in
+    select distinct o.id
+    from public.snapshots s
+    join public.snapshots o on o.id = s.same_as
+    where s.extraction = 'reused' and o.extraction = 'failed'
+      and (p_series_ids is null or s.series_id = any(p_series_ids))
+  loop
+    v_reset := v_reset + public.promote_reused_copies(v_id);
+  end loop;
+
   update public.snapshots s
   set extraction = 'pending'
-  where s.extraction = 'reused'
-    and (p_series_ids is null or s.series_id = any(p_series_ids))
-    and (s.same_as is null or exists (select 1 from public.snapshots o where o.id = s.same_as and o.extraction = 'failed'));
-  get diagnostics v_reset = row_count;
+  where s.extraction = 'reused' and s.same_as is null
+    and (p_series_ids is null or s.series_id = any(p_series_ids));
+  get diagnostics v_n = row_count;
 
-  return jsonb_build_object('copied', v_copied, 'reset', v_reset);
+  return jsonb_build_object('copied', v_copied, 'reset', v_reset + v_n);
 end;
 $$;
 
@@ -404,12 +475,15 @@ $$;
 -- consolidated), at most once per 20 hours, at least 2 live groups or 2 live entities, and no
 -- consolidation in flight. Each comes with its live claims and entities and their render counts
 -- (distinct snapshots). Items created since the last run come first, then the most rendered.
+-- Render counts are one grouped aggregate over the candidates' groups (index-only on
+-- claims(group_id, snapshot_id)), not a subquery per group, so the call stays well inside the
+-- statement timeout; the runner pages through candidates with a small p_limit.
 create or replace function public.consolidate_pending(
   p_limit int, p_series_ids uuid[] default null, p_max_claims int default 1500, p_max_entities int default 800)
 returns jsonb
 language sql stable set search_path = ''
 as $$
-  with cand as (
+  with cand as materialized (
     select s.id, s.keyword, s.language_code, s.consolidated_at
     from public.series s
     where (p_series_ids is null or s.id = any(p_series_ids))
@@ -425,6 +499,26 @@ as $$
       )
     order by s.consolidated_at nulls first, s.id
     limit p_limit
+  ),
+  grp as materialized (
+    select g.series_id, g.id, g.label, g.created_at
+    from public.claim_groups g
+    where g.series_id in (select id from cand) and g.merged_into is null
+  ),
+  grp_renders as materialized (
+    select x.group_id, count(*)::int as renders
+    from (select distinct cl.group_id, cl.snapshot_id from public.claims cl where cl.group_id in (select id from grp)) x
+    group by x.group_id
+  ),
+  ent as materialized (
+    select e.series_id, e.id, e.name, e.aliases, e.created_at
+    from public.entities e
+    where e.series_id in (select id from cand) and e.merged_into is null
+  ),
+  ent_renders as materialized (
+    select x.entity_id, count(*)::int as renders
+    from (select distinct m.entity_id, m.snapshot_id from public.entity_mentions m where m.entity_id in (select id from ent)) x
+    group by x.entity_id
   )
   select coalesce(jsonb_agg(jsonb_build_object(
     'series_id', c.id,
@@ -434,24 +528,24 @@ as $$
       select coalesce(jsonb_agg(jsonb_build_object('id', k.id, 'label', k.label, 'renders', k.renders)
                                 order by k.renders desc, k.label, k.id), '[]'::jsonb)
       from (
-        select g.id, g.label,
-          (select count(distinct cl.snapshot_id) from public.claims cl where cl.group_id = g.id)::int as renders,
+        select g.id, g.label, coalesce(r.renders, 0) as renders,
           (c.consolidated_at is null or g.created_at > c.consolidated_at) as fresh
-        from public.claim_groups g
-        where g.series_id = c.id and g.merged_into is null
-        order by fresh desc, renders desc, g.created_at, g.id
+        from grp g
+        left join grp_renders r on r.group_id = g.id
+        where g.series_id = c.id
+        order by fresh desc, coalesce(r.renders, 0) desc, g.created_at, g.id
         limit p_max_claims
       ) k),
     'entities', (
       select coalesce(jsonb_agg(jsonb_build_object('id', k.id, 'name', k.name, 'aliases', to_jsonb(k.aliases), 'renders', k.renders)
                                 order by k.renders desc, k.name, k.id), '[]'::jsonb)
       from (
-        select e.id, e.name, e.aliases,
-          (select count(distinct m.snapshot_id) from public.entity_mentions m where m.entity_id = e.id)::int as renders,
+        select e.id, e.name, e.aliases, coalesce(r.renders, 0) as renders,
           (c.consolidated_at is null or e.created_at > c.consolidated_at) as fresh
-        from public.entities e
-        where e.series_id = c.id and e.merged_into is null
-        order by fresh desc, renders desc, e.created_at, e.id
+        from ent e
+        left join ent_renders r on r.entity_id = e.id
+        where e.series_id = c.id
+        order by fresh desc, coalesce(r.renders, 0) desc, e.created_at, e.id
         limit p_max_entities
       ) k)
   ) order by c.consolidated_at nulls first, c.id), '[]'::jsonb)
@@ -572,19 +666,19 @@ begin
   if not found then raise exception 'series % not found', p_series_id; end if;
   perform pg_advisory_xact_lock(hashtextextended('legiit:series-claims:' || p_series_id::text, 0));
 
-  -- Claims
+  -- Claims. v_ids holds the merged groups and the groups already merged into them, computed once,
+  -- so every update is an indexed `= any(array)` rather than a scan of the whole table.
   v_resolved := public.claude_resolve_merges(p_series_id, 'claim', p_output -> 'claim_merges', p_refs);
   v_ignored := v_ignored + (v_resolved ->> 'ignored')::int;
   for v_group in select value from jsonb_array_elements(v_resolved -> 'groups') loop
     v_keep := (v_group ->> 'keep')::uuid;
     select array_agg(m::uuid) into v_members from jsonb_array_elements_text(v_group -> 'merge') m;
-    update public.claim_groups set merged_into = v_keep where merged_into = any(v_members);
+    v_ids := v_members || coalesce(array(select g.id from public.claim_groups g where g.merged_into = any(v_members)), '{}');
     update public.claim_groups set merged_into = v_keep where id = any(v_members) and merged_into is null;
     get diagnostics v_n = row_count;
     v_claim_merged := v_claim_merged + v_n;
-    update public.claims set group_id = v_keep
-    where group_id = any(v_members)
-       or group_id in (select g.id from public.claim_groups g where g.merged_into = v_keep);
+    update public.claim_groups set merged_into = v_keep where id = any(v_ids) and merged_into is distinct from v_keep;
+    update public.claims set group_id = v_keep where group_id = any(v_ids);
   end loop;
 
   -- Entities
@@ -593,6 +687,7 @@ begin
   for v_group in select value from jsonb_array_elements(v_resolved -> 'groups') loop
     v_keep := (v_group ->> 'keep')::uuid;
     select array_agg(m::uuid) into v_members from jsonb_array_elements_text(v_group -> 'merge') m;
+    v_ids := v_members || coalesce(array(select e.id from public.entities e where e.merged_into = any(v_members)), '{}');
 
     select name into v_name from public.entities where id = v_keep;
     select coalesce(array_agg(a order by o), '{}') into v_aliases
@@ -602,10 +697,9 @@ begin
         select btrim(x) as a, o
         from unnest(
           (select aliases from public.entities where id = v_keep)
-          || coalesce((select array_agg(e.name order by e.created_at, e.id) from public.entities e
-                       where e.id = any(v_members) or e.merged_into = any(v_members)), '{}')
+          || coalesce((select array_agg(e.name order by e.created_at, e.id) from public.entities e where e.id = any(v_ids)), '{}')
           || coalesce((select array_agg(al order by e.created_at, e.id) from public.entities e, unnest(e.aliases) al
-                       where e.id = any(v_members) or e.merged_into = any(v_members)), '{}')
+                       where e.id = any(v_ids)), '{}')
           || coalesce((select array_agg(al) from jsonb_array_elements_text(v_group -> 'aliases') al), '{}')
         ) with ordinality u(x, o)
       ) t
@@ -614,14 +708,14 @@ begin
     ) d;
     update public.entities set aliases = v_aliases where id = v_keep;
 
-    update public.entities set merged_into = v_keep where merged_into = any(v_members);
     update public.entities set merged_into = v_keep where id = any(v_members) and merged_into is null;
     get diagnostics v_n = row_count;
     v_entity_merged := v_entity_merged + v_n;
+    update public.entities set merged_into = v_keep where id = any(v_ids) and merged_into is distinct from v_keep;
 
     -- Re-point and collapse: one mention per snapshot, recommended wins, sentences unioned, the
     -- kept entity's own label preferred.
-    select array_agg(e.id) into v_ids from public.entities e where e.id = v_keep or e.merged_into = v_keep;
+    v_ids := v_keep || v_ids;
     with src as (
       delete from public.entity_mentions where entity_id = any(v_ids) returning *
     )
@@ -694,9 +788,31 @@ begin
   set tags = p_tags,
       tag_status = 'done',
       tagged_at = now(),
+      tag_attempts = 0,
       measures = coalesce(measures, '{}'::jsonb) || jsonb_build_object('words_before_answer', p_words_before_answer)
   where id = p_page_id and tag_status = 'submitted';
   return found;
+end;
+$$;
+
+-- A failed page-tag attempt. A retryable failure (errored, expired, canceled, truncated or invalid
+-- output) puts the page back to 'none' so the report keeps waiting for it; the third such failure,
+-- or a failure that would repeat (an invalid request), marks it failed. Only a page still submitted
+-- is counted, so a repeated delivery counts once. Returns the new tag_status, or null.
+create or replace function public.fail_page_tag(p_page_id uuid, p_retryable boolean default true)
+returns text
+language plpgsql set search_path = ''
+as $$
+declare
+  v_status text;
+begin
+  update public.pages
+  set tag_attempts = tag_attempts + 1,
+      tag_status = case when p_retryable and tag_attempts + 1 < 3 then 'none' else 'failed' end,
+      tagged_at = case when p_retryable and tag_attempts + 1 < 3 then tagged_at else now() end
+  where id = p_page_id and tag_status = 'submitted'
+  returning tag_status into v_status;
+  return v_status;
 end;
 $$;
 
@@ -715,6 +831,10 @@ as $$
     'page_details', coalesce(r.page_details, '[]'::jsonb),
     'keyword', se.keyword, 'language', se.language_code,
     'display_keyword', tq.display_keyword, 'own_url_key', tq.own_url_key,
+    'entity_aliases', (
+      select coalesce(jsonb_object_agg(e.id, to_jsonb(e.aliases)), '{}'::jsonb)
+      from public.entities e
+      where e.series_id = r.series_id and e.merged_into is null and cardinality(e.aliases) > 0),
     'pages', (
       select coalesce(jsonb_agg(jsonb_build_object('url_key', p.url_key, 'url', p.url, 'measures', p.measures, 'tags', p.tags)), '[]'::jsonb)
       from public.pages p
@@ -775,9 +895,11 @@ $$;
 
 -- ---------------------------------------------------------------- recovery
 
--- Work marked submitted whose batch item is no longer submitted had its result fail to apply (for
--- example a database error mid-apply). Captures go back to pending with one more attempt; page tags
--- fail; briefs are retried until two attempts have failed, then the report fails.
+-- Work marked submitted whose batch item is no longer submitted had its result fail (at Anthropic,
+-- or while applying). Captures go back to pending with one more attempt; page tags go back to 'none'
+-- and fail at the third attempt; briefs are resubmitted and the report fails once two attempts have
+-- failed, with the last failure as its error; a series whose consolidation failed records the
+-- attempt (consolidated_at = submission time) so it waits for the next night.
 create or replace function public.release_stuck_work(p_series_ids uuid[] default null)
 returns jsonb
 language plpgsql set search_path = ''
@@ -786,6 +908,7 @@ declare
   v_snapshots int;
   v_pages int;
   v_briefs int;
+  v_series int;
 begin
   update public.snapshots s
   set extraction_attempts = s.extraction_attempts + 1,
@@ -799,7 +922,9 @@ begin
   get diagnostics v_snapshots = row_count;
 
   update public.pages p
-  set tag_status = 'failed', tagged_at = now()
+  set tag_attempts = p.tag_attempts + 1,
+      tag_status = case when p.tag_attempts + 1 < 3 then 'none' else 'failed' end,
+      tagged_at = case when p.tag_attempts + 1 < 3 then p.tagged_at else now() end
   where p.tag_status = 'submitted'
     and (p_series_ids is null or exists (
       select 1 from public.reports r where r.series_id = any(p_series_ids) and p.url_key = any(r.page_urls)))
@@ -812,7 +937,10 @@ begin
   with stuck as (
     select r.id,
       (select count(*) from public.batch_items bi
-       where bi.kind = 'brief' and bi.target_id = r.id::text and bi.status = 'failed') as failures
+       where bi.kind = 'brief' and bi.target_id = r.id::text and bi.status = 'failed') as failures,
+      (select bi.error from public.batch_items bi join public.batches b on b.id = bi.batch_id
+       where bi.kind = 'brief' and bi.target_id = r.id::text and bi.status = 'failed'
+       order by b.created_at desc limit 1) as last_error
     from public.reports r
     where r.stage = 'brief' and r.brief_submitted
       and (p_series_ids is null or r.series_id = any(p_series_ids))
@@ -824,13 +952,50 @@ begin
   update public.reports r
   set brief_submitted = s.failures >= 2,
       stage = case when s.failures >= 2 then 'failed' else r.stage end,
-      error = case when s.failures >= 2 then 'the brief result could not be applied' else r.error end,
+      error = case when s.failures >= 2 then coalesce(s.last_error, 'the brief result could not be applied') else r.error end,
       updated_at = now()
   from stuck s
   where s.id = r.id;
   get diagnostics v_briefs = row_count;
 
-  return jsonb_build_object('snapshots', v_snapshots, 'pages', v_pages, 'briefs', v_briefs);
+  with failed as (
+    select bi.target_id::uuid as series_id, max(b.created_at) as submitted_at
+    from public.batch_items bi
+    join public.batches b on b.id = bi.batch_id
+    where bi.kind = 'consolidate' and bi.status = 'failed'
+      and (p_series_ids is null or bi.target_id = any(p_series_ids::text[]))
+    group by bi.target_id
+  )
+  update public.series s
+  set consolidated_at = f.submitted_at
+  from failed f
+  where s.id = f.series_id
+    and (s.consolidated_at is null or s.consolidated_at < f.submitted_at)
+    and not exists (
+      select 1 from public.batch_items bi
+      where bi.kind = 'consolidate' and bi.target_id = s.id::text and bi.status = 'submitted'
+    );
+  get diagnostics v_series = row_count;
+
+  return jsonb_build_object('snapshots', v_snapshots, 'pages', v_pages, 'briefs', v_briefs, 'series', v_series);
+end;
+$$;
+
+-- Deletes collected and failed batches (and their items, by cascade) older than p_keep. Items of
+-- live batches are the only ones the runner reads; the refs an item carried are cleared once the
+-- item is applied or failed, so storage stays bounded by work in flight.
+create or replace function public.purge_batches(p_keep interval default interval '30 days')
+returns int
+language plpgsql set search_path = ''
+as $$
+declare
+  v_n int;
+begin
+  delete from public.batches b
+  where b.status in ('collected', 'failed')
+    and coalesce(b.collected_at, b.ended_at, b.created_at) < now() - p_keep;
+  get diagnostics v_n = row_count;
+  return v_n;
 end;
 $$;
 
@@ -845,6 +1010,7 @@ revoke execute on function public.claude_int_array(jsonb) from public, anon, aut
 revoke execute on function public.extract_pending(int, uuid[], int) from public, anon, authenticated;
 revoke execute on function public.copy_reused_extraction(uuid) from public, anon, authenticated;
 revoke execute on function public.apply_extraction(uuid, jsonb, jsonb) from public, anon, authenticated;
+revoke execute on function public.promote_reused_copies(uuid) from public, anon, authenticated;
 revoke execute on function public.fail_extraction(uuid) from public, anon, authenticated;
 revoke execute on function public.sync_reused_extractions(uuid[]) from public, anon, authenticated;
 revoke execute on function public.consolidate_pending(int, uuid[], int, int) from public, anon, authenticated;
@@ -853,10 +1019,12 @@ revoke execute on function public.claude_resolve_merges(uuid, text, jsonb, jsonb
 revoke execute on function public.apply_consolidation(uuid, jsonb, jsonb) from public, anon, authenticated;
 revoke execute on function public.page_tag_pending(int, uuid[], int) from public, anon, authenticated;
 revoke execute on function public.apply_page_tag(uuid, jsonb, int) from public, anon, authenticated;
+revoke execute on function public.fail_page_tag(uuid, boolean) from public, anon, authenticated;
 revoke execute on function public.brief_context(uuid) from public, anon, authenticated;
 revoke execute on function public.brief_pending(int, uuid[]) from public, anon, authenticated;
 revoke execute on function public.apply_brief(uuid, jsonb, text, jsonb, text) from public, anon, authenticated;
 revoke execute on function public.release_stuck_work(uuid[]) from public, anon, authenticated;
+revoke execute on function public.purge_batches(interval) from public, anon, authenticated;
 
 grant execute on function public.claude_int(jsonb) to service_role;
 grant execute on function public.claude_label_key(text) to service_role;
@@ -867,6 +1035,7 @@ grant execute on function public.claude_int_array(jsonb) to service_role;
 grant execute on function public.extract_pending(int, uuid[], int) to service_role;
 grant execute on function public.copy_reused_extraction(uuid) to service_role;
 grant execute on function public.apply_extraction(uuid, jsonb, jsonb) to service_role;
+grant execute on function public.promote_reused_copies(uuid) to service_role;
 grant execute on function public.fail_extraction(uuid) to service_role;
 grant execute on function public.sync_reused_extractions(uuid[]) to service_role;
 grant execute on function public.consolidate_pending(int, uuid[], int, int) to service_role;
@@ -875,9 +1044,12 @@ grant execute on function public.claude_resolve_merges(uuid, text, jsonb, jsonb)
 grant execute on function public.apply_consolidation(uuid, jsonb, jsonb) to service_role;
 grant execute on function public.page_tag_pending(int, uuid[], int) to service_role;
 grant execute on function public.apply_page_tag(uuid, jsonb, int) to service_role;
+grant execute on function public.fail_page_tag(uuid, boolean) to service_role;
 grant execute on function public.brief_context(uuid) to service_role;
 grant execute on function public.brief_pending(int, uuid[]) to service_role;
 grant execute on function public.apply_brief(uuid, jsonb, text, jsonb, text) to service_role;
 grant execute on function public.release_stuck_work(uuid[]) to service_role;
+grant execute on function public.purge_batches(interval) to service_role;
 
 notify pgrst, 'reload schema';
+notify pgrst, 'reload config';

@@ -1,6 +1,7 @@
 // add-query: validates and normalises the keyword, joins or creates the shared series per device,
-// captures it live when the series has no snapshot from the last 3 hours, and creates (or unpauses)
-// the caller's tracked query. Suggests sibling queries that trigger an overview when one device had none.
+// captures it live when the series has no snapshot from the last 3 hours and no capture in flight
+// (claim_live_capture decides, so concurrent adds make one Live call), and creates (or unpauses) the
+// caller's tracked query. Suggests sibling queries that trigger an overview when one device had none.
 import { type DfsTask, relatedKeywords, serpLive } from "../_shared/dataforseo.ts";
 import { must, serviceClient } from "../_shared/db.ts";
 import { fail, json, requireUser } from "../_shared/http.ts";
@@ -27,6 +28,8 @@ export interface DeviceResult {
   status: string;
   is_new_series: boolean;
   overview_present: boolean;
+  /** A capture for the series is under way (another add, or a scheduled one); its render is not in yet. */
+  capture_pending?: true;
   capture_error?: string;
 }
 
@@ -71,7 +74,9 @@ export async function handle(req: Request): Promise<Response> {
       addDevice(auth.user.id, display, { keyword, location_code: locationCode, language_code: languageCode, device })
     ),
   );
-  const siblings = results.some((r) => !r.overview_present) ? await findSiblings(keyword, locationCode, languageCode) : [];
+  const siblings = results.some((r) => !r.overview_present && !r.capture_pending)
+    ? await findSiblings(keyword, locationCode, languageCode)
+    : [];
   return json({ results, siblings });
 }
 
@@ -90,9 +95,15 @@ async function addDevice(userId: string, display: string, key: SeriesKey): Promi
   // The tracked query exists before any DataForSEO call, so a failed capture never loses it.
   const tq = await ensureTrackedQuery(userId, series.id, display, latest?.status === "present");
 
+  // One Live capture per series at a time: none when a render from the last 3 hours exists or a
+  // capture is in flight (then the response says so instead of reporting no overview).
+  const claim = must(
+    await db.rpc("claim_live_capture", { p_series_id: series.id }).single(),
+    "claim live capture",
+  ) as { capture_id: string | null; in_flight: boolean };
   let captureError: string | undefined;
-  if (!latest || Date.parse(latest.captured_at) < Date.now() - RECENT_MS) {
-    captureError = await liveCapture(series.id, key);
+  if (claim.capture_id) {
+    captureError = await liveCapture(claim.capture_id, key);
     latest = await latestSnapshot(series.id);
   }
   const current = must(await db.from("tracked_queries").select("status").eq("id", tq.id).single(), "load tracked query") as { status: string };
@@ -103,6 +114,7 @@ async function addDevice(userId: string, display: string, key: SeriesKey): Promi
     status: current.status,
     is_new_series: inserted.length > 0,
     overview_present: latest?.status === "present",
+    ...(claim.in_flight ? { capture_pending: true as const } : {}),
     ...(captureError ? { capture_error: captureError } : {}),
   };
 }
@@ -137,27 +149,9 @@ async function ensureTrackedQuery(userId: string, seriesId: string, display: str
   return existing;
 }
 
-/** Live SERP capture through the normal ingest path. Returns an error message when it failed. */
-async function liveCapture(seriesId: string, key: SeriesKey): Promise<string | undefined> {
+/** Live SERP capture of a claimed capture through the normal ingest path. Returns an error message when it failed. */
+async function liveCapture(captureId: string, key: SeriesKey): Promise<string | undefined> {
   const db = serviceClient();
-  const now = Date.now();
-  const rows = must(
-    await db.from("captures").upsert(
-      {
-        series_id: seriesId,
-        scheduled_at: new Date(Math.floor(now / 1000) * 1000).toISOString(),
-        source: "live",
-        status: "submitted",
-        attempts: 1,
-        submitted_at: new Date(now).toISOString(),
-      },
-      { onConflict: "series_id,scheduled_at", ignoreDuplicates: true },
-    ).select("id"),
-    "create capture",
-  ) as { id: string }[];
-  if (!rows[0]) return undefined; // another request is capturing this series this very second
-  const captureId = rows[0].id;
-
   let task: DfsTask;
   try {
     task = await serpLive({ ...key, tag: captureId });

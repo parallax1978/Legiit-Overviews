@@ -325,6 +325,27 @@ returns uuid
 language sql stable security definer set search_path = ''
 as $$ select series_id from public.snapshots where id = p_snapshot_id $$;
 
+-- Pages are a shared cache, but a page's parsed text is shown only to users with a reason to see
+-- it: it is in one of their reports, cited by a series they track, or their own page.
+create or replace function public.user_can_read_page(p_url_key text)
+returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select exists (
+    select 1 from public.reports r
+    join public.tracked_queries tq on tq.id = r.tracked_query_id
+    where tq.user_id = (select auth.uid()) and r.page_urls @> array[p_url_key]
+  ) or exists (
+    select 1 from public.tracked_queries tq
+    where tq.user_id = (select auth.uid()) and tq.own_url_key = p_url_key
+  ) or exists (
+    select 1 from public.citations ci
+    join public.snapshots s on s.id = ci.snapshot_id
+    join public.tracked_queries tq on tq.series_id = s.series_id
+    where ci.url_key = p_url_key and tq.user_id = (select auth.uid())
+  );
+$$;
+
 -- ---------------------------------------------------------------- row-level security
 
 alter table public.locations enable row level security;
@@ -354,7 +375,7 @@ alter table public.platform_events enable row level security;
 create policy "read locations" on public.locations for select to authenticated using (true);
 create policy "read platform domains" on public.platform_domains for select to authenticated using (true);
 create policy "read platform events" on public.platform_events for select to authenticated using (true);
-create policy "read pages" on public.pages for select to authenticated using (true);
+create policy "read pages" on public.pages for select to authenticated using (public.user_can_read_page(url_key));
 
 create policy "read tracked series" on public.series for select to authenticated
   using (public.user_tracks_series(id));
@@ -399,9 +420,16 @@ create policy "own notifications: mark read" on public.notifications for update 
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
 -- Tracked queries are created by the add-query function; users may only edit tracking fields.
+-- own_url_key is derived from own_url by set-own-page (and build-reports), never written by users:
+-- a user-chosen key would let them write the shared pages cache under another page's key.
 revoke insert on public.tracked_queries from anon, authenticated;
 revoke update on public.tracked_queries from anon, authenticated;
-grant update (own_url, own_url_key, brand_names, status) on public.tracked_queries to authenticated;
+grant update (own_url, brand_names, status) on public.tracked_queries to authenticated;
+
+-- Notifications are written where the event happens; users may only mark them read. Any other
+-- column would let a user re-arm emails (emailed_at), rewrite their content or fake digests.
+revoke update on public.notifications from anon, authenticated;
+grant update (read_at) on public.notifications to authenticated;
 
 -- Storage bucket for raw DataForSEO payloads (service role only).
 insert into storage.buckets (id, name, public) values ('raw', 'raw', false)

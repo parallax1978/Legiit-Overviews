@@ -45,9 +45,14 @@ Deno.test("ingestTask writes the snapshot once, with sections, citations and the
 
     const sections = must(await db().from("sections").select("position, kind, citation_idx").eq("snapshot_id", snap.id).order("position"), "sections") as any[];
     assertEquals(sections.map((s) => s.kind), ["element", "element", "element"]);
-    const citations = must(await db().from("citations").select("idx, url_key, passage").eq("snapshot_id", snap.id).order("idx"), "citations") as any[];
+    const citations = must(await db().from("citations").select("idx, url_key, passage, passages").eq("snapshot_id", snap.id).order("idx"), "citations") as any[];
     assertEquals(citations.length, 6);
     assertEquals(citations[0].url_key, "zapier.com/blog/best-online-form-builder-software");
+    // Zapier is cited twice with different passages: both are stored, `passage` is the first.
+    assertEquals(citations[0].passages.length, 2);
+    assertEquals(citations[0].passage, citations[0].passages[0]);
+    assert(citations[0].passages[1].startsWith("Google Forms is free and simple"));
+    assertEquals(citations[1].passages, [citations[1].passage]);
 
     const raw = await db().storage.from("raw").download(snap.raw_path);
     assertEquals(JSON.parse(await raw.data!.text()).data.tag, capture.id);
@@ -93,6 +98,50 @@ Deno.test("identical content reuses the earlier snapshot; absent renders need no
     const snapD = await snapshotOf(d.id);
     assertEquals([snapD.extraction, snapD.same_as, snapD.content_hash, snapD.sentences], ["none", null, null, []]);
     assertEquals(snapD.organic.length, 4);
+  } finally {
+    await cleanup([], [series.id]);
+  }
+});
+
+Deno.test("identical content never reuses an original whose extraction failed", async () => {
+  const series = await createSeries(uniqueKeyword("failed-original"));
+  try {
+    const base = fixtureResult("synthetic-form-builders.json");
+    const at = (h: number) => ({ ...structuredClone(base), datetime: `2026-10-07 ${String(h).padStart(2, "0")}:00:00 +00:00` });
+    const ingest = async (h: number, result: any) => {
+      const c = await createCapture(series.id, { scheduled_at: `2026-10-07T${String(h).padStart(2, "0")}:00:00Z` });
+      return (await ingestTask(c.id, okTask(c.id, result))).snapshot_id!;
+    };
+    const setExtraction = async (id: string, extraction: string) =>
+      must(await db().from("snapshots").update({ extraction }).eq("id", id), "set extraction");
+    const link = async (id: string) => {
+      const s = must(await db().from("snapshots").select("same_as, extraction").eq("id", id).single(), "snapshot") as any;
+      return [s.same_as, s.extraction];
+    };
+
+    // The original failed for good before any copy arrived: the next identical render is the new original.
+    const s1 = await ingest(0, at(0));
+    await setExtraction(s1, "failed");
+    const s2 = await ingest(3, at(3));
+    assertEquals(await link(s2), [null, "pending"]);
+    const s3 = await ingest(6, at(6));
+    assertEquals(await link(s3), [s2, "reused"]);
+
+    // Another content: the original fails after a copy pointed at it. fail_extraction resets the copy
+    // to pending with same_as kept; later identical renders reuse that copy, not the failed original.
+    const other = fixtureResult("synthetic-sections.json");
+    const otherAt = (h: number) => ({ ...structuredClone(other), datetime: `2026-10-07 ${String(h).padStart(2, "0")}:00:00 +00:00` });
+    const o1 = await ingest(9, otherAt(9));
+    const o2 = await ingest(12, otherAt(12));
+    assertEquals(await link(o2), [o1, "reused"]);
+    await setExtraction(o1, "failed");
+    await setExtraction(o2, "pending");
+    const o3 = await ingest(15, otherAt(15));
+    assertEquals(await link(o3), [o2, "reused"]);
+    // A copy still waiting to be reset is reused too (the chain resolves once it is extracted).
+    await setExtraction(o2, "reused");
+    const o4 = await ingest(18, otherAt(18));
+    assertEquals(await link(o4), [o2, "reused"]);
   } finally {
     await cleanup([], [series.id]);
   }

@@ -12,6 +12,9 @@ create index if not exists snapshots_captured_at_idx on public.snapshots (captur
 -- reg_domain already have indexes in the core schema.
 create index if not exists own_matches_snapshot_idx on public.own_matches (snapshot_id);
 create index if not exists draft_scores_tq_idx on public.draft_scores (tracked_query_id, created_at desc);
+-- One draft being scored per tracked query: score-draft inserts first and treats a conflict as busy.
+create unique index if not exists draft_scores_one_running_idx on public.draft_scores (tracked_query_id)
+  where status = 'running';
 create index if not exists reports_tq_idx on public.reports (tracked_query_id, created_at desc);
 create index if not exists notifications_kind_idx on public.notifications (user_id, kind, created_at desc);
 create index if not exists notifications_unemailed_idx on public.notifications (created_at) where emailed_at is null;
@@ -45,6 +48,31 @@ begin
   end if;
   raise exception 'not allowed' using errcode = '42501';
 end;
+$$;
+
+/**
+ * Where a series' usable history starts: the first present render of the current capture stretch,
+ * i.e. after the last gap of more than 36 hours between consecutive snapshots before p_until.
+ * Captures stop while no tracked query is active, so an older stretch is a different time and
+ * must not count as history. Null while the stretch has no present render.
+ */
+create or replace function public.series_history_start(p_series_id uuid, p_until timestamptz default now())
+returns timestamptz
+language sql stable security definer set search_path = ''
+as $$
+  with gaps as (
+    select s.captured_at, s.captured_at - lag(s.captured_at) over (order by s.captured_at) as gap
+    from public.snapshots s
+    where s.series_id = p_series_id and s.captured_at < p_until
+  ),
+  stretch as (
+    select coalesce(max(captured_at) filter (where gap > interval '36 hours'), '-infinity'::timestamptz) as since
+    from gaps
+  )
+  select min(s.captured_at)
+  from public.snapshots s, stretch
+  where s.series_id = p_series_id and s.status = 'present'
+    and s.captured_at >= stretch.since and s.captured_at < p_until
 $$;
 
 /** Survival bucket for a share: core >= 0.8, recurring >= 0.4, rotating below. */
@@ -97,13 +125,25 @@ $$;
 /**
  * SeriesMetrics (supabase/functions/_shared/types.ts) for one series over [p_from, p_to).
  * renders = present + absent snapshots; error snapshots are counted separately and excluded from
- * every rate. Shares are over present renders. Rates with a zero denominator are null.
+ * every rate. Presence, sources, domains, stability and word counts are over present renders.
+ * Claim, entity, format and answer-lead shares are over extracted present renders (extraction =
+ * 'done'): a render still awaiting extraction has no claims yet, so counting it would read as
+ * "claim absent". extraction_pending says how many present renders are still being analysed.
+ * Rates with a zero denominator are null.
+ *
+ * Daily differences compare whole UTC days: the first day's sets include that day's renders before
+ * p_from, and the last day lists nothing as dropped when p_to is not midnight (the day is still
+ * being captured). Claim and entity diffs are between days with an extracted render, citation
+ * diffs between days with a non-error render.
  */
 create or replace function public.series_metrics(p_series_id uuid, p_from timestamptz, p_to timestamptz)
 returns jsonb
 language plpgsql stable security definer set search_path = '' set timezone = 'UTC'
 as $$
 declare
+  v_day_from timestamptz := date_trunc('day', p_from at time zone 'UTC') at time zone 'UTC';
+  v_last_day date := ((p_to - interval '1 microsecond') at time zone 'UTC')::date;
+  v_last_partial boolean := (p_to at time zone 'UTC') <> date_trunc('day', p_to at time zone 'UTC');
   v_result jsonb;
 begin
   perform public.assert_series_access(p_series_id);
@@ -111,7 +151,9 @@ begin
   with
   snaps as materialized (
     select s.id, s.captured_at, s.status, s.content_hash, s.organic, s.formats,
-           (s.captured_at at time zone 'UTC')::date as day
+           (s.captured_at at time zone 'UTC')::date as day,
+           s.status = 'present' and s.extraction = 'done' as extracted,
+           s.status = 'present' and s.extraction in ('pending', 'submitted', 'reused') as awaiting
     from public.snapshots s
     where s.series_id = p_series_id and s.captured_at >= p_from and s.captured_at < p_to
   ),
@@ -119,11 +161,21 @@ begin
     select count(*) filter (where status <> 'error') as renders,
            count(*) filter (where status = 'present') as present,
            count(*) filter (where status = 'error') as errors,
+           count(*) filter (where extracted) as extracted,
+           count(*) filter (where awaiting) as extraction_pending,
            count(distinct day) filter (where status <> 'error') as days
     from snaps
   ),
   pres as materialized (
-    select id, captured_at, day, organic, formats from snaps where status = 'present'
+    select id, captured_at, day, organic, formats, extracted from snaps where status = 'present'
+  ),
+  -- present renders of the first UTC day that fall before p_from: they complete that day's sets
+  -- for the daily differences and count for nothing else
+  lead_in as materialized (
+    select s.id, (s.captured_at at time zone 'UTC')::date as day, s.extraction = 'done' as extracted
+    from public.snapshots s
+    where s.series_id = p_series_id and s.status = 'present'
+      and s.captured_at >= v_day_from and s.captured_at < p_from
   ),
   -- change rate: consecutive non-error renders whose content differs; absent is its own state
   states as (
@@ -135,12 +187,13 @@ begin
     select count(*) filter (where prev is not null and prev <> state) as changed
     from (select state, lag(state) over (order by captured_at, id) as prev from states) x
   ),
-  -- claims of live groups on present renders
+  -- claims of live groups on extracted renders
   cl as materialized (
     select c.group_id, g.label, c.snapshot_id, c.type, c.citation_idx, p.captured_at, p.day
     from pres p
     join public.claims c on c.snapshot_id = p.id
     join public.claim_groups g on g.id = c.group_id and g.merged_into is null
+    where p.extracted
   ),
   claim_stats as materialized (
     select group_id, label,
@@ -151,12 +204,13 @@ begin
            array_agg(distinct type order by type) as types
     from cl group by group_id, label
   ),
-  -- entity mentions of live entities on present renders
+  -- entity mentions of live entities on extracted renders
   em as materialized (
     select m.entity_id, e.name, m.snapshot_id, m.role, nullif(btrim(m.label), '') as label, p.day
     from pres p
     join public.entity_mentions m on m.snapshot_id = p.id
     join public.entities e on e.id = m.entity_id and e.merged_into is null
+    where p.extracted
   ),
   entity_stats as (
     select entity_id, name,
@@ -240,61 +294,109 @@ begin
     select percentile_cont(0.5) within group (order by (formats->>'word_count')::numeric) as median
     from pres where jsonb_typeof(formats->'word_count') = 'number'
   ),
+  -- answer-lead position: the sentence index Claude marked as the direct answer (null: no direct answer)
+  lead_pos as (
+    select count(*) as n,
+           count(*) filter (where jsonb_typeof(formats->'answer_lead_sentence') = 'number'
+                              and (formats->>'answer_lead_sentence')::numeric = 0) as answer_first,
+           count(*) filter (where jsonb_typeof(formats->'answer_lead_sentence') is distinct from 'number') as no_answer,
+           percentile_cont(0.5) within group (order by (formats->>'answer_lead_sentence')::numeric)
+             filter (where jsonb_typeof(formats->'answer_lead_sentence') = 'number') as median
+    from pres where extracted
+  ),
   fmt as (
     select l.label, count(distinct p.id) as renders
     from pres p
     cross join lateral jsonb_array_elements_text(
       case when jsonb_typeof(p.formats->'labels') = 'array' then p.formats->'labels' else '[]'::jsonb end
     ) as l(label)
+    where p.extracted
     group by l.label
   ),
-  -- day-to-day differences against the previous day in the window that had renders
+  -- day-to-day differences against the previous day that had something to compare; counts are
+  -- in-window, all_* also count the lead-in renders of the first day
   day_counts as materialized (
-    select day, count(*) filter (where status <> 'error') as renders,
-           count(*) filter (where status = 'present') as present
-    from snaps group by day
+    select day,
+           count(*) filter (where in_window and status <> 'error') as renders,
+           count(*) filter (where in_window and status = 'present') as present,
+           count(*) filter (where in_window) as listed,
+           count(*) filter (where status <> 'error') as all_renders,
+           count(*) filter (where extracted) as all_extracted
+    from (
+      select day, status, extracted, true as in_window from snaps
+      union all
+      select day, 'present', extracted, false from lead_in
+    ) x
+    group by day
   ),
   day_prev as (
-    select d.day, d.renders, d.present,
-           (select max(d2.day) from day_counts d2 where d2.day < d.day and d2.renders > 0) as prev
+    select d.day, d.renders, d.present, d.listed,
+           d.all_renders > 0 as has_renders,
+           d.all_extracted > 0 as has_extracted,
+           (select max(d2.day) from day_counts d2 where d2.day < d.day and d2.all_renders > 0) as prev_r,
+           (select max(d2.day) from day_counts d2 where d2.day < d.day and d2.all_extracted > 0) as prev_x,
+           not (v_last_partial and d.day = v_last_day) as complete
     from day_counts d
   ),
-  day_claims as materialized (select distinct day, group_id, label from cl),
-  day_entities as materialized (select distinct day, entity_id, name from em),
-  day_urls as materialized (select distinct day, url_key, reg_domain from cit),
+  day_claims as materialized (
+    select day, group_id, label from cl
+    union
+    select l.day, c.group_id, g.label
+    from lead_in l
+    join public.claims c on c.snapshot_id = l.id
+    join public.claim_groups g on g.id = c.group_id and g.merged_into is null
+    where l.extracted
+  ),
+  day_entities as materialized (
+    select day, entity_id, name from em
+    union
+    select l.day, m.entity_id, e.name
+    from lead_in l
+    join public.entity_mentions m on m.snapshot_id = l.id
+    join public.entities e on e.id = m.entity_id and e.merged_into is null
+    where l.extracted
+  ),
+  day_urls as materialized (
+    select day, url_key, reg_domain from cit
+    union
+    select l.day, ci.url_key, ci.reg_domain
+    from lead_in l
+    join public.citations ci on ci.snapshot_id = l.id
+  ),
   daily as (
     select d.day, d.renders, d.present,
-      case when d.renders > 0 and d.prev is not null then (
+      case when d.has_extracted and d.prev_x is not null then (
         select coalesce(jsonb_agg(jsonb_build_object('group_id', a.group_id, 'label', a.label) order by a.label, a.group_id), '[]'::jsonb)
         from day_claims a where a.day = d.day
-          and not exists (select 1 from day_claims b where b.day = d.prev and b.group_id = a.group_id)
+          and not exists (select 1 from day_claims b where b.day = d.prev_x and b.group_id = a.group_id)
       ) else '[]'::jsonb end as claims_added,
-      case when d.renders > 0 and d.prev is not null then (
+      case when d.has_extracted and d.prev_x is not null and d.complete then (
         select coalesce(jsonb_agg(jsonb_build_object('group_id', a.group_id, 'label', a.label) order by a.label, a.group_id), '[]'::jsonb)
-        from day_claims a where a.day = d.prev
+        from day_claims a where a.day = d.prev_x
           and not exists (select 1 from day_claims b where b.day = d.day and b.group_id = a.group_id)
       ) else '[]'::jsonb end as claims_dropped,
-      case when d.renders > 0 and d.prev is not null then (
+      case when d.has_extracted and d.prev_x is not null then (
         select coalesce(jsonb_agg(jsonb_build_object('entity_id', a.entity_id, 'name', a.name) order by a.name, a.entity_id), '[]'::jsonb)
         from day_entities a where a.day = d.day
-          and not exists (select 1 from day_entities b where b.day = d.prev and b.entity_id = a.entity_id)
+          and not exists (select 1 from day_entities b where b.day = d.prev_x and b.entity_id = a.entity_id)
       ) else '[]'::jsonb end as entities_added,
-      case when d.renders > 0 and d.prev is not null then (
+      case when d.has_extracted and d.prev_x is not null and d.complete then (
         select coalesce(jsonb_agg(jsonb_build_object('entity_id', a.entity_id, 'name', a.name) order by a.name, a.entity_id), '[]'::jsonb)
-        from day_entities a where a.day = d.prev
+        from day_entities a where a.day = d.prev_x
           and not exists (select 1 from day_entities b where b.day = d.day and b.entity_id = a.entity_id)
       ) else '[]'::jsonb end as entities_dropped,
-      case when d.renders > 0 and d.prev is not null then (
+      case when d.has_renders and d.prev_r is not null then (
         select coalesce(jsonb_agg(jsonb_build_object('url_key', a.url_key, 'reg_domain', a.reg_domain) order by a.url_key), '[]'::jsonb)
         from day_urls a where a.day = d.day
-          and not exists (select 1 from day_urls b where b.day = d.prev and b.url_key = a.url_key)
+          and not exists (select 1 from day_urls b where b.day = d.prev_r and b.url_key = a.url_key)
       ) else '[]'::jsonb end as citations_added,
-      case when d.renders > 0 and d.prev is not null then (
+      case when d.has_renders and d.prev_r is not null and d.complete then (
         select coalesce(jsonb_agg(jsonb_build_object('url_key', a.url_key, 'reg_domain', a.reg_domain) order by a.url_key), '[]'::jsonb)
-        from day_urls a where a.day = d.prev
+        from day_urls a where a.day = d.prev_r
           and not exists (select 1 from day_urls b where b.day = d.day and b.url_key = a.url_key)
       ) else '[]'::jsonb end as citations_dropped
     from day_prev d
+    where d.listed > 0
   )
   select jsonb_build_object(
     'window', jsonb_build_object('from', p_from, 'to', p_to),
@@ -302,6 +404,8 @@ begin
     'present', c.present,
     'errors', c.errors,
     'days', c.days,
+    'extracted', c.extracted,
+    'extraction_pending', c.extraction_pending,
     'presence_rate', case when c.renders > 0 then round(c.present::numeric / c.renders, 4) end,
     'change_rate', case when c.renders > 1 then round((select changed from changes)::numeric / (c.renders - 1), 4) end,
     'confidence', case when c.renders < 10 then 'low' when c.renders <= 20 then 'medium' else 'high' end,
@@ -317,6 +421,14 @@ begin
     ),
     'citations_per_render', case when c.present > 0 then round((select count(*) from cit)::numeric / c.present, 4) end,
     'median_word_count', (select median from word_counts),
+    'answer_lead', (
+      select jsonb_build_object(
+        'n', l.n,
+        'answer_first_share', case when l.n > 0 then round(l.answer_first::numeric / l.n, 4) end,
+        'no_answer_share', case when l.n > 0 then round(l.no_answer::numeric / l.n, 4) end,
+        'median_sentence', l.median)
+      from lead_pos l
+    ),
     'organic_overlap', (
       select jsonb_build_object(
         'top10', case when o.occurrences > 0 then round(o.top10::numeric / o.occurrences, 4) end,
@@ -328,8 +440,8 @@ begin
           'group_id', x.group_id,
           'label', x.label,
           'renders', x.renders,
-          'share', round(x.renders::numeric / c.present, 4),
-          'bucket', public.metric_bucket(x.renders::numeric / c.present),
+          'share', round(x.renders::numeric / nullif(c.extracted, 0), 4),
+          'bucket', public.metric_bucket(x.renders::numeric / nullif(c.extracted, 0)),
           'first_seen', x.first_seen,
           'last_seen', x.last_seen,
           'cited_share', round(x.cited_share, 4),
@@ -342,11 +454,11 @@ begin
           'entity_id', x.entity_id,
           'name', x.name,
           'renders', x.renders,
-          'share', round(x.renders::numeric / c.present, 4),
+          'share', round(x.renders::numeric / nullif(c.extracted, 0), 4),
           'recommended_renders', x.recommended,
-          'recommended_share', round(x.recommended::numeric / c.present, 4),
+          'recommended_share', round(x.recommended::numeric / nullif(c.extracted, 0), 4),
           'labels', to_jsonb(x.labels),
-          'bucket', public.metric_bucket(x.renders::numeric / c.present)
+          'bucket', public.metric_bucket(x.renders::numeric / nullif(c.extracted, 0))
         ) order by x.renders desc, x.name, x.entity_id)
       from (select * from entity_stats order by renders desc, name, entity_id limit 100) x
     ), '[]'::jsonb),
@@ -378,7 +490,7 @@ begin
       select jsonb_agg(jsonb_build_object(
           'label', f.label,
           'renders', f.renders,
-          'share', round(f.renders::numeric / c.present, 4)
+          'share', round(f.renders::numeric / nullif(c.extracted, 0), 4)
         ) order by f.renders desc, f.label)
       from fmt f
     ), '[]'::jsonb),
@@ -386,10 +498,10 @@ begin
       select jsonb_agg(jsonb_build_object(
           'group_id', x.group_id,
           'label', x.label,
-          'share', round(x.renders::numeric / c.present, 4)
+          'share', round(x.renders::numeric / nullif(c.extracted, 0), 4)
         ) order by x.renders desc, x.label, x.group_id)
       from claim_stats x
-      where x.renders::numeric / c.present >= 0.4 and x.cited_share = 0
+      where x.renders::numeric / nullif(c.extracted, 0) >= 0.4 and x.cited_share = 0
     ), '[]'::jsonb),
     'daily', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -562,7 +674,10 @@ $$;
 
 -- ---------------------------------------------------------------- my_queries
 
-/** The caller's tracked queries with 7-day capture stats, own-page level and latest report. */
+/**
+ * The caller's tracked queries with 7-day capture stats, own-page level and latest report.
+ * history_days counts from series_history_start, the same start create_due_reports uses.
+ */
 create or replace function public.my_queries()
 returns jsonb
 language plpgsql stable security definer set search_path = '' set timezone = 'UTC'
@@ -590,7 +705,7 @@ begin
       'device', se.device,
       'status', tq.status,
       'created_at', tq.created_at,
-      'history_days', coalesce(floor(extract(epoch from (now() - h.first_at)) / 86400)::int, 0),
+      'history_days', coalesce(floor(extract(epoch from (now() - public.series_history_start(tq.series_id))) / 86400)::int, 0),
       'renders_7d', w.renders,
       'present_7d', w.present,
       'presence_rate_7d', case when w.renders > 0 then round(w.present::numeric / w.renders, 4) end,
@@ -605,10 +720,6 @@ begin
   from public.tracked_queries tq
   join public.series se on se.id = tq.series_id
   left join public.locations l on l.code = se.location_code
-  left join lateral (
-    select min(s.captured_at) as first_at from public.snapshots s
-    where s.series_id = tq.series_id and s.status <> 'error'
-  ) h on true
   left join lateral (
     select count(*) filter (where s.status <> 'error') as renders,
            count(*) filter (where s.status = 'present') as present
@@ -732,10 +843,14 @@ $$;
 
 /**
  * Creates the reports that are due for tracking queries (optionally limited to p_tracked_query_ids)
- * at p_now. History starts at the series' first non-error snapshot. preliminary: 3-day window once
- * history reaches 3 days and the query has no preliminary or full report; full: 7-day window once
- * history reaches 7 days and the query has no full report (a query that is already past day 7 gets
- * only the full report); refresh: 28-day window 28 days after the latest full or refresh window.
+ * at p_now. History starts at series_history_start: the first overview of the current capture
+ * stretch, so a series captured again after a pause, or one that only just showed an overview,
+ * starts from zero. preliminary: 3-day window once history reaches 3 days and the query has no
+ * preliminary or full report; full: 7-day window once history reaches 7 days and the query has no
+ * full report (a query that is already past day 7 gets only the full report); refresh: 28-day
+ * window at day 28 and every 28 days after the latest refresh, never within 7 days of the latest
+ * full or refresh. A full or refresh report needs at least 10 present renders in its window (the
+ * 'medium' confidence floor) unless history is past day 28; short of that it is retried next run.
  * Returns the created rows as [{ id, tracked_query_id, series_id, kind, window_start, window_end }].
  */
 create or replace function public.create_due_reports(p_now timestamptz default now(), p_tracked_query_ids uuid[] default null)
@@ -749,35 +864,47 @@ begin
 
   with tq as (
     select q.id, q.series_id,
-      (select min(s.captured_at) from public.snapshots s where s.series_id = q.series_id and s.status <> 'error') as start,
+      public.series_history_start(q.series_id, p_now) as start,
       exists (select 1 from public.reports r where r.tracked_query_id = q.id and r.kind = 'preliminary') as has_pre,
       exists (select 1 from public.reports r where r.tracked_query_id = q.id and r.kind = 'full') as has_full,
-      (select max(r.window_end) from public.reports r where r.tracked_query_id = q.id and r.kind in ('full', 'refresh')) as last_full_end
+      (select max(r.window_end) from public.reports r where r.tracked_query_id = q.id and r.kind in ('full', 'refresh')) as last_end,
+      (select max(r.window_end) from public.reports r where r.tracked_query_id = q.id and r.kind = 'refresh') as last_refresh_end
     from public.tracked_queries q
     where q.status = 'tracking' and (p_tracked_query_ids is null or q.id = any(p_tracked_query_ids))
   ),
   due as (
-    select id, series_id,
+    select id, series_id, start,
       case
         when not has_full and start <= p_now - interval '7 days' then 'full'
         when not has_full and not has_pre and start <= p_now - interval '3 days' then 'preliminary'
-        when has_full and last_full_end <= p_now - interval '28 days' then 'refresh'
+        when has_full and start <= p_now - interval '28 days'
+          and last_end <= p_now - interval '7 days'
+          and (last_refresh_end is null or last_refresh_end <= p_now - interval '28 days') then 'refresh'
       end as kind
     from tq where start is not null
   ),
   win as (
-    select d.id, d.series_id, d.kind,
+    select d.id, d.series_id, d.kind, d.start,
       p_now - case d.kind when 'preliminary' then interval '3 days' when 'full' then interval '7 days'
                           else interval '28 days' end as window_start
     from due d where d.kind is not null
   ),
-  ins as (
-    insert into public.reports (tracked_query_id, series_id, kind, window_start, window_end, renders)
-    select w.id, w.series_id, w.kind, w.window_start, p_now,
+  cov as (
+    select w.*,
       (select count(*) from public.snapshots s
         where s.series_id = w.series_id and s.status <> 'error'
-          and s.captured_at >= w.window_start and s.captured_at < p_now)
+          and s.captured_at >= w.window_start and s.captured_at < p_now) as renders,
+      (select count(*) from public.snapshots s
+        where s.series_id = w.series_id and s.status = 'present'
+          and s.captured_at >= w.window_start and s.captured_at < p_now) as present
     from win w
+  ),
+  ins as (
+    insert into public.reports (tracked_query_id, series_id, kind, window_start, window_end, renders)
+    select c.id, c.series_id, c.kind, c.window_start, p_now, c.renders
+    from cov c
+    where c.kind = 'preliminary' or c.present >= 10
+       or (c.kind = 'full' and c.start <= p_now - interval '28 days')
     on conflict do nothing
     returning id, tracked_query_id, series_id, kind, window_start, window_end
   )
@@ -915,6 +1042,7 @@ $$;
 
 revoke all on function public.assert_series_access(uuid) from public, anon, authenticated;
 revoke all on function public.assert_tracked_query_access(uuid) from public, anon, authenticated;
+revoke all on function public.series_history_start(uuid, timestamptz) from public, anon, authenticated;
 revoke all on function public.metric_bucket(numeric) from anon;
 revoke all on function public.match_level_rank(text) from anon;
 revoke all on function public.snapshot_sentences(jsonb, int[]) from anon;

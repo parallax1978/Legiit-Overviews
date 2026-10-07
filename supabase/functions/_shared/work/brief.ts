@@ -1,6 +1,9 @@
 // Task D batch work: the coverage matrix and brief for each report whose pages are ready.
 // Pending: reports.stage = 'brief' and brief_submitted = false. The result goes through brief-render
 // (typed refs, code checks, Markdown), then apply_brief moves the report to 'ready' and notifies.
+// A request that errored, expired, was truncated, refused or came back invalid is reported by
+// throwing and nothing else: release_stuck_work then resubmits the report, and fails it once two
+// attempts have failed. Only an invalid request fails the report at once.
 import { type BatchItemResult, type BatchRequest, customId, parseCustomId } from "../batch-work.ts";
 import { answerBudget, type BriefContext, renderBrief } from "../brief-render.ts";
 import { parseStructured, structuredParams } from "../claude.ts";
@@ -9,9 +12,12 @@ import { hostOfUrl, regDomain } from "../normalize.ts";
 import { BRIEF_SYSTEM, type BriefPromptInput, briefUser } from "../prompts/brief.ts";
 import { BriefOutput } from "../schemas.ts";
 import type { PassageLocation, SeriesMetrics } from "../types.ts";
-import { chunks, errorText, failureMessage, round3, type ScopedWork, type WorkScope } from "./common.ts";
+import { chunks, failureMessage, isPermanentError, round3, type ScopedWork, type WorkScope } from "./common.ts";
 
-export const BRIEF_MAX_TOKENS = 32000;
+/** Covers high-effort thinking plus a 10-15k-token output; batch requests have no HTTP timeout. */
+export const BRIEF_MAX_TOKENS = 64000;
+/** Used for the retry after a result stopped on max_tokens. */
+export const BRIEF_MAX_TOKENS_RETRY = 128000;
 const MAX_CLAIMS = 60;
 const MAX_ENTITIES = 40;
 const MAX_PASSAGES = 5;
@@ -40,6 +46,8 @@ export interface BriefRow {
   language: string;
   display_keyword: string;
   own_url_key: string | null;
+  /** Aliases of the series' live entities that have any, by entity id. */
+  entity_aliases?: Record<string, string[]> | null;
   pages: { url_key: string; url: string; measures: Record<string, unknown> | null; tags: unknown }[];
 }
 
@@ -155,7 +163,10 @@ export function briefContext(row: BriefRow, refs: Record<string, string>, surviv
     present: m?.present ?? 0,
     refs,
     claims: Object.fromEntries((m?.claims ?? []).map((c) => [c.group_id, { label: c.label, share: c.share, renders: c.renders }])),
-    entities: Object.fromEntries((m?.entities ?? []).map((e) => [e.entity_id, { name: e.name, share: e.share, renders: e.renders }])),
+    entities: Object.fromEntries((m?.entities ?? []).map((e) => [
+      e.entity_id,
+      { name: e.name, share: e.share, renders: e.renders, aliases: row.entity_aliases?.[e.entity_id] ?? [] },
+    ])),
     pages: Object.fromEntries(row.pages.map((p) => [p.url_key, { url: p.url }])),
     survivors,
     answerBudget: briefAnswerBudget(row),
@@ -190,6 +201,19 @@ async function loadRow(reportId: string): Promise<BriefRow | null> {
   return must(await serviceClient().rpc("brief_context", { p_report_id: reportId }), "brief_context") as BriefRow | null;
 }
 
+/** Reports among `ids` whose earlier brief request stopped on max_tokens; they get the higher ceiling. */
+async function truncatedBefore(ids: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const part of chunks(ids, 100)) {
+    const rows = must(
+      await serviceClient().from("batch_items").select("target_id, error").eq("kind", "brief").eq("status", "failed").in("target_id", part),
+      "load failed brief items",
+    ) as { target_id: string; error: string | null }[];
+    for (const r of rows) if (r.error?.includes("max_tokens")) out.add(r.target_id);
+  }
+  return out;
+}
+
 export const briefWork: ScopedWork = {
   kind: "brief",
 
@@ -198,6 +222,7 @@ export const briefWork: ScopedWork = {
       await serviceClient().rpc("brief_pending", { p_limit: limit, p_series_ids: scope?.seriesIds ?? null }),
       "brief_pending",
     ) as BriefRow[];
+    const truncated = rows.length ? await truncatedBefore(rows.map((r) => r.id)) : new Set<string>();
     return rows.map((row) => {
       const { input, refs } = briefInput(row);
       return {
@@ -209,7 +234,7 @@ export const briefWork: ScopedWork = {
           system: BRIEF_SYSTEM,
           user: briefUser(input),
           schema: BriefOutput,
-          maxTokens: BRIEF_MAX_TOKENS,
+          maxTokens: truncated.has(row.id) ? BRIEF_MAX_TOKENS_RETRY : BRIEF_MAX_TOKENS,
         }),
       };
     });
@@ -230,16 +255,11 @@ export const briefWork: ScopedWork = {
     const { id } = parseCustomId(cid);
     if (result.type !== "succeeded") {
       const message = failureMessage(result);
-      await failBrief(id, message);
+      if (isPermanentError(result)) await failBrief(id, message);
       throw new Error(message);
     }
-    let output: BriefOutput;
-    try {
-      output = parseStructured(result.message, BriefOutput);
-    } catch (e) {
-      await failBrief(id, errorText(e));
-      throw e;
-    }
+    // A refusal, a max_tokens stop or invalid output is retried like an errored request.
+    const output = parseStructured(result.message, BriefOutput);
     const row = await loadRow(id);
     if (!row) throw new Error(`report ${id} not found`);
     if (row.stage !== "brief") return; // already applied

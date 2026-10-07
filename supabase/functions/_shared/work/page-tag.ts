@@ -1,6 +1,8 @@
 // Task C batch work: tag each parsed page that a report at stage 'pages' needs.
 // Pending: parse_status 'ok' and tag_status 'none' (or tags older than the parse). The result sets
 // pages.tags and measures.words_before_answer, located from Claude's verbatim answer sentence.
+// A request that errored, expired, was truncated or came back invalid puts the page back to 'none'
+// so the report keeps waiting for it; the third such failure, or an invalid request, fails the tag.
 import { type BatchItemResult, type BatchRequest, customId, parseCustomId } from "../batch-work.ts";
 import { parseStructured, structuredParams } from "../claude.ts";
 import { must, serviceClient } from "../db.ts";
@@ -8,7 +10,7 @@ import { outlineFromMarkdown, wordsBefore } from "../passage.ts";
 import { PAGE_TAG_MAX_CHARS, PAGE_TAG_SYSTEM, pageTagUser, trimMarkdown } from "../prompts/page-tag.ts";
 import { type PageTagInput, PageTagOutput } from "../schemas.ts";
 import type { OutlineItem } from "../types.ts";
-import { chunks, errorText, failureMessage, type ScopedWork, type WorkScope } from "./common.ts";
+import { chunks, errorText, failureMessage, isPermanentError, type ScopedWork, type WorkScope } from "./common.ts";
 
 export const PAGE_TAG_MAX_TOKENS = 8000;
 const MAX_OUTLINE = 200;
@@ -52,12 +54,8 @@ export function clampTags(tags: PageTagOutput): PageTagOutput {
   };
 }
 
-async function failTag(pageId: string): Promise<void> {
-  must(
-    await serviceClient().from("pages").update({ tag_status: "failed", tagged_at: new Date().toISOString() })
-      .eq("id", pageId).eq("tag_status", "submitted"),
-    "mark page tag failed",
-  );
+async function failTag(pageId: string, retryable: boolean): Promise<void> {
+  must(await serviceClient().rpc("fail_page_tag", { p_page_id: pageId, p_retryable: retryable }), "fail_page_tag");
 }
 
 export const pageTagWork: ScopedWork = {
@@ -99,14 +97,14 @@ export const pageTagWork: ScopedWork = {
   async handleResult(cid: string, result: BatchItemResult): Promise<void> {
     const { id } = parseCustomId(cid);
     if (result.type !== "succeeded") {
-      await failTag(id);
+      await failTag(id, !isPermanentError(result));
       throw new Error(failureMessage(result));
     }
     let tags: PageTagOutput;
     try {
       tags = clampTags(parseStructured(result.message, PageTagOutput));
     } catch (e) {
-      await failTag(id);
+      await failTag(id, true);
       throw e;
     }
     const page = must(

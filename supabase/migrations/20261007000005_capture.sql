@@ -37,8 +37,10 @@ begin
     v_slot := r.next_capture_at
       + floor(extract(epoch from now() - r.next_capture_at) / 10800)::int * interval '3 hours';
     v_capture := null;
-    insert into public.captures (series_id, scheduled_at, source, status)
-    values (r.id, v_slot, 'scheduled', 'pending')
+    -- submitted_at is the claim time until task_post accepts the capture, so the sweeper (which
+    -- resubmits captures pending for 10 minutes) leaves it alone while this run posts it.
+    insert into public.captures (series_id, scheduled_at, source, status, submitted_at)
+    values (r.id, v_slot, 'scheduled', 'pending', now())
     on conflict on constraint captures_series_id_scheduled_at_key do nothing
     returning id into v_capture;
 
@@ -54,6 +56,55 @@ begin
       return next;
     end if;
   end loop;
+end $$;
+
+-- The Live capture add-query runs for a series, or none: no capture when the series has a non-error
+-- render from the last 3 hours (fresh) or a capture in flight (pending or submitted, scheduled in the
+-- last 3 hours: another add, or a scheduled capture under way), so concurrent adds never pay for a
+-- second render. The series row is locked, so adds of one series run one at a time. A series that
+-- fell behind (next_capture_at in the past: every tracker was paused) moves to the first slot of its
+-- own offset at least 3 hours ahead, so the Live render is not followed minutes later by a catch-up.
+create or replace function public.claim_live_capture(p_series_id uuid)
+returns table (capture_id uuid, in_flight boolean)
+language plpgsql set search_path = ''
+as $$
+declare
+  v_next timestamptz;
+  v_id uuid;
+begin
+  select s.next_capture_at into v_next from public.series s where s.id = p_series_id for update;
+  if not found then
+    raise exception 'claim_live_capture: series % not found', p_series_id;
+  end if;
+  if exists (
+    select 1 from public.snapshots s
+    where s.series_id = p_series_id and s.status <> 'error' and s.captured_at >= now() - interval '3 hours'
+  ) then
+    return query select null::uuid, false;
+    return;
+  end if;
+  if exists (
+    select 1 from public.captures c
+    where c.series_id = p_series_id and c.status in ('pending', 'submitted') and c.scheduled_at >= now() - interval '3 hours'
+  ) then
+    return query select null::uuid, true;
+    return;
+  end if;
+
+  insert into public.captures (series_id, scheduled_at, source, status, attempts, submitted_at)
+  values (p_series_id, date_trunc('second', now()), 'live', 'submitted', 1, now())
+  on conflict on constraint captures_series_id_scheduled_at_key do nothing
+  returning id into v_id;
+  if v_id is null then
+    return query select null::uuid, true; -- a capture this very second: whoever made it is capturing
+    return;
+  end if;
+  if v_next <= now() then
+    update public.series
+    set next_capture_at = v_next + ceil(extract(epoch from (now() + interval '3 hours') - v_next) / 10800) * interval '3 hours'
+    where id = p_series_id;
+  end if;
+  return query select v_id, false;
 end $$;
 
 -- p_rows: [{ id, task_id, error }]; a row without error was accepted by DataForSEO.
@@ -116,10 +167,15 @@ begin
   -- One writer per series at a time, so two identical captures never both become originals.
   perform pg_advisory_xact_lock(hashtextextended('series:' || v_series::text, 0));
   if v_status = 'present' and v_hash is not null then
+    -- The original (same_as null) unless its extraction failed for good; then the earliest copy
+    -- that is extracted on its own (reset to pending by fail_extraction), or failing that the
+    -- earliest copy still waiting to be reset, so one failed extraction never makes every later
+    -- identical render pay for its own and identical renders keep identical claims.
     select s.id into v_same
     from public.snapshots s
-    where s.series_id = v_series and s.content_hash = v_hash and s.status = 'present' and s.same_as is null
-    order by s.captured_at, s.created_at
+    where s.series_id = v_series and s.content_hash = v_hash and s.status = 'present'
+      and s.extraction <> 'failed'
+    order by (s.same_as is null) desc, (s.extraction <> 'reused') desc, s.captured_at, s.created_at
     limit 1;
   end if;
 
@@ -139,9 +195,12 @@ begin
          coalesce((select array_agg(x::int) from jsonb_array_elements_text(e->'citation_idx') x), '{}')
   from jsonb_array_elements(coalesce(p_parsed->'sections', '[]')) e;
 
-  insert into public.citations (snapshot_id, idx, url, url_key, host, reg_domain, title, source, passage)
+  insert into public.citations (snapshot_id, idx, url, url_key, host, reg_domain, title, source, passage, passages)
   select v_id, (e->>'idx')::int, e->>'url', e->>'url_key', e->>'host', e->>'reg_domain',
-         e->>'title', e->>'source', e->>'passage'
+         e->>'title', e->>'source', e->>'passage',
+         coalesce(
+           (select array_agg(x) from jsonb_array_elements_text(case when jsonb_typeof(e->'passages') = 'array' then e->'passages' else '[]'::jsonb end) x),
+           case when e->>'passage' is null then '{}'::text[] else array[e->>'passage'] end)
   from jsonb_array_elements(coalesce(p_parsed->'citations', '[]')) e;
 
   update public.captures c
@@ -327,6 +386,7 @@ begin
 end $$;
 
 revoke all on function public.claim_due_captures(int, uuid[]) from public, anon, authenticated;
+revoke all on function public.claim_live_capture(uuid) from public, anon, authenticated;
 revoke all on function public.mark_capture_submissions(jsonb) from public, anon, authenticated;
 revoke all on function public.ingest_snapshot(uuid, timestamptz, jsonb, text) from public, anon, authenticated;
 revoke all on function public.record_capture_failure(uuid, text) from public, anon, authenticated;
@@ -334,6 +394,7 @@ revoke all on function public.own_match_events(uuid, uuid, text, text, text, boo
 revoke all on function public.record_own_match(uuid, uuid, text, boolean, int, text, text) from public, anon, authenticated;
 revoke all on function public.replace_own_matches(uuid, uuid[], jsonb) from public, anon, authenticated;
 grant execute on function public.claim_due_captures(int, uuid[]) to service_role;
+grant execute on function public.claim_live_capture(uuid) to service_role;
 grant execute on function public.mark_capture_submissions(jsonb) to service_role;
 grant execute on function public.ingest_snapshot(uuid, timestamptz, jsonb, text) to service_role;
 grant execute on function public.record_capture_failure(uuid, text) to service_role;

@@ -1,7 +1,7 @@
 // Claude client, model IDs and structured-output helpers. Model IDs are defined here and nowhere else.
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import type { z } from "zod";
+import { z } from "zod";
 import { env } from "./env.ts";
 
 export const MODELS = {
@@ -54,18 +54,54 @@ export interface StructuredRequest {
   maxTokens: number;
 }
 
+type JsonSchema = Record<string, unknown>;
+
+/**
+ * Puts `enum` back into the schema the SDK sends. The SDK's transform keeps only `type` and
+ * `format` on strings and moves everything else, enums included, into the description, so the API
+ * would not constrain enum fields and one off-set value would fail the whole output. Structured
+ * outputs support `enum`, so it is restored from zod's own JSON schema, which has the same shape.
+ */
+function restoreEnums(strict: JsonSchema | undefined, raw: JsonSchema | undefined): void {
+  if (!strict || !raw) return;
+  if (Array.isArray(raw.enum) && !strict.enum) {
+    strict.enum = raw.enum;
+    if (typeof strict.description === "string") {
+      const d = strict.description.replace(`enum: ${JSON.stringify(raw.enum)}`, "")
+        .replace("{, ", "{").replace(", }", "}").replace(/(^|\n\n)\{\}$/, "");
+      if (d) strict.description = d;
+      else delete strict.description;
+    }
+  }
+  for (const key of ["properties", "$defs"]) {
+    const s = strict[key] as Record<string, JsonSchema> | undefined;
+    const r = raw[key] as Record<string, JsonSchema> | undefined;
+    if (s && r) for (const k of Object.keys(s)) restoreEnums(s[k], r[k]);
+  }
+  restoreEnums(strict.items as JsonSchema | undefined, raw.items as JsonSchema | undefined);
+  const variants = (strict.anyOf ?? strict.allOf) as JsonSchema[] | undefined;
+  const rawVariants = (raw.anyOf ?? raw.oneOf ?? raw.allOf) as JsonSchema[] | undefined;
+  if (variants && rawVariants) variants.forEach((v, i) => restoreEnums(v, rawVariants[i]));
+}
+
+/** The JSON schema sent to the API for a zod schema: the SDK's strict form, with enums kept. */
+export function outputSchema(schema: z.ZodType): JsonSchema {
+  const strict = zodOutputFormat(schema).schema as JsonSchema;
+  restoreEnums(strict, z.toJSONSchema(schema, { reused: "ref" }) as JsonSchema);
+  return strict;
+}
+
 /**
  * Message params for a structured-output request. The system prompt is cached so batches of the
  * same task share it.
  */
 export function structuredParams(r: StructuredRequest): Anthropic.Messages.MessageCreateParamsNonStreaming {
-  const fmt = zodOutputFormat(r.schema);
   return {
     model: MODELS[r.task],
     max_tokens: r.maxTokens,
     system: [{ type: "text", text: r.system, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: r.user }],
-    output_config: { effort: EFFORT[r.task], format: { type: "json_schema", schema: fmt.schema } },
+    output_config: { effort: EFFORT[r.task], format: { type: "json_schema", schema: outputSchema(r.schema) } },
   };
 }
 

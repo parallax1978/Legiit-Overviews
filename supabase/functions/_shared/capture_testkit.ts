@@ -30,6 +30,8 @@ export interface StubOptions {
   related?: (keyword: string) => [string, number | null, boolean][];
   /** Markdown per URL for content_parsing; a missing URL answers HTTP 404. */
   pages?: Record<string, string>;
+  /** Delay before each Live answer, for tests that overlap requests. */
+  liveDelayMs?: number;
 }
 
 export interface StubDfs {
@@ -64,6 +66,7 @@ export function startStubDfs(opts: StubOptions = {}): StubDfs {
     calls.push({ method: req.method, path, body });
 
     if (path === "/v3/serp/google/organic/live/advanced") {
+      if (opts.liveDelayMs) await new Promise((r) => setTimeout(r, opts.liveDelayMs));
       const task = serpTask(body[0]);
       if (task === "fail") return Response.json({ status_code: 40200, status_message: "Payment Required.", tasks: [] });
       return envelope([task]);

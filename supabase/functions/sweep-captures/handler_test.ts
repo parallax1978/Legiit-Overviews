@@ -74,3 +74,34 @@ Deno.test("sweep-captures fetches missed results, retries failures and gives up 
     await cleanup(users, [series.id]);
   }
 });
+
+Deno.test("a capture schedule-captures has claimed but not yet posted is left alone for 10 minutes", async () => {
+  const stub = startStubDfs();
+  // Two hours behind: the claimed slot is older than the sweeper's 10-minute cut.
+  const series = await createSeries(uniqueKeyword("claimed"), { next_capture_at: new Date(Date.now() - 120 * MIN).toISOString() });
+  const users: TestUser[] = [];
+  try {
+    const user = await createUser("sweep-claimed");
+    users.push(user);
+    await createTrackedQuery(user.id, series.id);
+    const claimed = must(await serviceClient().rpc("claim_due_captures", { p_limit: 10, p_series_ids: [series.id] }), "claim") as any[];
+    assertEquals(claimed.length, 1);
+
+    const res = await handle(cronRequest("sweep-captures", { series_ids: [series.id] }));
+    const summary = await res.json();
+    assertEquals([summary.resubmitted, summary.errors, stub.count(TASK_POST_PATH)], [0, 0, 0]);
+    const row = () => serviceClient().from("captures").select("status, attempts, submitted_at").eq("id", claimed[0].capture_id).single();
+    const fresh = must(await row(), "capture") as any;
+    assertEquals([fresh.status, fresh.attempts], ["pending", 0]);
+    assert(Date.now() - Date.parse(fresh.submitted_at) < 60 * MIN, "the claim time is recorded");
+
+    // Once the claim is 10 minutes old without a post (the run that claimed it died), the sweeper takes over.
+    must(await serviceClient().from("captures").update({ submitted_at: new Date(Date.now() - 11 * MIN).toISOString() }).eq("id", claimed[0].capture_id), "age");
+    const later = await (await handle(cronRequest("sweep-captures", { series_ids: [series.id] }))).json();
+    assertEquals([later.resubmitted, stub.count(TASK_POST_PATH)], [1, 1]);
+    assertEquals(((must(await row(), "capture")) as any).status, "submitted");
+  } finally {
+    await stub.close();
+    await cleanup(users, [series.id]);
+  }
+});

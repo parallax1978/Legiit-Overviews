@@ -1,13 +1,13 @@
 // Task B batch work: nightly merge of duplicate claim groups and entities per series.
 // Pending: new groups or entities since consolidated_at, at most once per 20 hours (consolidate_pending).
-// Applied by apply_consolidation (SQL). A failed request still records the attempt so the series is
-// retried the next night instead of every 15 minutes.
+// Applied by apply_consolidation (SQL). A failed request, or an apply that fails, still records the
+// attempt so the series is retried the next night instead of every 15 minutes.
 import { type BatchItemResult, type BatchRequest, customId, parseCustomId } from "../batch-work.ts";
 import { parseStructured, structuredParams } from "../claude.ts";
 import { must, serviceClient } from "../db.ts";
 import { CONSOLIDATE_SYSTEM, consolidateUser } from "../prompts/consolidate.ts";
 import { type ConsolidateInput, ConsolidateOutput } from "../schemas.ts";
-import { failureMessage, type ScopedWork, type WorkScope } from "./common.ts";
+import { errorText, failureMessage, type ScopedWork, type WorkScope } from "./common.ts";
 
 export const CONSOLIDATE_MAX_TOKENS = 16000;
 
@@ -78,9 +78,16 @@ export const consolidateWork: ScopedWork = {
       await recordAttempt(id);
       throw e;
     }
-    must(
-      await serviceClient().rpc("apply_consolidation", { p_series_id: id, p_output: output, p_refs: refs ?? {} }),
-      "apply_consolidation",
-    );
+    try {
+      must(
+        await serviceClient().rpc("apply_consolidation", { p_series_id: id, p_output: output, p_refs: refs ?? {} }),
+        "apply_consolidation",
+      );
+    } catch (e) {
+      // The apply rolled back (a timeout, say): count the attempt so the series waits for the next
+      // night rather than being resubmitted every run.
+      await recordAttempt(id).catch((r) => console.error(`mark_consolidated ${id}: ${errorText(r)}`));
+      throw e;
+    }
   },
 };

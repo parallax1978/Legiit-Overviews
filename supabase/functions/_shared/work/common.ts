@@ -11,12 +11,29 @@ export interface ScopedWork extends BatchWork {
   collect(limit: number, scope?: WorkScope): Promise<BatchRequest[]>;
 }
 
+type FailedResult = Exclude<BatchItemResult, { type: "succeeded" }>;
+
+function errorType(result: FailedResult): string | null {
+  if (result.type !== "errored") return null;
+  const e = result.error as { error?: { type?: string; message?: string }; type?: string; message?: string } | null;
+  const inner = e?.error ?? e;
+  return inner?.type ?? null;
+}
+
 /** A readable reason for a result that carries no usable message. */
-export function failureMessage(result: Exclude<BatchItemResult, { type: "succeeded" }>): string {
+export function failureMessage(result: FailedResult): string {
   if (result.type !== "errored") return `request ${result.type}`;
   const e = result.error as { error?: { type?: string; message?: string }; type?: string; message?: string } | null;
   const inner = e?.error ?? e;
   return `request errored: ${inner?.type ?? "error"}${inner?.message ? `: ${inner.message}` : ""}`.slice(0, 1000);
+}
+
+/**
+ * True for a failure that would repeat if the same request were sent again (the request itself was
+ * rejected). Errored results of other types, expired and canceled requests are worth a retry.
+ */
+export function isPermanentError(result: FailedResult): boolean {
+  return errorType(result) === "invalid_request_error";
 }
 
 export function errorText(e: unknown): string {

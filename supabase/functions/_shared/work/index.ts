@@ -17,10 +17,13 @@ export const WORK: Record<WorkKind, ScopedWork> = {
   brief: briefWork,
 };
 
-/** Most requests collected per kind in one submit run. */
+/**
+ * Most requests collected per page; the runner keeps paging (one batch each) while a page is full.
+ * Consolidation pages are small because each candidate carries its whole claim and entity list.
+ */
 export const LIMITS: Record<WorkKind, number> = {
   extract: 1000,
-  consolidate: 200,
+  consolidate: 20,
   page_tag: 200,
   brief: 200,
 };

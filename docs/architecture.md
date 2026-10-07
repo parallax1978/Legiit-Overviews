@@ -27,12 +27,14 @@ web/                     Next.js app
 
 ## Capture flow
 
-1. `add-query` (user) normalises the keyword, finds or creates the series for each device, runs one Live SERP capture when the series has no capture in the last 3 hours, ingests it, and creates the tracked query (`tracking` when an overview appeared, `watching` otherwise).
-2. `schedule-captures` (cron, every 10 min) takes series whose `next_capture_at` has passed and that have at least one tracked query that isn't paused, inserts a `captures` row per series (`scheduled_at = next_capture_at`), posts them to DataForSEO `task_post` in chunks of 100 with `tag = capture id`, and moves `next_capture_at` forward in 3-hour steps until it is in the future.
+1. `add-query` (user) normalises the keyword, finds or creates the series for each device, runs one Live SERP capture when `claim_live_capture` grants it (no non-error render in the last 3 hours and no capture in flight, i.e. `pending` or `submitted` with `scheduled_at` in the last 3 hours; concurrent adds of one series run one at a time, and a series whose `next_capture_at` had fallen into the past moves to its first own slot at least 3 hours ahead so no catch-up capture follows), ingests it, and creates the tracked query (`tracking` when an overview appeared, `watching` otherwise). When a capture is in flight the result carries `capture_pending: true` and no siblings are suggested.
+2. `schedule-captures` (cron, every 10 min) takes series whose `next_capture_at` has passed and that have at least one tracked query that isn't paused, inserts a `captures` row per series (`scheduled_at = next_capture_at`, `submitted_at` = the claim time until `task_post` accepts it), posts them to DataForSEO `task_post` in chunks of 100 with `tag = capture id`, and moves `next_capture_at` forward in 3-hour steps until it is in the future.
 3. DataForSEO POSTs the result (gzip) to `dataforseo-postback?secret=...`. The function verifies the secret and calls `ingestTask(captureId, task)` for each task.
-4. `sweep-captures` (cron, every 30 min) calls `task_get` for captures `submitted` more than 20 minutes ago and ingests what is ready; after 3 failed attempts the capture is `error` and an `error` snapshot is written so the render is counted as an error.
+4. `sweep-captures` (cron, every 30 min) calls `task_get` for captures `submitted` more than 20 minutes ago and ingests what is ready, and resubmits captures left `pending` for 10 minutes since their claim or last post; after 3 failed attempts the capture is `error` and an `error` snapshot is written so the render is counted as an error.
 
-`ingestTask` is idempotent (snapshots.capture_id is unique): it stores the raw task in Storage at `raw/<series_id>/<capture_id>.json`, parses it, writes `snapshots`, `sections`, `citations`, sets `same_as` to the earliest snapshot of the series with the same `content_hash`, sets `extraction` (`pending` for new content, `reused` for duplicates, `none` for absent), flips `watching` tracked queries to `tracking` when an overview appears, and runs own-page matching for every tracked query of the series.
+The DataForSEO client (`_shared/dataforseo.ts`) retries 429 everywhere, and 5xx only on calls that cannot be charged twice by repeating them (`task_get`, and the cheap one-off Labs and content-parsing calls); a `task_post` or Live request that fails is not repeated, so its captures stay `pending` for the sweeper.
+
+`ingestTask` is idempotent (snapshots.capture_id is unique): it stores the raw task in Storage at `raw/<series_id>/<capture_id>.json`, parses it, writes `snapshots`, `sections`, `citations` (one per `url_key`; `passages` holds every distinct passage Google quoted from the page and `passage` the first), sets `same_as` to the earliest snapshot of the series with the same `content_hash` whose extraction has not failed (the original, else the earliest copy extracted on its own), sets `extraction` (`pending` for new content, `reused` for duplicates, `none` for absent), flips `watching` tracked queries to `tracking` when an overview appears, and runs own-page matching for every tracked query of the series.
 
 `captured_at` is the SERP's own `datetime` from the result when present, otherwise the time of ingestion.
 
@@ -94,7 +96,7 @@ User functions take the Supabase session JWT (`Authorization: Bearer`). Cron fun
 
 | Function | Request | Response |
 |---|---|---|
-| `add-query` | `{ keyword, location_code, language_code, devices: ("desktop"\|"mobile")[] }` | `{ results: [{ device, tracked_query_id, series_id, status, is_new_series, overview_present }], siblings: [{ keyword, search_volume }] }` (siblings that trigger an overview, filled when any device had none) |
+| `add-query` | `{ keyword, location_code, language_code, devices: ("desktop"\|"mobile")[] }` | `{ results: [{ device, tracked_query_id, series_id, status, is_new_series, overview_present, capture_pending?, capture_error? }], siblings: [{ keyword, search_volume }] }` (siblings that trigger an overview, filled when any device had none and no capture is pending) |
 | `set-own-page` | `{ tracked_query_id, own_url: string \| null, brand_names: string[] }` | `{ ok: true, parsed: boolean, matches: number }` after re-matching the series' last 28 days |
 | `score-draft` | `{ tracked_query_id, source: "url" \| "text", input }` | `{ draft_score_id }` at once; the row moves from `running` to `done` or `failed` |
 | `dataforseo-postback` | DataForSEO postback (gzip JSON), `?secret=` | `{ ok: true }` |

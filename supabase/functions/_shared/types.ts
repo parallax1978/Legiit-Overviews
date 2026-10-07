@@ -32,7 +32,8 @@ export interface ParsedCitation {
   reg_domain: string; // registrable domain via tldts, e.g. "zapier.com"
   title: string | null;
   source: string | null;
-  passage: string | null; // reference.text: the passage Google used
+  passage: string | null; // reference.text: the passage Google used (passages[0])
+  passages: string[]; // every distinct reference.text for the page in this capture
 }
 
 export interface ParsedOrganic {
@@ -133,7 +134,7 @@ export interface ClaimMetric {
   group_id: string;
   label: string;
   renders: number; // renders containing the claim
-  share: number; // renders / present renders
+  share: number; // renders / extracted present renders (SeriesMetrics.extracted)
   bucket: Bucket;
   first_seen: string;
   last_seen: string;
@@ -196,12 +197,16 @@ export interface SeriesMetrics {
   present: number;
   errors: number;
   days: number; // distinct UTC days with a non-error render
+  extracted: number; // present renders whose extraction is done: the denominator of claim, entity and format shares
+  extraction_pending: number; // present renders still awaiting extraction ("n captures still being analysed")
   presence_rate: number | null;
   change_rate: number | null;
   confidence: Confidence;
   citation_stability: { url: number | null; domain: number | null };
   citations_per_render: number | null;
   median_word_count: number | null;
+  /** Where the direct answer sits, over extracted renders: share opening with it, share with none, median sentence index. */
+  answer_lead: { n: number; answer_first_share: number | null; no_answer_share: number | null; median_sentence: number | null };
   organic_overlap: { top10: number | null; top20: number | null };
   claims: ClaimMetric[];
   entities: EntityMetric[];
@@ -227,17 +232,20 @@ export interface OwnMatch {
 export interface DraftScoreResult {
   score: number; // 0..100
   subscores: {
-    topic_coverage: number; // 0..1
+    topic_coverage: number; // 0..1, over the brief's must-cover topics
     entity_coverage: number;
     format_match: number;
     answer_first: number;
     evidence: number;
     checklist: number;
+    new_to_cite: number; // over the brief's new-to-cite ideas (1 when it has none)
+    clarity: number; // Claude's clarity score / 10
   };
   measures: PageMeasures;
   winners_median: Partial<PageMeasures>;
-  topics: { topic: string; status: "covered" | "partial" | "missing"; note: string }[];
+  topics: { topic: string; status: "covered" | "partial" | "missing"; note: string }[]; // one per must-cover topic
   entities: { name: string; present: boolean }[];
-  new_to_cite: { idea: string; status: "covered" | "partial" | "missing"; note: string }[];
+  new_to_cite: { idea: string; status: "covered" | "partial" | "missing"; note: string }[]; // one per brief idea
+  clarity: { score: number; note: string }; // 0..10
   fixes: { priority: number; fix: string }[];
 }

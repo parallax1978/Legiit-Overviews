@@ -2,6 +2,9 @@ import { assert, assertEquals } from "@std/assert";
 import { must, serviceClient } from "../_shared/db.ts";
 import {
   cleanup,
+  createCapture,
+  createSeries,
+  createTrackedQuery,
   createUser,
   fixtureResult,
   LIVE_PATH,
@@ -16,6 +19,7 @@ import {
 import { normalizeKeyword } from "../_shared/normalize.ts";
 import { handle } from "./handler.ts";
 
+const HOUR = 3_600_000;
 const add = (user: TestUser | null, body: unknown) => handle(userRequest("add-query", user, body));
 
 Deno.test("two users adding the same keyword share one series; the second add makes no Live call", async () => {
@@ -104,6 +108,77 @@ Deno.test("no overview: watching, with siblings that trigger one; a DataForSEO f
   }
 });
 
+Deno.test("concurrent adds of one new keyword make one Live call; the second sees the capture in flight", async () => {
+  const stub = startStubDfs({ liveDelayMs: 1500 });
+  const keyword = uniqueKeyword("race");
+  const users: TestUser[] = [];
+  try {
+    const [a, b] = [await createUser("race-a"), await createUser("race-b")];
+    users.push(a, b);
+    const body = { keyword, location_code: 2840, devices: ["desktop"] };
+    const first = add(a, body);
+    await new Promise((r) => setTimeout(r, 500));
+    const second = add(b, body);
+    const [resA, resB] = await Promise.all([first, second]);
+    const [rA] = (await resA.json()).results;
+    const bodyB = await resB.json();
+    const [rB] = bodyB.results;
+    assertEquals(stub.count(LIVE_PATH), 1, "the second add does not pay for another render");
+    assertEquals([rA.overview_present, rA.status, rA.capture_pending], [true, "tracking", undefined]);
+    assertEquals([rB.series_id, rB.overview_present, rB.capture_pending], [rA.series_id, false, true]);
+    assertEquals([bodyB.siblings, stub.count(RELATED_PATH)], [[], 0], "no siblings while the render is still on its way");
+    const captures = must(await serviceClient().from("captures").select("id").eq("series_id", rA.series_id), "captures") as any[];
+    assertEquals(captures.length, 1);
+    const tqB = must(await serviceClient().from("tracked_queries").select("status").eq("id", rB.tracked_query_id).single(), "tq") as any;
+    assertEquals(tqB.status, "tracking", "the first add's render flipped the second user's query");
+  } finally {
+    await stub.close();
+    await cleanup(users, await seriesIdsFor([keyword]));
+  }
+});
+
+Deno.test("a scheduled capture under way counts as fresh; a Live on a series that fell behind replaces its catch-up slot", async () => {
+  const stub = startStubDfs();
+  const users: TestUser[] = [];
+  const seriesIds: string[] = [];
+  try {
+    const user = await createUser("add-behind");
+    users.push(user);
+    const body = (keyword: string) => ({ keyword, location_code: 2840, devices: ["desktop"] });
+
+    // A scheduled capture posted 20 minutes ago, no render yet: no Live call, no siblings.
+    const busy = uniqueKeyword("busy");
+    const busySeries = await createSeries(busy);
+    seriesIds.push(busySeries.id);
+    await createCapture(busySeries.id, { scheduled_at: new Date(Date.now() - 20 * 60_000).toISOString(), status: "submitted", task_id: "t" });
+    const resBusy = await (await add(user, body(busy))).json();
+    assertEquals([resBusy.results[0].capture_pending, resBusy.results[0].overview_present, resBusy.siblings], [true, false, []]);
+    assertEquals([stub.count(LIVE_PATH), stub.count(RELATED_PATH)], [0, 0]);
+
+    // Every tracker paused for days: next_capture_at is 2 days (and 17 minutes) behind. Adding the
+    // query captures live now and moves the series to its next own slot at least 3 hours ahead, so
+    // schedule-captures does not post a second render minutes later.
+    const behind = uniqueKeyword("behind");
+    const was = Date.now() - 2 * 24 * HOUR - 17 * 60_000;
+    const behindSeries = await createSeries(behind, { next_capture_at: new Date(was).toISOString() });
+    seriesIds.push(behindSeries.id);
+    await createTrackedQuery(user.id, behindSeries.id, { status: "paused" });
+    const resBehind = await (await add(user, body(behind))).json();
+    assertEquals([resBehind.results[0].overview_present, resBehind.results[0].status, stub.count(LIVE_PATH)], [true, "tracking", 1]);
+    const series = must(await serviceClient().from("series").select("next_capture_at").eq("id", behindSeries.id).single(), "series") as any;
+    const next = Date.parse(series.next_capture_at);
+    assert(next >= Date.now() + 3 * HOUR - 5000 && next < Date.now() + 6 * HOUR, `next slot at least 3 hours ahead: ${series.next_capture_at}`);
+    assertEquals((next - was) % (3 * HOUR), 0, "the series keeps its own offset");
+    const due = must(await serviceClient().rpc("claim_due_captures", { p_limit: 10, p_series_ids: [behindSeries.id] }), "claim") as any[];
+    assertEquals(due, [], "nothing to catch up");
+    const captures = must(await serviceClient().from("captures").select("source").eq("series_id", behindSeries.id), "captures") as any[];
+    assertEquals(captures.map((c) => c.source), ["live"]);
+  } finally {
+    await stub.close();
+    await cleanup(users, seriesIds);
+  }
+});
+
 Deno.test("add-query validates its input", async () => {
   const users: TestUser[] = [];
   try {
@@ -112,6 +187,7 @@ Deno.test("add-query validates its input", async () => {
     const status = async (body: unknown, u: TestUser | null = user) => (await add(u, body)).status;
     assertEquals(await status({ keyword: "best crm", location_code: 2840, devices: ["desktop"] }, null), 401);
     assertEquals(await status({ keyword: "site:example.com crm", location_code: 2840, devices: ["desktop"] }), 400);
+    assertEquals(await status({ keyword: "best crm site：hubspot.com", location_code: 2840, devices: ["desktop"] }), 400, "full-width operators are rejected too");
     assertEquals(await status({ keyword: "   ", location_code: 2840, devices: ["desktop"] }), 400);
     assertEquals(await status({ keyword: "best crm", location_code: 1, devices: ["desktop"] }), 400);
     assertEquals(await status({ keyword: "best crm", location_code: 2840, devices: [] }), 400);
