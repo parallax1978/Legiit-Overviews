@@ -170,9 +170,11 @@ export async function seriesScope(req: Request): Promise<string[] | null> {
 
 async function saveRaw(capture: CaptureRow, task: DfsTask): Promise<string | null> {
   const path = `${capture.series_id}/${capture.id}.json`;
+  // DataForSEO echoes the task back, including the postback URL that carries our secret.
+  const { postback_url: _secret, ...data } = (task.data ?? {}) as Record<string, unknown>;
   const { error } = await serviceClient().storage.from(RAW_BUCKET).upload(
     path,
-    new Blob([JSON.stringify(task)], { type: "application/json" }),
+    new Blob([JSON.stringify({ ...task, data })], { type: "application/json" }),
     { upsert: true, contentType: "application/json" },
   );
   if (error) {

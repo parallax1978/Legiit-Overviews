@@ -19,6 +19,18 @@ Two gitignored env files point the code at the mock:
 
 Both also hold `DATAFORSEO_LOGIN`/`PASSWORD` (any value), `ANTHROPIC_API_KEY` (any value), `POSTBACK_SECRET`, `CRON_SECRET` (same values in both files) and `FUNCTIONS_PUBLIC_URL=http://127.0.0.1:54321/functions/v1`, where the mock sends DataForSEO postbacks.
 
+Serve the functions with the env file (this restarts the edge runtime with those secrets; keep it running):
+
+```sh
+npx supabase functions serve --env-file supabase/functions/.env
+```
+
+If functions answer 503 with `failed to bootstrap runtime ... Failed loading https://registry.npmjs.org/...`, the edge runtime container can't download npm packages (for example behind a TLS-intercepting proxy). Run any host test once so Deno caches the packages, then copy the host cache into the runtime's cache volume:
+
+```sh
+cp -a ~/.cache/deno/npm/registry.npmjs.org /var/lib/docker/volumes/supabase_edge_runtime_legiit-overviews/_data/npm/
+```
+
 A variable already exported in your shell wins over `--env-file`, and `supabase start` passes it into the edge runtime too. If `ANTHROPIC_BASE_URL` is exported (some environments set it to `https://api.anthropic.com`), unset it before `supabase start` and before host runs, or set it to the mock URL.
 
 ## 2. Mock server
@@ -65,11 +77,22 @@ deno run -A --env-file=supabase/functions/.env.test scripts/demo.ts [--days 8] [
 
 It signs in as `demo@legiit.local` / `demo-password-123` (created on first run), adds the keyword (US, English, desktop), back-fills one capture per 3-hour slot for the last N days through `dataforseo-postback` exactly as DataForSEO delivers them, runs `submit-batches` and `collect-batches` until extraction is done, runs `build-reports` until the report is ready, calls `detect-platform-events` for each day, sets an own page (a recurring cited page; for "best form builder" the Jotform blog post with brand "Jotform"), adds "no overview test keyword" so a watching query exists, and prints a summary. Re-running skips slots that already have captures.
 
-## 4. Tests and checks
+## 4. Web app
+
+```sh
+cd web && npm install && cp .env.example .env.local   # fill in the anon key from `npx supabase status`
+npm run dev                                           # http://localhost:3000, sign in as demo@legiit.local
+```
+
+Magic-link emails land in Mailpit at http://127.0.0.1:54324.
+
+## 5. Tests and checks
 
 ```sh
 deno test -A --config mocks/deno.json mocks/                       # scenario, fake Claude, mock server with the real clients
 deno check --config mocks/deno.json mocks/*.ts && deno lint --config mocks/deno.json mocks/
 deno check --config scripts/deno.json scripts/demo.ts
 cd supabase/functions && deno test -A --env-file=.env.test <files>  # function and module tests
+npx supabase test db                                                # pgTAP: metrics and RLS
+cd web && npx tsc --noEmit && npm run lint && npm run build         # app
 ```
