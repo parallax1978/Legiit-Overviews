@@ -49,6 +49,6 @@ select cron.schedule('schedule-captures', '*/10 * * * *', $$select public.invoke
 select cron.schedule('sweep-captures', '*/30 * * * *', $$select public.invoke_function('sweep-captures')$$);
 select cron.schedule('submit-batches', '*/15 * * * *', $$select public.invoke_function('submit-batches')$$);
 select cron.schedule('collect-batches', '*/5 * * * *', $$select public.invoke_function('collect-batches')$$);
-select cron.schedule('build-reports', '7 * * * *', $$select public.invoke_function('build-reports')$$);
+select cron.schedule('build-reports', '*/15 * * * *', $$select public.invoke_function('build-reports')$$);
 select cron.schedule('detect-platform-events', '20 0 * * *', $$select public.invoke_function('detect-platform-events')$$);
 select cron.schedule('notify', '*/15 * * * *', $$select public.invoke_function('notify')$$);

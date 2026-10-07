@@ -18,9 +18,10 @@ create unique index if not exists draft_scores_one_running_idx on public.draft_s
 create index if not exists reports_tq_idx on public.reports (tracked_query_id, created_at desc);
 create index if not exists notifications_kind_idx on public.notifications (user_id, kind, created_at desc);
 create index if not exists notifications_unemailed_idx on public.notifications (created_at) where emailed_at is null;
--- One preliminary and one full report per tracked query; refreshes repeat every 28 days.
+-- One live preliminary and one live full report per tracked query (a failed one may be replaced
+-- once); refreshes repeat every 28 days.
 create unique index if not exists reports_one_per_kind_idx on public.reports (tracked_query_id, kind)
-  where kind in ('preliminary', 'full');
+  where kind in ('preliminary', 'full') and stage <> 'failed';
 
 -- ---------------------------------------------------------------- helpers
 
@@ -940,8 +941,10 @@ begin
   with tq as (
     select q.id, q.series_id,
       public.series_history_start(q.series_id, p_now) as start,
-      exists (select 1 from public.reports r where r.tracked_query_id = q.id and r.kind = 'preliminary') as has_pre,
-      exists (select 1 from public.reports r where r.tracked_query_id = q.id and r.kind = 'full') as has_full,
+      (exists (select 1 from public.reports r where r.tracked_query_id = q.id and r.kind = 'preliminary' and r.stage <> 'failed')
+        or (select count(*) from public.reports r where r.tracked_query_id = q.id and r.kind = 'preliminary') >= 2) as has_pre,
+      (exists (select 1 from public.reports r where r.tracked_query_id = q.id and r.kind = 'full' and r.stage <> 'failed')
+        or (select count(*) from public.reports r where r.tracked_query_id = q.id and r.kind = 'full') >= 2) as has_full,
       (select max(r.window_end) from public.reports r where r.tracked_query_id = q.id and r.kind in ('full', 'refresh')) as last_end,
       (select max(r.window_end) from public.reports r where r.tracked_query_id = q.id and r.kind = 'refresh') as last_refresh_end
     from public.tracked_queries q

@@ -245,7 +245,7 @@ Row-level security: users read their own tracked queries, reports, draft scores,
 | `sweep-captures` | Cron, every 30 min | `task_get` captures with no postback after 20 minutes; mark `error` after 3 attempts |
 | `submit-batches` | Cron, every 15 min | One Claude batch per task type from pending work: extractions, nightly consolidations, page tags, briefs |
 | `collect-batches` | Cron, every 5 min | Write finished batch results into claims, groups, entities, pages and reports; queue the next stage |
-| `build-reports` | Cron, hourly | Create preliminary (day 3), full (day 7) and day-28 refresh reports; compute metrics; parse and measure the top cited pages; queue page tags, then the matrix and brief |
+| `build-reports` | Cron, every 15 min | Create preliminary (day 3), full (day 7) and day-28 refresh reports; compute metrics; parse and measure the top cited pages; queue page tags, then the matrix and brief |
 | `score-draft` | App | Measure the draft, run Claude task E as a background task, write the result |
 | `detect-platform-events` | Cron, daily | Cross-series change detection |
 | `notify` | Cron, every 15 min | In-app notifications and Resend emails, including the daily digest |
