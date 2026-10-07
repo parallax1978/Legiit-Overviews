@@ -162,6 +162,13 @@ export interface SeriesMetrics {
   present: number;
   errors: number;
   days: number;
+  // The three fields below are missing from metrics stored before they existed.
+  /** Present renders whose extraction is done: the denominator of claim, entity, format and answer-lead shares. */
+  extracted?: number;
+  /** Present renders still awaiting extraction ("n captures still being analysed"). */
+  extraction_pending?: number;
+  /** Where the direct answer sits, over extracted renders: share opening with it, share with none, median sentence index. */
+  answer_lead?: { n: number; answer_first_share: number | null; no_answer_share: number | null; median_sentence: number | null };
   presence_rate: number | null;
   change_rate: number | null;
   confidence: Confidence;
@@ -189,12 +196,16 @@ export interface DraftScoreResult {
     answer_first: number;
     evidence: number;
     checklist: number;
+    // Missing from scores stored before they were added.
+    new_to_cite?: number; // over the brief's new-to-cite ideas (1 when it has none)
+    clarity?: number; // Claude's clarity score / 10
   };
   measures: PageMeasures;
   winners_median: Partial<PageMeasures>;
   topics: { topic: string; status: "covered" | "partial" | "missing"; note: string }[];
   entities: { name: string; present: boolean }[];
   new_to_cite: { idea: string; status: "covered" | "partial" | "missing"; note: string }[];
+  clarity?: { score: number; note: string }; // 0..10; missing from scores stored before it was added
   fixes: { priority: number; fix: string }[];
 }
 
@@ -208,7 +219,7 @@ export type ReportKind = "preliminary" | "full" | "refresh";
 export type ReportStage = "pages" | "brief" | "ready" | "failed";
 export type NotificationKind = "first_seen" | "lost" | "regained" | "brand_mention" | "report_ready" | "platform_event" | "digest";
 export type CitationEventKind = "first_seen" | "lost" | "regained" | "brand_mention";
-export type EvidenceKind = "claim" | "unsupported" | "entity" | "source" | "domain" | "format";
+export type EvidenceKind = "claim" | "unsupported" | "entity" | "source" | "domain" | "format" | "presence" | "overlap";
 
 // ------------------------------------------------------------------ RPC results (docs/architecture.md)
 
@@ -241,12 +252,17 @@ export interface EvidenceItem {
   captured_at: string;
   sentences: { i: number; text: string; citations: number[] }[];
   note: string | null;
+  /** Kind `presence` only: whether the overview showed in this capture. */
+  status?: SnapshotStatus;
 }
 
 /** Result of `metric_evidence(p_series_id, p_kind, p_key, p_from, p_to, p_limit)`. */
 export interface MetricEvidence {
   total: number;
   items: EvidenceItem[];
+  /** Kind `overlap` only: cited (render, URL) pairs ranking in the organic cut, and all cited pairs (organic_overlap's numerator and denominator). */
+  citations?: number;
+  occurrences?: number;
 }
 
 export interface TrackingDay {
@@ -264,9 +280,12 @@ export interface TrackingSummary {
   brand_names: string[];
   renders_7d: number;
   cited_7d: number;
+  /** Renders citing the exact own URL (level exact_url), a subset of cited_7d. */
+  cited_exact_7d: number;
   survival_7d: number | null;
   renders_28d: number;
   cited_28d: number;
+  cited_exact_28d: number;
   survival_28d: number | null;
   brand_7d: number;
   latest: { captured_at: string; level: MatchLevel | null; quoted_heading: string | null } | null;

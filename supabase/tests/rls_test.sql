@@ -22,7 +22,7 @@ insert into public.series (id, keyword, location_code, language_code, device, ne
 
 insert into public.tracked_queries (id, user_id, series_id, display_keyword, own_url, own_url_key) values
   ('d0000000-0000-4000-8000-0000000007aa', 'd0000000-0000-4000-8000-00000000000a', 'd0000000-0000-4000-8000-0000000005aa', 'series a', 'https://a.example.com/page', 'a.example.com/page'),
-  ('d0000000-0000-4000-8000-0000000007bb', 'd0000000-0000-4000-8000-00000000000b', 'd0000000-0000-4000-8000-0000000005bb', 'series b', 'https://b.example.com/page', 'b.example.com/page');
+  ('d0000000-0000-4000-8000-0000000007bb', 'd0000000-0000-4000-8000-00000000000b', 'd0000000-0000-4000-8000-0000000005bb', 'series b', 'https://b.example.com/staging', 'b.example.com/staging');
 
 insert into public.snapshots (id, series_id, captured_at, status, content_hash, extraction) values
   ('d0000000-0000-4000-8000-0000000006aa', 'd0000000-0000-4000-8000-0000000005aa', now() - interval '1 hour', 'present', 'ha', 'done'),
@@ -54,10 +54,12 @@ insert into public.reports (tracked_query_id, series_id, kind, window_start, win
   ('d0000000-0000-4000-8000-0000000007aa', 'd0000000-0000-4000-8000-0000000005aa', 'preliminary', now() - interval '3 days', now(), 1, '{rls-r.example.com/report}'),
   ('d0000000-0000-4000-8000-0000000007bb', 'd0000000-0000-4000-8000-0000000005bb', 'preliminary', now() - interval '3 days', now(), 1, '{}');
 
--- Pages: A's cited page (also A's own page), B's, one only in A's report, one nobody has a reason to see.
+-- Pages: A's cited page (also A's own page), B's cited page, B's own (unpublished) page, one only in
+-- A's report, one nobody has a reason to see.
 insert into public.pages (url_key, url, reg_domain, markdown) values
   ('a.example.com/page', 'https://a.example.com/page', 'example.com', 'page a'),
   ('b.example.com/page', 'https://b.example.com/page', 'example.com', 'page b'),
+  ('b.example.com/staging', 'https://b.example.com/staging', 'example.com', 'page b staging'),
   ('rls-r.example.com/report', 'https://rls-r.example.com/report', 'example.com', 'page r'),
   ('rls-x.example.com/other', 'https://rls-x.example.com/other', 'example.com', 'page x');
 
@@ -108,8 +110,8 @@ select is((select array_agg(name) from public.entities where series_id in ('d000
   array['Entity A'], 'A reads only entities of tracked series');
 select is((select count(*)::int from public.entity_mentions where snapshot_id in ('d0000000-0000-4000-8000-0000000006aa', 'd0000000-0000-4000-8000-0000000006bb')),
   1, 'A reads only mentions of tracked series');
-select is((select array_agg(url_key order by url_key) from public.pages where url_key in ('a.example.com/page', 'b.example.com/page', 'rls-r.example.com/report', 'rls-x.example.com/other')),
-  array['a.example.com/page', 'rls-r.example.com/report'], 'A reads the pages of their report and of series they track, not the rest');
+select is((select array_agg(url_key order by url_key) from public.pages where url_key in ('a.example.com/page', 'b.example.com/page', 'b.example.com/staging', 'rls-r.example.com/report', 'rls-x.example.com/other')),
+  array['a.example.com/page', 'rls-r.example.com/report'], 'A reads the pages of their report and of series they track, not B''s own page or the rest');
 select is((select count(*)::int from public.batches), 0, 'batches are not readable');
 select is((select count(*)::int from public.batch_items), 0, 'batch items are not readable');
 
@@ -178,12 +180,12 @@ select throws_ok($$ select public.compute_platform_daily(current_date) $$, '4250
 
 -- ---------------------------------------------------------------- as user B
 set local request.jwt.claims to '{"sub":"d0000000-0000-4000-8000-00000000000b","role":"authenticated"}';
-select is((select own_url from public.tracked_queries where id = 'd0000000-0000-4000-8000-0000000007bb'), 'https://b.example.com/page',
+select is((select own_url from public.tracked_queries where id = 'd0000000-0000-4000-8000-0000000007bb'), 'https://b.example.com/staging',
   'A''s update of B''s query changed nothing');
 select is((select read_at from public.notifications where id = 'd0000000-0000-4000-8000-000000000bbb'), null,
   'A could not mark B''s notification read');
-select is((select array_agg(url_key order by url_key) from public.pages where url_key in ('a.example.com/page', 'b.example.com/page', 'rls-r.example.com/report', 'rls-x.example.com/other')),
-  array['b.example.com/page'], 'B reads only the page their series cites');
+select is((select array_agg(url_key order by url_key) from public.pages where url_key in ('a.example.com/page', 'b.example.com/page', 'b.example.com/staging', 'rls-r.example.com/report', 'rls-x.example.com/other')),
+  array['b.example.com/page', 'b.example.com/staging'], 'B reads the page their series cites and their own page, nothing else');
 select lives_ok($$ select public.series_metrics('d0000000-0000-4000-8000-0000000005bb', now() - interval '7 days', now()) $$,
   'B reads metrics of their own series');
 select throws_ok($$ select public.series_metrics('d0000000-0000-4000-8000-0000000005aa', now() - interval '7 days', now()) $$,
