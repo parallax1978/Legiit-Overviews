@@ -180,6 +180,7 @@ const CTA: Record<string, string> = {
   first_seen: "View tracking",
   regained: "View tracking",
   lost: "View tracking",
+  brand_mention: "View tracking",
   report_ready: "Open the brief",
   platform_event: "See what changed",
   digest: "Open your queries",

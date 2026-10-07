@@ -206,7 +206,7 @@ export type SnapshotStatus = "present" | "absent" | "error";
 export type CaptureStatus = "pending" | "submitted" | "received" | "error";
 export type ReportKind = "preliminary" | "full" | "refresh";
 export type ReportStage = "pages" | "brief" | "ready" | "failed";
-export type NotificationKind = "first_seen" | "lost" | "regained" | "report_ready" | "platform_event" | "digest";
+export type NotificationKind = "first_seen" | "lost" | "regained" | "brand_mention" | "report_ready" | "platform_event" | "digest";
 export type CitationEventKind = "first_seen" | "lost" | "regained" | "brand_mention";
 export type EvidenceKind = "claim" | "unsupported" | "entity" | "source" | "domain" | "format";
 

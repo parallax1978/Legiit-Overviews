@@ -5,7 +5,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Chip, type ChipTone } from "@/components/ui/chip";
 import { Alert, EmptyState } from "@/components/ui/feedback";
-import { AlertTriangleIcon, BellIcon, CheckCircleIcon, CheckIcon, FileTextIcon, GlobeIcon, InboxIcon, RefreshIcon } from "@/components/ui/icons";
+import { AlertTriangleIcon, BellIcon, CheckCircleIcon, CheckIcon, FileTextIcon, GlobeIcon, InboxIcon, QuoteIcon, RefreshIcon } from "@/components/ui/icons";
 import { LocalTime } from "@/components/ui/local-time";
 import { PageHeader } from "@/components/ui/typography";
 import { cn } from "@/lib/cn";
@@ -17,6 +17,7 @@ const KINDS: Record<NotificationKind, { label: string; tone: ChipTone; icon: Rea
   first_seen: { label: "First seen", tone: "good", icon: <CheckCircleIcon /> },
   regained: { label: "Regained", tone: "good", icon: <RefreshIcon /> },
   lost: { label: "Lost", tone: "bad", icon: <AlertTriangleIcon /> },
+  brand_mention: { label: "Brand named", tone: "brand", icon: <QuoteIcon /> },
   report_ready: { label: "Report ready", tone: "brand", icon: <FileTextIcon /> },
   platform_event: { label: "Google-wide change", tone: "warn", icon: <GlobeIcon /> },
   digest: { label: "Daily digest", tone: "grey", icon: <InboxIcon /> },
