@@ -4,7 +4,7 @@ This repository holds the plan for Legiit Overviews, a SaaS that automates a six
 
 ## What to read before working
 
-- `PLAN.md` sections 1, 2 and 5: product, settled decisions, the task you are on.
+- `PLAN.md` sections 1, 2, 3 and 6: product, the APIs, settled decisions, the task you are on.
 - The spec files a task references under `docs/spec/`.
 - `docs/research/00-summary.md` for the evidence; the numbered research files only when a task touches that vendor or topic.
 - `docs/progress.md` to see which task is next.
