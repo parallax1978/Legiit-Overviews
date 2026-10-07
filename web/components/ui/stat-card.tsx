@@ -26,11 +26,15 @@ export interface StatCardProps {
   href?: string;
   /** Makes the card a button (e.g. opens an evidence drawer). */
   onClick?: () => void;
+  /** For a button card that opens a dialog. */
+  "aria-haspopup"?: "dialog";
+  /** Native tooltip, e.g. what clicking the card shows. */
+  title?: string;
   className?: string;
 }
 
 /** Metric card: small muted label with icon, 24px bold number, 12px caption. */
-export function StatCard({ label, value, caption, icon, tone = "ink", href, onClick, className }: StatCardProps) {
+export function StatCard({ label, value, caption, icon, tone = "ink", href, onClick, title, className, ...aria }: StatCardProps) {
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
@@ -48,19 +52,23 @@ export function StatCard({ label, value, caption, icon, tone = "ink", href, onCl
   );
   if (href) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} className={classes} title={title}>
         {body}
       </Link>
     );
   }
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={cn(classes, "w-full")}>
+      <button type="button" onClick={onClick} className={cn(classes, "w-full")} title={title} aria-haspopup={aria["aria-haspopup"]}>
         {body}
       </button>
     );
   }
-  return <div className={classes}>{body}</div>;
+  return (
+    <div className={classes} title={title}>
+      {body}
+    </div>
+  );
 }
 
 /** Row of stat cards: 2 columns on phones, 4 from md. */
