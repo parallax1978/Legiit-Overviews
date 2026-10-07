@@ -68,7 +68,7 @@ Task parameters:
 }
 ```
 
-Parsing the result: the item with `type: "ai_overview"` holds `markdown`, `asynchronous_ai_overview`, `items[]` (sections: `ai_overview_element` with `title`, `text`, `references[]`; `ai_overview_table_element`; `ai_overview_expanded_element` with `components[]`; `ai_overview_video_element`) and top-level `references[]`. Each reference has `url`, `domain`, `title`, `source` and `text`, the passage Google used from that page. Items with `type: "organic"` are the organic results. The capture id comes back in `tasks[0].data.tag`. The postback body is gzip-compressed. Unknown section types are kept with their raw text, never dropped. The full raw payload is saved to Supabase Storage.
+Parsing the result: the item with `type: "ai_overview"` holds `markdown`, `asynchronous_ai_overview`, `items[]` (sections: `ai_overview_element` with `title`, `text`, `references[]`; `ai_overview_table_element`; `ai_overview_expanded_element` with `components[]`; `ai_overview_video_element`) and top-level `references[]`. Each reference has `url`, `domain`, `title`, `source` and `text`, the passage Google used from that page. Items with `type: "organic"` are the organic results. The capture id comes back in `tasks[0].data.tag`. The postback body is gzip-compressed. Citation markers `[[n]](url)` in the overview markdown can cite URLs missing from `references[]`; these are citations too. Video elements carry `url` and `source` and are cited sources. An item's `markdown` is preferred over its `text`, which spells out formulas for screen readers. Unknown section types are kept with their raw text, never dropped. The full raw payload is saved to Supabase Storage.
 
 ### Capture statuses
 

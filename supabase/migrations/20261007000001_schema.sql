@@ -245,7 +245,7 @@ create table public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users on delete cascade,
   tracked_query_id uuid references public.tracked_queries on delete cascade,
-  kind text not null check (kind in ('first_seen','lost','regained','report_ready','platform_event','digest')),
+  kind text not null check (kind in ('first_seen','lost','regained','brand_mention','report_ready','platform_event','digest')),
   title text not null,
   body text not null,
   link text,
