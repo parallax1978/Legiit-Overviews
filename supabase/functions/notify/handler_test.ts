@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { serviceClient } from "../_shared/db.ts";
-import { digestLine, emailHtml, handle, runNotify } from "./handler.ts";
+import { digestLine, EMAILS_PER_USER_PER_RUN, emailHtml, handle, runNotify } from "./handler.ts";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -94,7 +94,9 @@ Deno.test("notify: one digest per user per day after 13:00 UTC, emails only with
     const digests = (await db.from("notifications").select("*").in("user_id", users).eq("kind", "digest").throwOnError()).data!;
     assertEquals(digests.length, 1);
     assertEquals(digests[0].user_id, users[0]);
-    assertEquals(digests[0].body, "“digest query” (desktop): 8 captures, overview on 7 (88%). New: 1 source. Dropped: 1 source. Your page: cited for the first time.");
+    // Today is still being captured, so series_metrics lists nothing as dropped on it yet; the held
+    // loss is left out.
+    assertEquals(digests[0].body, "“digest query” (desktop): 8 captures, overview on 7 (88%). New: 1 source. Your page: cited for the first time.");
     assertEquals(digests[0].link, "/queries");
     assertEquals(digests[0].emailed_at, null, "nothing is emailed without a Resend key");
 
@@ -126,5 +128,45 @@ Deno.test("notify: one digest per user per day after 13:00 UTC, emails only with
     else Deno.env.delete("RESEND_API_KEY");
     for (const id of users) await db.auth.admin.deleteUser(id);
     if (seriesIds.length) await db.from("series").delete().in("id", seriesIds);
+  }
+});
+
+Deno.test("notify emails at most EMAILS_PER_USER_PER_RUN rows per user per run, oldest first", async () => {
+  const db = serviceClient();
+  const tag = `nc${crypto.randomUUID().slice(0, 8)}`;
+  const now = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()) + 10 * HOUR);
+  const users: string[] = [];
+  const hadKey = Deno.env.get("RESEND_API_KEY");
+  Deno.env.set("RESEND_API_KEY", "re_test");
+  try {
+    for (const who of ["flood", "other"]) {
+      const { data, error } = await db.auth.admin.createUser({ email: `${who}-${tag}@example.com`, password: `pw-${tag}-Aa1!`, email_confirm: true });
+      if (error) throw error;
+      users.push(data.user!.id);
+    }
+    const extra = 5;
+    await db.from("notifications").insert([
+      ...Array.from({ length: EMAILS_PER_USER_PER_RUN + extra }, (_, i) => ({
+        user_id: users[0], kind: "report_ready", title: `n${i}`, body: "b", link: "/queries", created_at: new Date(now.getTime() - 2 * HOUR + i * 1000).toISOString(),
+      })),
+      { user_id: users[1], kind: "report_ready", title: "other", body: "b", link: "/queries", created_at: new Date(now.getTime() - HOUR).toISOString() },
+    ]).throwOnError();
+    const sent: string[] = [];
+    const fakeFetch = ((_url: string | URL | Request, init?: RequestInit) => {
+      sent.push(JSON.parse(String(init?.body)).subject);
+      return Promise.resolve(new Response("{}", { status: 200 }));
+    }) as typeof fetch;
+
+    const first = await runNotify({ now, userIds: users, fetch: fakeFetch });
+    assertEquals(first.emailed, EMAILS_PER_USER_PER_RUN + 1, "the other user is not held up by the backlog");
+    assertEquals(sent.filter((t) => t !== "other"), Array.from({ length: EMAILS_PER_USER_PER_RUN }, (_, i) => `n${i}`));
+    assert(sent.includes("other"));
+    const second = await runNotify({ now: new Date(now.getTime() + 15 * 60_000), userIds: users, fetch: fakeFetch });
+    assertEquals(second.emailed, extra, "the rest go in the next run");
+    assertEquals(sent.length, EMAILS_PER_USER_PER_RUN + 1 + extra);
+  } finally {
+    if (hadKey) Deno.env.set("RESEND_API_KEY", hadKey);
+    else Deno.env.delete("RESEND_API_KEY");
+    for (const id of users) await db.auth.admin.deleteUser(id);
   }
 });

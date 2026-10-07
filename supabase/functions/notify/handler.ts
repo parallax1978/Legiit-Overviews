@@ -13,6 +13,8 @@ export const DIGEST_HOUR_UTC = 13;
 /** Notifications older than this are never emailed. */
 const EMAIL_WINDOW_MS = 3 * DAY_MS;
 const EMAILS_PER_RUN = 50;
+/** Per user per run, oldest first; the rest wait for the next run. */
+export const EMAILS_PER_USER_PER_RUN = 20;
 const DIGEST_USERS_PER_RUN = 200;
 const TIME_BUDGET_MS = 100_000;
 const RESEND_URL = "https://api.resend.com/emails";
@@ -217,11 +219,15 @@ async function sendEmails(now: Date, userScope: string[] | null, http: Fetch, su
   const db = serviceClient();
   const key = env.resendApiKey()!;
   const appUrl = env.appUrl();
-  let q = db.from("notifications").select("id, user_id, kind, title, body, link, created_at")
-    .is("emailed_at", null).gte("created_at", new Date(now.getTime() - EMAIL_WINDOW_MS).toISOString())
-    .order("created_at").limit(EMAILS_PER_RUN);
-  if (userScope) q = q.in("user_id", userScope);
-  const rows = must(await q, "load notifications") as NotificationRow[];
+  const rows = must(
+    await db.rpc("notifications_to_email", {
+      p_since: new Date(now.getTime() - EMAIL_WINDOW_MS).toISOString(),
+      p_per_user: EMAILS_PER_USER_PER_RUN,
+      p_limit: EMAILS_PER_RUN,
+      p_user_ids: userScope,
+    }),
+    "load notifications",
+  ) as NotificationRow[];
 
   const emails = new Map<string, string | null>();
   for (const n of rows) {

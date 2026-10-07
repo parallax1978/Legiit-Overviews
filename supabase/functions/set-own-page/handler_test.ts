@@ -12,6 +12,7 @@ import {
   startStubDfs,
   type TestUser,
   uniqueKeyword,
+  userClient,
   userRequest,
 } from "../_shared/capture_testkit.ts";
 import { handle } from "./handler.ts";
@@ -37,6 +38,9 @@ Deno.test("set-own-page saves the page, parses it and re-matches recent captures
     assertEquals((await set(stranger, { own_url: OWN_URL, brand_names: [] })).status, 404);
     assertEquals((await set(user, { own_url: "ftp://example.com/x", brand_names: [] })).status, 400);
     assertEquals((await set(user, { own_url: OWN_URL, brand_names: Array.from({ length: 11 }, (_, i) => `b${i}`) })).status, 400);
+    assertEquals((await set(user, { own_url: OWN_URL, brand_names: ["X"] })).status, 400, "one character");
+    assertEquals((await set(user, { own_url: OWN_URL, brand_names: ["🙂"] })).status, 400, "one character, two UTF-16 units");
+    assertEquals((await set(user, { own_url: OWN_URL, brand_names: ["a".repeat(61)] })).status, 400);
     assertEquals((await handle(userRequest("set-own-page", user, { tracked_query_id: "x" }))).status, 400);
 
     const res = await set(user, { own_url: ` ${OWN_URL} `, brand_names: [" Typeform ", "typeform", "", "Tally"] });
@@ -49,9 +53,23 @@ Deno.test("set-own-page saves the page, parses it and re-matches recent captures
     const events = must(await serviceClient().from("citation_events").select("kind").eq("tracked_query_id", tq.id), "events") as any[];
     assertEquals(events.map((e) => e.kind).sort(), ["brand_mention", "first_seen"]);
 
-    // Saving again re-matches without new events.
+    // Saving again re-matches without new events, and keeps matches older than the 28 days re-matched.
+    const old = must(
+      await serviceClient().from("snapshots").insert({ series_id: series.id, captured_at: new Date(Date.now() - 40 * 86_400_000).toISOString(), status: "present" })
+        .select("id").single(),
+      "old snapshot",
+    ) as { id: string };
+    must(await serviceClient().from("own_matches").insert({ tracked_query_id: tq.id, snapshot_id: old.id, level: "exact_url" }), "old match");
     assertEquals(await (await set(user, { own_url: OWN_URL, brand_names: ["Typeform"] })).json(), { ok: true, parsed: true, matches: 1 });
     assertEquals((await serviceClient().from("citation_events").select("id").eq("tracked_query_id", tq.id)).data?.length, 2);
+    assertEquals((await serviceClient().from("own_matches").select("level").eq("snapshot_id", old.id)).data, [{ level: "exact_url" }]);
+
+    // Brand names written directly through the column grant are held to the same rules.
+    const direct = (brand_names: string[]) => userClient(user).from("tracked_queries").update({ brand_names }).eq("id", tq.id);
+    for (const bad of [Array.from({ length: 11 }, (_, i) => `brand ${i}`), ["a".repeat(61)], ["X"], [" Acme"], ["Acme", "ACME"]]) {
+      assertEquals((await direct(bad)).error?.code, "23514", JSON.stringify(bad).slice(0, 40));
+    }
+    assertEquals((await direct(["Typeform", "Tally"])).error, null);
 
     // A page DataForSEO can't parse is saved anyway.
     const missing = "https://www.jotform.com/blog/missing/";
@@ -59,7 +77,7 @@ Deno.test("set-own-page saves the page, parses it and re-matches recent captures
     const page = must(await serviceClient().from("own_pages").select("url, markdown").eq("tracked_query_id", tq.id).single(), "page") as any;
     assertEquals(page, { url: missing, markdown: null });
     const sameDomain = must(await serviceClient().from("own_matches").select("level").eq("tracked_query_id", tq.id).single(), "match") as any;
-    assertEquals(sameDomain.level, "same_host");
+    assertEquals(sameDomain.level, "same_host", "the old page's matches, the 40-day one included, are gone");
 
     assertEquals(await (await set(user, { own_url: null, brand_names: [] })).json(), { ok: true, parsed: false, matches: 0 });
     assertEquals((await serviceClient().from("own_pages").select("url").eq("tracked_query_id", tq.id)).data, []);

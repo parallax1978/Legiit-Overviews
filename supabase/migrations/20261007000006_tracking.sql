@@ -7,12 +7,14 @@
 --   citation_losses               queries whose page is out at p_ref: new losses and held ones to release
 --                                 (replaces lost_candidates from 0002)
 --   platform_event_notifications  one notification per user with an active query, in SQL (no row cap)
+--   notifications_to_email        the next notifications to email, at most p_per_user per user per run
 --   own_match_events              events scoped to the own URL; history citations dated, with their loss;
 --                                 a comeback while the loss is still held is held too
 --   record_own_match              matches recorded while paused, without events or notifications
---   tracking_summary              the latest citation comes from the 28-day window like the rest
+--   tracking_summary              the latest citation comes from the 28-day window like the rest;
+--                                 cited_exact_7d / cited_exact_28d count exact-URL citations
 --   compute_platform_daily        records pairs
--- citation_losses and platform_event_notifications are for the service role only.
+-- citation_losses, platform_event_notifications and notifications_to_email are for the service role only.
 
 -- ---------------------------------------------------------------- tables
 
@@ -103,6 +105,29 @@ as $$
     returning 1
   )
   select count(*)::int from ins
+$$;
+
+/**
+ * The notifications notify emails next: not emailed yet, created since p_since, oldest first, at
+ * most p_per_user per user and p_limit in all (optionally only for p_user_ids). The per-user cap
+ * keeps one user's backlog from flooding their inbox or holding up everyone else's email.
+ */
+create or replace function public.notifications_to_email(
+  p_since timestamptz, p_per_user int default 20, p_limit int default 50, p_user_ids uuid[] default null
+)
+returns table (id uuid, user_id uuid, kind text, title text, body text, link text, created_at timestamptz)
+language sql stable set search_path = ''
+as $$
+  select r.id, r.user_id, r.kind, r.title, r.body, r.link, r.created_at
+  from (
+    select n.*, row_number() over (partition by n.user_id order by n.created_at, n.id) as rn
+    from public.notifications n
+    where n.emailed_at is null and n.created_at >= p_since
+      and (p_user_ids is null or n.user_id = any(p_user_ids))
+  ) r
+  where r.rn <= p_per_user
+  order by r.created_at, r.id
+  limit p_limit
 $$;
 
 -- ---------------------------------------------------------------- events
@@ -281,8 +306,9 @@ end $$;
 
 /**
  * Own-page tracking for one tracked query: 7- and 28-day survival (renders citing the page over
- * renders with an overview), brand mentions, the latest citation of the last 28 days and a daily
- * strip for the last 28 UTC days (from the first day with a capture).
+ * renders with an overview), the renders citing the exact own URL, brand mentions, the latest
+ * citation of the last 28 days and a daily strip for the last 28 UTC days (from the first day with
+ * a capture).
  */
 create or replace function public.tracking_summary(p_tracked_query_id uuid)
 returns jsonb
@@ -317,7 +343,9 @@ begin
       count(*) filter (where status = 'present' and brand and captured_at >= v_now - interval '7 days') as brand_7d,
       count(*) filter (where status <> 'error') as renders_28d,
       count(*) filter (where status = 'present') as present_28d,
-      count(*) filter (where status = 'present' and level is not null) as cited_28d
+      count(*) filter (where status = 'present' and level is not null) as cited_28d,
+      count(*) filter (where status = 'present' and level = 'exact_url' and captured_at >= v_now - interval '7 days') as cited_exact_7d,
+      count(*) filter (where status = 'present' and level = 'exact_url') as cited_exact_28d
     from s28
   ),
   days as (
@@ -342,10 +370,12 @@ begin
     'renders_7d', w.renders_7d,
     'present_7d', w.present_7d,
     'cited_7d', w.cited_7d,
+    'cited_exact_7d', w.cited_exact_7d,
     'survival_7d', case when w.present_7d > 0 then round(w.cited_7d::numeric / w.present_7d, 4) end,
     'renders_28d', w.renders_28d,
     'present_28d', w.present_28d,
     'cited_28d', w.cited_28d,
+    'cited_exact_28d', w.cited_exact_28d,
     'survival_28d', case when w.present_28d > 0 then round(w.cited_28d::numeric / w.present_28d, 4) end,
     'brand_7d', w.brand_7d,
     'latest', (
@@ -443,5 +473,7 @@ $$;
 
 revoke all on function public.citation_losses(timestamptz, uuid[]) from public, anon, authenticated;
 revoke all on function public.platform_event_notifications(text, text, uuid[]) from public, anon, authenticated;
+revoke all on function public.notifications_to_email(timestamptz, int, int, uuid[]) from public, anon, authenticated;
 grant execute on function public.citation_losses(timestamptz, uuid[]) to service_role;
 grant execute on function public.platform_event_notifications(text, text, uuid[]) to service_role;
+grant execute on function public.notifications_to_email(timestamptz, int, int, uuid[]) to service_role;

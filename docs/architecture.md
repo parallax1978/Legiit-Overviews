@@ -43,15 +43,15 @@ The DataForSEO client (`_shared/dataforseo.ts`) retries 429 everywhere, and 5xx 
 | Column | Values and transitions |
 |---|---|
 | `captures.status` | `pending` -> `submitted` -> `received`, or `error` after 3 attempts |
-| `snapshots.extraction` | `pending` -> `submitted` -> `done` or `failed`; `reused` -> `done` once the original is done (claims and mentions copied); `none` for absent and error renders |
-| `pages.parse_status` | `pending` -> `ok` or `failed`; re-parsed when `parsed_at` is older than 7 days |
-| `pages.tag_status` | `none` -> `submitted` -> `done` or `failed`; back to `none` when the page is re-parsed |
+| `snapshots.extraction` | `pending` -> `submitted` -> `done` or `failed` (third failed attempt); `reused` -> `done` once the original is done (claims and mentions copied); when an original fails, its earliest copy becomes the original (`pending`, `same_as` null) and the other copies reuse it, and once two originals of the same content have failed the copies fail too; `none` for absent and error renders |
+| `pages.parse_status` | `pending` -> `ok` or `failed`; re-parsed when `parsed_at` is older than 7 days. A failed re-parse keeps the content, tags and `parsed_at` and records `parse_attempted_at`; failed parses are retried a day after the last attempt. A row is only ever written under the key its own URL normalises to, and a row stored under another URL is parsed again |
+| `pages.tag_status` | `none` -> `submitted` -> `done` or `failed`; a result that errored, expired, was truncated or invalid goes back to `none` (`tag_attempts` counted) and fails at the third attempt, an invalid request fails at once; back to `none` when the page is re-parsed |
 | `reports.stage` | `pages` (pages parsing and tagging) -> `brief` (brief batch pending or submitted) -> `ready` or `failed` |
 | `batches.status` | `in_progress` -> `ended` -> `collected`, or `failed` |
 
 ## Claude work
 
-`submit-batches` (every 15 min) asks each `BatchWork` module (`_shared/batch-work.ts`) for pending requests, creates one batch per kind, records `batches` and one `batch_items` row per request (with the `refs` map used in the prompt), then calls `markSubmitted`. `collect-batches` (every 5 min) retrieves in-progress batches, and for ended ones streams the results into `handleResult`, marks `batch_items` applied or failed, sums usage into `batches.usage`, and sets the batch `collected`. It also copies claims into `reused` snapshots whose original is done.
+`submit-batches` (every 15 min) asks each `BatchWork` module (`_shared/batch-work.ts`) for pending requests, creates one batch per page of pending work (paging while a page is full, at most 10 batches per kind and run), records `batches` and one `batch_items` row per request (with the `refs` map used in the prompt), then calls `markSubmitted`. Batch creation is never retried; after a failure that may have created a batch, an unrecorded batch of the same size created in the last 10 minutes is cancelled and the work stays pending. `collect-batches` (every 5 min) retrieves in-progress batches, and for ended ones streams the results into `handleResult`, marks `batch_items` applied or failed, sums usage into `batches.usage`, and sets the batch `collected`; an item's `refs` are cleared once it is applied or failed, and collected and failed batches are deleted (with their items) after 30 days. It also copies claims into `reused` snapshots whose original is done.
 
 | Kind | Target | Pending when | Result |
 |---|---|---|---|
@@ -62,9 +62,9 @@ The DataForSEO client (`_shared/dataforseo.ts`) retries 429 everywhere, and 5xx 
 
 Prompts carry short refs instead of ids: `C<n>` canonical claims, `E<n>` entities, `P<n>` pages. In stored output (`reports.analysis`) every ref is replaced by a typed ref: `claim:<group uuid>`, `entity:<entity uuid>`, `page:<url_key>`. Refs that don't resolve are dropped and listed in `brief_checks.dropped_refs`.
 
-`reports.brief_checks`: `{ passed: boolean, checks: [{ name, passed, detail }], dropped_refs: string[] }`. Check names: `must_cover_recurrence`, `entity_recurrence`, `outline_covers_must_cover`, `refs_resolve`. Items that fail the recurrence checks are removed from the stored brief.
+`reports.brief_checks`: `{ passed: boolean, checks: [{ name, passed, detail }], dropped_refs: string[] }`. Check names: `must_cover_recurrence`, `entity_recurrence`, `outline_covers_must_cover`, `no_figures_in_prose`, `refs_resolve`. Items that fail the recurrence checks are removed from the stored brief; percentages and `n=` counts the model wrote into `gaps.why`, `must_cover.why`, `entities.note` or `new_to_cite.why_google_lacks_it` are stripped (`no_figures_in_prose`). An entity ref is accepted only when the entity's name or an alias matches the name the model gave; otherwise the item is matched by name. A brief's request is built on `series_metrics` recomputed over the report window at submission, stored in `reports.metrics`, so merges since the report was created are reflected.
 
-`collect-batches` also runs `release_stuck_work()`: work whose result failed to apply goes back for another attempt (extractions to `pending` with an attempt counted, page tags to `failed`, briefs retried until two attempts fail). `consolidated_at` is set to the submission time, so groups created while a consolidation ran count as new the next night.
+`collect-batches` also runs `release_stuck_work()`: work whose result failed goes back for another attempt (extractions to `pending` with an attempt counted, page tags to `none` until the third attempt, briefs resubmitted until two attempts fail, with the higher `max_tokens` ceiling after a truncated one; only an invalid request fails a brief at once). A consolidation whose request or apply failed records the attempt. `consolidated_at` is set to the submission time, so groups created while a consolidation ran count as new the next night.
 
 The draft scorer is the only live request (`liveStructured` in `claude.ts`), run as a background task by `score-draft`: one draft per query at a time (a partial unique index on running `draft_scores` rows makes the insert the guard), at most 30 per user per 24 hours, `running` rows older than 10 minutes failed as timed out before each request, and scoring cut off at 140 s so the row is failed before the Edge wall clock kills the worker. The score is 100 x (0.25 topic coverage + 0.10 entity coverage + 0.10 format match + 0.15 answer first + 0.15 evidence + 0.05 checklist + 0.10 new to cite + 0.10 clarity); topic and new-to-cite coverage are over the brief's own lists, and an item Claude returned no judgement for counts as missing.
 
@@ -73,9 +73,9 @@ The draft scorer is the only live request (`liveStructured` in `claude.ts`), run
 `build-reports` (hourly):
 
 - Creates reports for tracked queries with status `tracking`. History starts at `series_history_start`: the first present snapshot of the current capture stretch (a gap of more than 36 hours between snapshots starts a new stretch), so a series captured again after a pause, or a `watching` query that only just saw an overview, starts from zero; `my_queries.history_days` counts from the same start. Windows always end at creation time: `preliminary` (3 days) once history reaches 3 days and the query has no preliminary or full report yet; `full` (7 days) once history reaches 7 days and the query has no full report; `refresh` (28 days) at day 28 and every 28 days after the latest refresh, never within 7 days of the latest full or refresh. A `full` or `refresh` report needs at least 10 present renders in its window (unless history is past day 28); short of that it is retried the next hour.
-- Stores `series_metrics(series, window_start, window_end)` in `reports.metrics` and `renders`.
-- Picks the 10 most-cited non-platform URLs by source survival in the window plus the own URL, writes `page_urls`, parses missing or stale pages (`pages.ts`), and writes `page_details` with Google's passages located in each page.
-- Moves a report from `pages` to `brief` once every page is parsed (or failed) and every parsed page is tagged (or failed).
+- Stores `series_metrics(series, window_start, window_end)` in `reports.metrics` and `renders`, once no present capture in the window awaits extraction (`pending`, `submitted` or `reused`), or 3 hours after creation.
+- Picks the 10 most-cited non-platform URLs by source survival in the window plus the own URL (its key is `normalizeUrl(own_url)`), writes `page_urls`, parses missing or stale pages (`pages.ts`) until the run's time budget is spent, from a URL that normalises to the page's key, and writes `page_details` with Google's passages located in each page and the renders that quoted each.
+- Moves a report from `pages` to `brief` once every page is parsed (or failed) and every parsed page is tagged (or failed), or, once every page has been attempted, 6 hours after the later of its creation and its pages' last parse attempt.
 
 ## SQL the app and functions call
 
@@ -119,7 +119,7 @@ A platform event needs a pool that stands for Google: at least 20 series and 20 
 
 ## Notifications
 
-Rows in `notifications` are created where the event happens (a platform event's, one per user with an active query, in one SQL statement so no response cap skips users). `notify` (every 15 min) emails rows with `emailed_at is null` through Resend when `RESEND_API_KEY` is set, and once a day (after 13:00 UTC) writes and emails one `digest` per user summarising the day's changes across their queries (events not held, including losses released that day; tracked queries are read in pages of 500). Links are app paths: `/queries/<tracked_query_id>` plus `/patterns`, `/pages`, `/brief`, `/draft` or `/tracking`.
+Rows in `notifications` are created where the event happens (a platform event's, one per user with an active query, in one SQL statement so no response cap skips users). `notify` (every 15 min) emails rows with `emailed_at is null` through Resend when `RESEND_API_KEY` is set (oldest first, at most 50 a run and 20 per user a run, `notifications_to_email`), and once a day (after 13:00 UTC) writes and emails one `digest` per user summarising the day's changes across their queries (events not held, including losses released that day; tracked queries are read in pages of 500). Links are app paths: `/queries/<tracked_query_id>` plus `/patterns`, `/pages`, `/brief`, `/draft` or `/tracking`.
 
 ## Cron
 

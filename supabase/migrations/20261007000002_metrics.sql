@@ -1087,37 +1087,6 @@ begin
 end;
 $$;
 
-/**
- * Tracked queries (optionally limited to p_tracked_query_ids) whose page was cited and has now
- * dropped out: an own URL, latest first_seen / regained / lost event is first_seen or regained,
- * at least one present render in [p_ref - 48h, p_ref) and none of them cite the page.
- */
-create or replace function public.lost_candidates(p_ref timestamptz, p_tracked_query_ids uuid[] default null)
-returns table (tracked_query_id uuid, user_id uuid, display_keyword text, latest_snapshot_id uuid, present_renders int)
-language sql stable security definer set search_path = ''
-as $$
-  select q.id, q.user_id, q.display_keyword, w.latest_id, w.present::int
-  from public.tracked_queries q
-  cross join lateral (
-    select e.kind from public.citation_events e
-    where e.tracked_query_id = q.id and e.kind in ('first_seen', 'regained', 'lost')
-    order by e.created_at desc limit 1
-  ) last_event
-  cross join lateral (
-    select count(*) as present,
-           count(m.level) as cited,
-           (array_agg(s.id order by s.captured_at desc))[1] as latest_id
-    from public.snapshots s
-    left join public.own_matches m on m.snapshot_id = s.id and m.tracked_query_id = q.id
-    where s.series_id = q.series_id and s.status = 'present'
-      and s.captured_at >= p_ref - interval '48 hours' and s.captured_at < p_ref
-  ) w
-  where q.own_url is not null and q.status <> 'paused'
-    and (p_tracked_query_ids is null or q.id = any(p_tracked_query_ids))
-    and last_event.kind in ('first_seen', 'regained')
-    and w.present > 0 and w.cited = 0
-$$;
-
 -- ---------------------------------------------------------------- grants
 
 revoke all on function public.assert_series_access(uuid) from public, anon, authenticated;
@@ -1140,8 +1109,6 @@ grant execute on function public.tracking_summary(uuid) to authenticated, servic
 revoke all on function public.create_due_reports(timestamptz, uuid[]) from public, anon, authenticated;
 revoke all on function public.window_passages(uuid, timestamptz, timestamptz, text[]) from public, anon, authenticated;
 revoke all on function public.compute_platform_daily(date) from public, anon, authenticated;
-revoke all on function public.lost_candidates(timestamptz, uuid[]) from public, anon, authenticated;
 grant execute on function public.create_due_reports(timestamptz, uuid[]) to service_role;
 grant execute on function public.window_passages(uuid, timestamptz, timestamptz, text[]) to service_role;
 grant execute on function public.compute_platform_daily(date) to service_role;
-grant execute on function public.lost_candidates(timestamptz, uuid[]) to service_role;
