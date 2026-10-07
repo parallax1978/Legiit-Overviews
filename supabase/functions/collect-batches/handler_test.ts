@@ -5,7 +5,8 @@ import { deps, handle } from "./handler.ts";
 const summary: CollectSummary = {
   batches: [{ id: "msgbatch_1", kind: "extract", status: "collected", applied: 3, failed: 1, skipped: 0 }],
   reused: { copied: 2, reset: 0 },
-  released: { snapshots: 0, pages: 0, briefs: 0 },
+  released: { snapshots: 0, pages: 0, briefs: 0, series: 0 },
+  purged: 0,
   errors: [],
 };
 

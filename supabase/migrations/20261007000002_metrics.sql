@@ -923,14 +923,15 @@ returns jsonb
 language sql stable security definer set search_path = ''
 as $$
   with p as (
-    select ci.url_key, btrim(ci.passage) as passage, count(*) as n
+    select ci.url_key, btrim(x) as passage, count(*) as n
     from public.citations ci
     join public.snapshots s on s.id = ci.snapshot_id
+    cross join lateral unnest(case when ci.passages = '{}' and ci.passage is not null then array[ci.passage] else ci.passages end) x
     where ci.url_key = any(p_url_keys)
       and s.series_id = p_series_id and s.status = 'present'
       and s.captured_at >= p_from and s.captured_at < p_to
-      and ci.passage is not null and btrim(ci.passage) <> ''
-    group by ci.url_key, btrim(ci.passage)
+      and btrim(x) <> ''
+    group by ci.url_key, btrim(x)
   ),
   ranked as (
     select url_key, passage, row_number() over (partition by url_key order by n desc, passage) as rn from p

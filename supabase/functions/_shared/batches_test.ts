@@ -201,7 +201,7 @@ Deno.test({
       ) as { id: string };
 
       const res = await collectAll({ batchIds: [], seriesIds: [seriesId] });
-      assertEquals(res.released, { snapshots: 1, pages: 0, briefs: 1 });
+      assertEquals(res.released, { snapshots: 1, pages: 0, briefs: 1, series: 0 });
       assertEquals(await extraction(snap), { extraction: "pending", extraction_attempts: 1 });
       assertEquals((await extraction(inFlight)).extraction, "submitted");
       const r = must(await db().from("reports").select("stage, brief_submitted").eq("id", report.id).single(), "r") as {
