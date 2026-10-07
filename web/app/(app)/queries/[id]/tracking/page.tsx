@@ -67,7 +67,7 @@ export default async function TrackingTab({ params }: { params: Promise<{ id: st
       {configured && (
         <section className="space-y-4" aria-labelledby="tracking-events">
           <SectionHeading id="tracking-events" title="Events" description="Newest first. Each one also sends you a notification." />
-          <TrackingEvents events={events} />
+          <TrackingEvents events={events} ownUrlKey={ownUrl ? q.own_url_key : null} />
         </section>
       )}
     </div>

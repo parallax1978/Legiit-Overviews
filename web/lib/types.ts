@@ -548,6 +548,8 @@ export interface CitationEventRow {
   level: string | null;
   quoted_heading: string | null;
   held_for_platform_event: boolean;
+  /** The own URL key the event was about; null for brand mentions. */
+  own_url_key: string | null;
   created_at: string;
 }
 

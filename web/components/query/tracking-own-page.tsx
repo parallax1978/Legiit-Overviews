@@ -15,8 +15,10 @@ import { plural } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { SetOwnPageRequest, SetOwnPageResponse } from "@/lib/types";
 
+// The same limits as set-own-page and the tracked_queries_brand_names_check constraint.
 const MAX_BRANDS = 10;
-const MAX_BRAND_LENGTH = 100;
+const MIN_BRAND_LENGTH = 2;
+const MAX_BRAND_LENGTH = 60;
 
 export interface TrackingOwnPageProps {
   trackedQueryId: string;
@@ -28,24 +30,26 @@ export interface TrackingOwnPageProps {
 
 type Outcome = { tone: "good" | "warn"; title: string; body: string };
 
-async function functionErrorMessage(error: unknown): Promise<string> {
+/** The message to show for a failed save, and the HTTP status when the function answered. */
+async function functionError(error: unknown): Promise<{ message: string; status: number | null }> {
   if (error instanceof FunctionsHttpError) {
     const res = error.context as Response | undefined;
+    const status = res?.status ?? null;
     try {
       const body = (await res?.clone().json()) as { error?: unknown } | undefined;
       if (typeof body?.error === "string" && body.error) {
-        if (res?.status === 404) return "This query wasn't found. Reload the page and try again.";
-        return body.error.charAt(0).toUpperCase() + body.error.slice(1);
+        if (status === 404) return { message: "This query wasn't found. Reload the page and try again.", status };
+        return { message: body.error.charAt(0).toUpperCase() + body.error.slice(1), status };
       }
     } catch {
       // Body wasn't JSON.
     }
-    if (res?.status === 401) return "Your session ended. Sign in again, then save.";
-    return "Saving failed on our side. Try again in a minute.";
+    if (status === 401) return { message: "Your session ended. Sign in again, then save.", status };
+    return { message: "Saving failed on our side. Try again in a minute.", status };
   }
-  if (error instanceof FunctionsRelayError) return "The request didn't reach our server. Try again in a minute.";
-  if (error instanceof FunctionsFetchError) return "We couldn't reach our server. Check your connection and try again.";
-  return error instanceof Error ? error.message : "Something went wrong. Try again.";
+  if (error instanceof FunctionsRelayError) return { message: "The request didn't reach our server. Try again in a minute.", status: null };
+  if (error instanceof FunctionsFetchError) return { message: "We couldn't reach our server. Check your connection and try again.", status: null };
+  return { message: error instanceof Error ? error.message : "Something went wrong. Try again.", status: null };
 }
 
 function validUrl(value: string): boolean {
@@ -81,8 +85,10 @@ export function TrackingOwnPage({ trackedQueryId, ownUrl, brandNames, parsedAt }
     for (const part of text.split(",")) {
       const name = cleanBrand(part);
       if (!name) continue;
-      if (name.length > MAX_BRAND_LENGTH) {
-        setBrandError(`Keep each brand name under ${MAX_BRAND_LENGTH} characters.`);
+      // Characters as the server counts them (code points, so an emoji is one).
+      const length = [...name].length;
+      if (length < MIN_BRAND_LENGTH || length > MAX_BRAND_LENGTH) {
+        setBrandError(`Each brand name needs ${MIN_BRAND_LENGTH} to ${MAX_BRAND_LENGTH} characters; "${name}" has ${length}.`);
         return null;
       }
       if (next.some((b) => b.toLowerCase() === name.toLowerCase())) continue;
@@ -132,6 +138,7 @@ export function TrackingOwnPage({ trackedQueryId, ownUrl, brandNames, parsedAt }
     setError(null);
     setOutcome(null);
     setUrlError(null);
+    setBrandError(null);
     const finalBrands = commitDraft();
     if (!finalBrands) return;
     const target = nextUrl?.trim() || null;
@@ -169,7 +176,11 @@ export function TrackingOwnPage({ trackedQueryId, ownUrl, brandNames, parsedAt }
       }
       startRefresh(() => router.refresh());
     } catch (err) {
-      setError(await functionErrorMessage(err));
+      const { message, status } = await functionError(err);
+      // A 400 about the brand names or the URL belongs next to that field.
+      if (status === 400 && /brand/i.test(message)) setBrandError(message);
+      else if (status === 400 && /own_url|\burl\b/i.test(message)) setUrlError(message.replace(/^Own_url/, "The URL"));
+      else setError(message);
     } finally {
       setSaving(false);
     }
@@ -188,7 +199,7 @@ export function TrackingOwnPage({ trackedQueryId, ownUrl, brandNames, parsedAt }
     ) : (
       "The page you want Google to cite for this search."
     );
-  const brandHint = `Press Enter or type a comma to add a name. Up to ${MAX_BRANDS}.`;
+  const brandHint = `Press Enter or type a comma to add a name. Up to ${MAX_BRANDS} names, ${MIN_BRAND_LENGTH} to ${MAX_BRAND_LENGTH} characters each.`;
   const busy = saving || refreshing;
 
   return (

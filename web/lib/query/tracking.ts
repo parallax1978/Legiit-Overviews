@@ -73,7 +73,7 @@ export const getTrackingData = cache(async (trackedQueryId: string): Promise<Tra
     supabase.rpc("tracking_summary", { p_tracked_query_id: trackedQueryId }),
     supabase
       .from("citation_events")
-      .select("id, tracked_query_id, snapshot_id, kind, level, quoted_heading, held_for_platform_event, created_at")
+      .select("id, tracked_query_id, snapshot_id, kind, level, quoted_heading, held_for_platform_event, own_url_key, created_at")
       .eq("tracked_query_id", trackedQueryId)
       .order("created_at", { ascending: false })
       .limit(EVENT_LIMIT),

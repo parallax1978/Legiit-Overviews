@@ -1,8 +1,8 @@
 // Citation events for the Tracking tab, newest first: first seen, lost, regained and brand mentioned,
-// with the match level, the heading Google quoted, and a note when a lost alert was held for a
-// Google-wide change.
+// with the match level, the heading Google quoted, a note when an alert was held for a Google-wide
+// change, and a tag on events about a URL the query no longer tracks.
 import { Card } from "@/components/ui/card";
-import { Chip, type ChipTone } from "@/components/ui/chip";
+import { Chip, Tag, type ChipTone } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/feedback";
 import { BellIcon, InfoIcon } from "@/components/ui/icons";
 import { LocalTime } from "@/components/ui/local-time";
@@ -31,7 +31,17 @@ function summary(e: CitationEventRow): string {
   }
 }
 
-export function TrackingEvents({ events }: { events: CitationEventRow[] }) {
+/** Why a held event wasn't sent. */
+function heldNote(e: CitationEventRow): string {
+  if (e.kind === "regained") return "Not sent: the loss it ends was held for a Google-wide change.";
+  return "Alert held: Google changed overviews broadly that day, so this wasn’t sent as your loss.";
+}
+
+/**
+ * `ownUrlKey` is the query's current own URL key: page events about another key (set before the URL
+ * was changed or removed) are tagged so they don't read as the current page's.
+ */
+export function TrackingEvents({ events, ownUrlKey }: { events: CitationEventRow[]; ownUrlKey: string | null }) {
   if (events.length === 0) {
     return (
       <EmptyState
@@ -46,6 +56,7 @@ export function TrackingEvents({ events }: { events: CitationEventRow[] }) {
       <ol className="divide-y divide-line">
         {events.map((e) => {
           const kind = KINDS[e.kind] ?? { label: e.kind, tone: "grey" as ChipTone };
+          const earlier = e.kind !== "brand_mention" && !!e.own_url_key && e.own_url_key !== ownUrlKey;
           return (
             <li key={e.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-start sm:gap-4 sm:px-5">
               <div className="min-w-0 flex-1">
@@ -54,6 +65,11 @@ export function TrackingEvents({ events }: { events: CitationEventRow[] }) {
                     {kind.label}
                   </Chip>
                   {e.level && (e.kind === "first_seen" || e.kind === "regained") && <span className="text-sm font-medium text-ink">{matchLevelLabel(e.level)}</span>}
+                  {earlier && (
+                    <Tag title={`About ${e.own_url_key}, the URL tracked before this one`}>
+                      Earlier URL
+                    </Tag>
+                  )}
                 </div>
                 <p className="mt-1.5 text-sm text-ink-muted">{summary(e)}</p>
                 {e.quoted_heading && (
@@ -64,7 +80,7 @@ export function TrackingEvents({ events }: { events: CitationEventRow[] }) {
                 {e.held_for_platform_event && (
                   <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-warn-soft/60 px-3 py-2 text-xs leading-5 text-ink">
                     <InfoIcon className="mt-0.5 h-3.5 w-3.5 text-warn" />
-                    <span>Alert held: Google changed overviews broadly that day, so this wasn&rsquo;t sent as your loss.</span>
+                    <span>{heldNote(e)}</span>
                   </p>
                 )}
               </div>
