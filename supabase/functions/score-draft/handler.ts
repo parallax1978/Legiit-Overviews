@@ -16,14 +16,27 @@ declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_TEXT = 200_000;
-/** A query can have one draft being scored at a time; older running rows are treated as stuck. */
+/** A running row older than this belongs to a killed worker: it is failed so it neither blocks the query nor shows as scoring forever. */
 const RUNNING_WINDOW_MS = 10 * 60_000;
+/** Scoring is cut off below the Edge wall-clock limit (150 s) so the row is failed before the worker is. */
+const SCORE_TIMEOUT_MS = 140_000;
+/** Draft scores per user per 24 hours; each one is a live Opus request. */
+const DAILY_CAP = 30;
 const DRAFT_SCORE_MAX_TOKENS = 8000;
 
-export const WEIGHTS = { topic_coverage: 0.30, entity_coverage: 0.15, format_match: 0.15, answer_first: 0.15, evidence: 0.15, checklist: 0.10 };
+export const WEIGHTS = {
+  topic_coverage: 0.25, entity_coverage: 0.10, format_match: 0.10, answer_first: 0.15, evidence: 0.15, checklist: 0.05,
+  new_to_cite: 0.10, clarity: 0.10,
+};
 
 type Brief = BriefOutput["brief"];
 type CellState = "covered" | "partial" | "missing";
+
+interface Judgement {
+  key: string;
+  status: CellState;
+  note: string;
+}
 
 interface WinnerPage {
   url_key: string;
@@ -68,11 +81,11 @@ export async function handle(req: Request): Promise<Response> {
   const db = serviceClient();
   const tq = must(
     await db.from("tracked_queries")
-      .select("id, user_id, display_keyword, own_url, own_url_key, series(keyword, language_code)")
+      .select("id, user_id, display_keyword, own_url, series(keyword, language_code)")
       .eq("id", tqId).maybeSingle(),
     "load tracked query",
   ) as unknown as {
-    id: string; user_id: string; display_keyword: string; own_url: string | null; own_url_key: string | null;
+    id: string; user_id: string; display_keyword: string; own_url: string | null;
     series: { keyword: string; language_code: string } | null;
   } | null;
   if (!tq || tq.user_id !== auth.user.id) return fail("Query not found.", 404);
@@ -85,19 +98,29 @@ export async function handle(req: Request): Promise<Response> {
   ) as { id: string; analysis: BriefOutput | null; page_urls: string[] } | null;
   if (!report?.analysis?.brief) return fail("The brief isn't ready yet.", 409);
 
-  const running = await db.from("draft_scores").select("id", { count: "exact", head: true })
-    .eq("tracked_query_id", tqId).eq("status", "running")
-    .gte("created_at", new Date(Date.now() - RUNNING_WINDOW_MS).toISOString());
-  if (running.error) throw new Error(`check running scores: ${running.error.message}`);
-  if ((running.count ?? 0) > 0) return fail("A draft for this query is already being scored. Try again in a minute.", 429);
+  // A worker killed mid-score (wall clock, redeploy) leaves its row running; fail such rows first.
+  const stale = await db.from("draft_scores").update({ status: "failed", error: "Scoring timed out." })
+    .eq("status", "running").lt("created_at", new Date(Date.now() - RUNNING_WINDOW_MS).toISOString());
+  if (stale.error) throw new Error(`release stale scores: ${stale.error.message}`);
 
-  const row = must(
-    await db.from("draft_scores").insert({ tracked_query_id: tqId, report_id: report.id, source, input, status: "running" })
-      .select("id").single(),
-    "create draft score",
-  ) as { id: string };
+  const recent = await db.from("draft_scores").select("id, tracked_queries!inner(user_id)", { count: "exact", head: true })
+    .eq("tracked_queries.user_id", auth.user.id)
+    .gte("created_at", new Date(Date.now() - 24 * 3_600_000).toISOString());
+  if (recent.error) throw new Error(`count recent scores: ${recent.error.message}`);
+  if ((recent.count ?? 0) >= DAILY_CAP) return fail(`You have scored ${DAILY_CAP} drafts in the last 24 hours. Try again later.`, 429);
 
-  const ownKey = tq.own_url_key ?? (tq.own_url ? normalizeUrl(tq.own_url) : null);
+  // One draft per query at a time: the partial unique index on running rows makes the insert the guard.
+  const inserted = await db.from("draft_scores")
+    .insert({ tracked_query_id: tqId, report_id: report.id, source, input, status: "running" })
+    .select("id").single();
+  if (inserted.error) {
+    if (inserted.error.code === "23505") return fail("A draft for this query is already being scored. Try again in a minute.", 429);
+    throw new Error(`create draft score: ${inserted.error.message}`);
+  }
+  const row = inserted.data as { id: string };
+
+  // The stored own_url_key is never trusted; the key is always derived from the URL.
+  const ownKey = tq.own_url ? normalizeUrl(tq.own_url) : null;
   const work = loadJobContext(report, ownKey)
     .then((ctx) => runDraftScore({
       id: row.id,
@@ -163,10 +186,18 @@ async function markFailed(id: string, e: unknown): Promise<void> {
   if (error) console.error(`draft score ${id}: ${error.message}`);
 }
 
+function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: number | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([p, deadline]).finally(() => clearTimeout(timer));
+}
+
 /** Scores the draft and writes the result (or the failure) to its draft_scores row. */
 export async function runDraftScore(job: DraftJob): Promise<void> {
   try {
-    const result = await scoreDraft(job);
+    const result = await withTimeout(scoreDraft(job), SCORE_TIMEOUT_MS, `Scoring timed out after ${SCORE_TIMEOUT_MS / 1000} s.`);
     must(
       await serviceClient().from("draft_scores").update({ status: "done", result, error: null }).eq("id", job.id),
       "save draft score",
@@ -241,9 +272,16 @@ export async function scoreDraft(job: DraftJob): Promise<DraftScoreResult> {
   // Technical checklist.
   const checklist = checklistScore(measures, pageContent, job.source, fixes);
 
-  // Topics and new-to-cite ideas from Claude.
-  const topicScores = output.topics.map((t) => stateScore(t.status));
-  const topicCoverage = topicScores.length ? mean(topicScores) : (brief.must_cover.length ? 0 : 1);
+  // Topics, new-to-cite ideas and clarity from Claude. Coverage is over the brief's own lists: an
+  // item Claude returned nothing for counts as missing, an item it invented counts for nothing.
+  const topics = alignJudgements(brief.must_cover.map((m) => m.topic), output.topics.map((t) => ({ key: t.topic, status: t.status, note: t.note })))
+    .map((j) => ({ topic: j.key, status: j.status, note: j.note }));
+  const topicCoverage = topics.length ? mean(topics.map((t) => stateScore(t.status))) : 1;
+  const newToCite = alignJudgements(brief.new_to_cite.map((n) => n.idea), output.new_to_cite.map((n) => ({ key: n.idea, status: n.status, note: n.note })))
+    .map((j) => ({ idea: j.key, status: j.status, note: j.note }));
+  const newToCiteScore = newToCite.length ? mean(newToCite.map((n) => stateScore(n.status))) : 1;
+  const clarityScore = Math.max(0, Math.min(10, Math.round(output.clarity.score)));
+  const clarity = clarityScore / 10;
 
   const subscores = {
     topic_coverage: round3(topicCoverage),
@@ -252,10 +290,13 @@ export async function scoreDraft(job: DraftJob): Promise<DraftScoreResult> {
     answer_first: round3(answerFirst),
     evidence: round3(evidence),
     checklist: round3(checklist),
+    new_to_cite: round3(newToCiteScore),
+    clarity: round3(clarity),
   };
   const score = Math.round(100 * (
     WEIGHTS.topic_coverage * topicCoverage + WEIGHTS.entity_coverage * entityCoverage + WEIGHTS.format_match * format +
-    WEIGHTS.answer_first * answerFirst + WEIGHTS.evidence * evidence + WEIGHTS.checklist * checklist
+    WEIGHTS.answer_first * answerFirst + WEIGHTS.evidence * evidence + WEIGHTS.checklist * checklist +
+    WEIGHTS.new_to_cite * newToCiteScore + WEIGHTS.clarity * clarity
   ));
 
   const allFixes = [...output.fixes.map((f) => ({ priority: Math.max(1, f.priority), fix: f.fix })), ...fixes]
@@ -269,15 +310,45 @@ export async function scoreDraft(job: DraftJob): Promise<DraftScoreResult> {
     subscores,
     measures,
     winners_median: winnersMedian,
-    topics: output.topics,
+    topics,
     entities,
-    new_to_cite: output.new_to_cite,
+    new_to_cite: newToCite,
+    clarity: { score: clarityScore, note: output.clarity.note },
     fixes: allFixes,
   };
 }
 
 function stateScore(s: CellState): number {
   return s === "covered" ? 1 : s === "partial" ? 0.5 : 0;
+}
+
+function normalizeText(s: string): string {
+  return s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+/**
+ * Claude's judgement for each item of a brief list: matched by text, then by position for what is
+ * left over; an item with no judgement counts as missing. Structured output cannot force one item
+ * per topic, so a merged, omitted or reworded item must not change the denominator.
+ */
+export function alignJudgements(wanted: string[], got: Judgement[]): Judgement[] {
+  const used = new Set<number>();
+  const picks = wanted.map((w) => {
+    const key = normalizeText(w);
+    const i = got.findIndex((g, j) => !used.has(j) && normalizeText(g.key) === key);
+    if (i >= 0) used.add(i);
+    return i >= 0 ? i : null;
+  });
+  return wanted.map((w, n) => {
+    let i = picks[n];
+    if (i === null && n < got.length && !used.has(n)) {
+      i = n;
+      used.add(n);
+    }
+    return i === null
+      ? { key: w, status: "missing", note: "Not assessed; counted as missing." }
+      : { key: w, status: got[i].status, note: got[i].note };
+  });
 }
 
 function mean(xs: number[]): number {

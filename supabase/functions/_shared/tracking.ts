@@ -2,12 +2,14 @@
 // brand_mention events with their notifications, own page parsing, and re-matching history.
 import { contentParsing } from "./dataforseo.ts";
 import { must, serviceClient } from "./db.ts";
-import { matchLevel, mentionsBrand, normalizeUrl, regDomain } from "./normalize.ts";
+import { matchLevel, normalizeUrl, regDomain } from "./normalize.ts";
 import { locatePassage, outlineFromMarkdown } from "./passage.ts";
 import type { MatchLevel, ParsedSentence } from "./types.ts";
 
 const RANK: Record<MatchLevel, number> = { exact_url: 4, path_prefix: 3, same_host: 2, same_domain: 1 };
 const DAY_MS = 86_400_000;
+/** Brand names matched per query; the database constraint tracked_queries_brand_names_check keeps the same cap. */
+export const MAX_BRANDS = 10;
 
 export interface TrackedForMatch {
   id: string;
@@ -24,6 +26,8 @@ export interface CitationForMatch {
   idx: number;
   url_key: string;
   passage: string | null;
+  /** Every distinct passage Google quoted from the page in that capture; `passage` is the first. */
+  passages?: string[];
 }
 
 export interface SnapshotMatch {
@@ -56,11 +60,17 @@ export function matchSnapshot(
       }
     }
   }
-  const brand = (tq.brand_names ?? []).find((b) => mentionsBrand(overviewText, [b])) ?? null;
+  const brand = findBrand(overviewText, tq.brand_names ?? []);
   let quoted: string | null = null;
-  if (best?.level === "exact_url" && ownPage?.markdown && best.c.passage) {
-    const loc = locatePassage(ownPage.markdown, best.c.passage);
-    if (loc.found) quoted = loc.heading;
+  if (best?.level === "exact_url" && ownPage?.markdown) {
+    for (const passage of new Set([...(best.c.passages ?? []), best.c.passage])) {
+      if (!passage) continue;
+      const loc = locatePassage(ownPage.markdown, passage);
+      if (loc.found) {
+        quoted = loc.heading;
+        break;
+      }
+    }
   }
   return {
     level: best?.level ?? null,
@@ -73,8 +83,10 @@ export function matchSnapshot(
 
 /**
  * Matches a newly ingested snapshot for every tracked query of its series that has an own URL or
- * brand names. Events and notifications are created only when the own_matches row is new, so running
- * this again for the same snapshot creates nothing. Returns the events created.
+ * brand names, paused ones included (their matches are recorded without events or notifications, so
+ * the history is complete when tracking resumes). Events and notifications are created only when the
+ * own_matches row is new, so running this again for the same snapshot creates nothing. Returns the
+ * events created.
  */
 export async function applyMatches(snapshotId: string): Promise<string[]> {
   const db = serviceClient();
@@ -84,13 +96,13 @@ export async function applyMatches(snapshotId: string): Promise<string[]> {
   ) as SnapshotRow | null;
   if (!snap || snap.status === "error") return [];
   const tqs = (must(
-    await db.from("tracked_queries").select("id, own_url_key, brand_names").eq("series_id", snap.series_id).neq("status", "paused"),
+    await db.from("tracked_queries").select("id, own_url_key, brand_names").eq("series_id", snap.series_id),
     "load tracked queries",
   ) as TrackedForMatch[]).filter(isConfigured);
   if (!tqs.length) return [];
 
   const citations = snap.status === "present"
-    ? must(await db.from("citations").select("idx, url_key, passage").eq("snapshot_id", snapshotId), "load citations") as CitationForMatch[]
+    ? must(await db.from("citations").select("idx, url_key, passage, passages").eq("snapshot_id", snapshotId), "load citations") as CitationForMatch[]
     : [];
   const pages = await ownPages(tqs.map((t) => t.id));
   const text = overviewText(snap);
@@ -175,7 +187,9 @@ export async function parseOwnPage(trackedQueryId: string): Promise<{ url: strin
 /**
  * Recomputes own_matches for the series' snapshots of the last `days` days (after the own URL or
  * brands changed). History creates at most one first_seen and one brand_mention event, at the earliest
- * matching snapshot, each with one notification. Returns how many snapshots cite the page or name a brand.
+ * matching snapshot, each with one notification dated at that render; when the page has dropped out
+ * since, own_match_events records the loss at once and says so in the same notification. Returns how
+ * many snapshots cite the page or name a brand.
  */
 export async function rematch(trackedQueryId: string, days = 28): Promise<number> {
   const db = serviceClient();
@@ -210,7 +224,7 @@ export async function rematch(trackedQueryId: string, days = 28): Promise<number
     for (let i = 0; i < present.length; i += 100) {
       const rows = await selectAll<CitationForMatch & { snapshot_id: string }>((from, to) =>
         db.from("citations")
-          .select("snapshot_id, idx, url_key, passage")
+          .select("snapshot_id, idx, url_key, passage, passages")
           .in("snapshot_id", present.slice(i, i + 100))
           .in("reg_domain", domains)
           .order("snapshot_id")
@@ -319,6 +333,21 @@ function isConfigured(tq: TrackedForMatch): boolean {
   return Boolean(tq.own_url_key) || (tq.brand_names ?? []).some((b) => b.trim());
 }
 
+/**
+ * The first brand named in the text (whole words, case-insensitive), or null. One pass with one
+ * regular expression over the first MAX_BRANDS names, longest first so an overlapping shorter name
+ * never hides a longer one; the ingestion path runs this for every tracked query of a series.
+ */
+export function findBrand(text: string, brands: string[]): string | null {
+  const names = [...new Set((brands ?? []).map((b) => b.trim()).filter(Boolean))].slice(0, MAX_BRANDS)
+    .sort((a, b) => b.length - a.length);
+  if (!names.length) return null;
+  const alternatives = names.map((n) => n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const m = new RegExp(`(?:^|[^\\p{L}\\p{N}])(${alternatives})(?=$|[^\\p{L}\\p{N}])`, "u").exec(text.toLowerCase());
+  if (!m) return null;
+  return names.find((n) => n.toLowerCase() === m[1]) ?? m[1];
+}
+
 function ownKeys(tq: TrackedForMatch, page: OwnPageForMatch | null): string[] {
   const keys = [tq.own_url_key, page?.resolved_url ? normalizeUrl(page.resolved_url) : null].filter((k): k is string => Boolean(k));
   return [...new Set(keys)];
@@ -338,8 +367,11 @@ async function ownPages(ids: string[]): Promise<Map<string, OwnPageForMatch>> {
   return new Map(rows.map((r) => [r.tracked_query_id, r]));
 }
 
-/** Reads every page of a ranged query (PostgREST caps each response at max_rows). */
-async function selectAll<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
+/**
+ * Reads every page of a ranged query (PostgREST caps each response at max_rows, 1000 here). The query
+ * needs a stable order; `page` adds `.range(from, to)` to it.
+ */
+export async function selectAll<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
   const size = 500;
   const out: T[] = [];
   for (let from = 0;; from += size) {

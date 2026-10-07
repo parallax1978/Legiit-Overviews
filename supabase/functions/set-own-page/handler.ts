@@ -3,11 +3,12 @@
 import { must, serviceClient } from "../_shared/db.ts";
 import { fail, json, requireUser } from "../_shared/http.ts";
 import { normalizeUrl } from "../_shared/normalize.ts";
-import { parseOwnPage, rematch } from "../_shared/tracking.ts";
+import { MAX_BRANDS, parseOwnPage, rematch } from "../_shared/tracking.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_BRANDS = 10;
-const MAX_BRAND_LENGTH = 100;
+/** Brand name length after trimming; tracked_queries_brand_names_check enforces the same bounds. */
+const MIN_BRAND_LENGTH = 2;
+const MAX_BRAND_LENGTH = 60;
 const MAX_URL_LENGTH = 2048;
 
 export async function handle(req: Request): Promise<Response> {
@@ -26,9 +27,9 @@ export async function handle(req: Request): Promise<Response> {
 
   const db = serviceClient();
   const tq = must(
-    await db.from("tracked_queries").select("id, user_id").eq("id", id).maybeSingle(),
+    await db.from("tracked_queries").select("id, user_id, own_url_key").eq("id", id).maybeSingle(),
     "load tracked query",
-  ) as { id: string; user_id: string } | null;
+  ) as { id: string; user_id: string; own_url_key: string | null } | null;
   if (!tq || tq.user_id !== auth.user.id) return fail("not found", 404);
 
   const ownUrl = parseOwnUrl(body?.own_url);
@@ -36,14 +37,17 @@ export async function handle(req: Request): Promise<Response> {
   const brands = parseBrands(body?.brand_names);
   if (brands instanceof Response) return brands;
 
+  const ownUrlKey = ownUrl ? normalizeUrl(ownUrl) : null;
   must(
-    await db.from("tracked_queries").update({
-      own_url: ownUrl,
-      own_url_key: ownUrl ? normalizeUrl(ownUrl) : null,
-      brand_names: brands,
-    }).eq("id", id),
+    await db.from("tracked_queries").update({ own_url: ownUrl, own_url_key: ownUrlKey, brand_names: brands }).eq("id", id),
     "save own page settings",
   );
+  if (ownUrlKey !== tq.own_url_key) {
+    // Matches describe the page they were made for: a new (or no) page starts from nothing, and the
+    // re-match below rewrites the last 28 days. Rows older than that would otherwise keep the old
+    // page's citations as the query's latest.
+    must(await db.from("own_matches").delete().eq("tracked_query_id", id), "clear own matches");
+  }
 
   let parsed = false;
   try {
@@ -76,7 +80,9 @@ function parseBrands(v: unknown): string[] | Response {
     const name = raw.normalize("NFKC").trim().replace(/\s+/g, " ");
     const key = name.toLowerCase();
     if (!name || seen.has(key)) continue;
-    if (name.length > MAX_BRAND_LENGTH) return fail(`Brand names are at most ${MAX_BRAND_LENGTH} characters.`);
+    if (name.length < MIN_BRAND_LENGTH || name.length > MAX_BRAND_LENGTH) {
+      return fail(`Brand names are ${MIN_BRAND_LENGTH} to ${MAX_BRAND_LENGTH} characters.`);
+    }
     seen.add(key);
     out.push(name);
   }

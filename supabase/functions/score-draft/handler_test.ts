@@ -4,7 +4,7 @@ import { serviceClient } from "../_shared/db.ts";
 import { env } from "../_shared/env.ts";
 import { measurePage } from "../_shared/pages.ts";
 import type { DraftScoreResult } from "../_shared/types.ts";
-import { evidenceKinds, handle, medianMeasures, wordsBeforeAnswer } from "./handler.ts";
+import { alignJudgements, evidenceKinds, handle, medianMeasures, WEIGHTS, wordsBeforeAnswer } from "./handler.ts";
 
 const ANSWER = "The best form builder for most teams is Jotform, thanks to its free plan and 10,000 templates.";
 
@@ -52,6 +52,29 @@ Deno.test("wordsBeforeAnswer finds the opening exactly or by shared words", () =
   assertEquals(wordsBeforeAnswer("Nothing relevant at all.", ANSWER), null);
 });
 
+Deno.test("weights sum to one", () => {
+  assertEquals(Math.round(Object.values(WEIGHTS).reduce((a, b) => a + b, 0) * 1000) / 1000, 1);
+});
+
+Deno.test("alignJudgements matches by text, then position, and fills the rest as missing", () => {
+  const got = (key: string, status: "covered" | "partial" | "missing" = "covered") => ({ key, status, note: key });
+  assertEquals(
+    alignJudgements(["Free plans", "Conditional logic", "Payment integrations"], [got("CONDITIONAL LOGIC!", "partial"), got("free plans")]),
+    [
+      { key: "Free plans", status: "covered", note: "free plans" },
+      { key: "Conditional logic", status: "partial", note: "CONDITIONAL LOGIC!" },
+      { key: "Payment integrations", status: "missing", note: "Not assessed; counted as missing." },
+    ],
+  );
+  assertEquals(
+    alignJudgements(["A", "B"], [got("Something else", "partial"), got("B")]).map((j) => j.status),
+    ["partial", "covered"],
+    "an unmatched judgement at the same position stands in",
+  );
+  assertEquals(alignJudgements(["A"], [got("B"), got("C")]).length, 1, "invented items count for nothing");
+  assertEquals(alignJudgements([], [got("B")]), []);
+});
+
 Deno.test("medianMeasures and evidenceKinds", () => {
   const a = measurePage(topPage(), null, "https://a.example.com");
   const b = measurePage(topPage("\nAnother paragraph with 3 more numbers: 1, 2.\n"), null, "https://b.example.com");
@@ -81,17 +104,21 @@ Deno.test("score-draft: ownership, readiness, background scoring", async (t) => 
       }],
     });
   });
-  // Stub Anthropic: a topic is covered when all its words of 4+ letters are in the draft.
+  // Stub Anthropic: a topic is covered when all its words of 4+ letters are in the draft. Like a
+  // real model it lists only the topics it found, rewords the first one and shouts the rest, so the
+  // scorer has to match them back to the brief; a draft marked <slow> takes 1.5 s.
   const claudeCalls: { beta: string | null; fallbacks: unknown }[] = [];
   const claude = Deno.serve({ port: 0, onListen: () => {} }, async (req) => {
     const body = await req.json();
     claudeCalls.push({ beta: req.headers.get("anthropic-beta"), fallbacks: body.fallbacks });
     const data = JSON.parse(String(body.messages[0].content).match(/<data>\n([\s\S]*)\n<\/data>/)![1]);
     const draft = String(data.draft_markdown).toLowerCase();
+    if (draft.includes("<slow>")) await new Promise((r) => setTimeout(r, 1500));
     const has = (s: string) => s.toLowerCase().split(/\W+/).filter((w) => w.length >= 4).every((w) => draft.includes(w));
-    const topics = data.brief.must_cover.map((m: { topic: string }) => ({
-      topic: m.topic, status: has(m.topic) ? "covered" : "missing", note: "stub",
-    }));
+    const missing = data.brief.must_cover.filter((m: { topic: string }) => !has(m.topic));
+    const topics = data.brief.must_cover
+      .filter((m: { topic: string }) => has(m.topic))
+      .map((m: { topic: string }, i: number) => ({ topic: i === 0 ? "Free tiers" : m.topic.toUpperCase(), status: "covered", note: "stub" }));
     const output = {
       topics,
       new_to_cite: data.brief.new_to_cite.map((n: { idea: string }) => ({ idea: n.idea, status: draft.includes("response rate") ? "covered" : "missing", note: "stub" })),
@@ -99,7 +126,7 @@ Deno.test("score-draft: ownership, readiness, background scoring", async (t) => 
       clarity: { score: 8, note: "stub" },
       fixes: [
         { priority: 5, fix: "Polish the conclusion." },
-        ...topics.filter((x: { status: string }) => x.status === "missing").map((x: { topic: string }) => ({ priority: 1, fix: `Cover ${x.topic}.` })),
+        ...missing.map((x: { topic: string }) => ({ priority: 1, fix: `Cover ${x.topic}.` })),
       ],
     };
     return Response.json({
@@ -193,6 +220,7 @@ Deno.test("score-draft: ownership, readiness, background scoring", async (t) => 
       await db.from("reports").update({ stage: "ready" }).eq("id", reportId).throwOnError();
     });
 
+    let plainScore = 0;
     await t.step("a copy of the top page scores high", async () => {
       const res = await call(ownerToken, { tracked_query_id: tqId, source: "text", input: topPage() });
       assertEquals(res.status, 200);
@@ -206,8 +234,14 @@ Deno.test("score-draft: ownership, readiness, background scoring", async (t) => 
       assertEquals(r.subscores.format_match, 1);
       assertEquals(r.subscores.answer_first, 1);
       assertEquals(r.subscores.checklist, 1);
+      assertEquals(r.subscores.new_to_cite, 0, "the response rate test is not in the draft");
+      assertEquals(r.subscores.clarity, 0.8);
+      assertEquals(r.clarity, { score: 8, note: "stub" });
       assertEquals(r.measures.words_before_answer, 8);
-      assert(r.score >= 90, `score ${r.score}`);
+      assert(r.score >= 85 && r.score < 92, `score ${r.score}: everything but the new-to-cite idea (10%) and clarity 8/10`);
+      plainScore = r.score;
+      assertEquals(r.topics.map((x) => x.topic), ["Free plans", "Conditional logic", "Payment integrations"], "topics carry the brief's wording");
+      assertEquals(r.topics.map((x) => x.status), ["covered", "covered", "covered"], "reworded and upper-cased judgements match back");
       assertEquals(r.entities.map((e) => e.present), [true, true, true]);
       assertEquals(r.new_to_cite[0].status, "missing");
       assertEquals(r.winners_median.tables, 1);
@@ -216,6 +250,28 @@ Deno.test("score-draft: ownership, readiness, background scoring", async (t) => 
       assertEquals(priorities, [...priorities].sort((a, b) => a - b), "fixes are sorted by priority");
       assertEquals(claudeCalls.at(-1)!.beta, "server-side-fallback-2026-07-01");
       assertEquals(claudeCalls.at(-1)!.fallbacks, "default");
+    });
+
+    await t.step("covering the new-to-cite idea is worth its weight", async () => {
+      const draft = topPage("\nWe ran a response rate test across 1,000 submissions: Jotform converted best.\n");
+      const { draft_score_id } = await (await call(ownerToken, { tracked_query_id: tqId, source: "text", input: draft })).json();
+      const r = (await scoreRow(draft_score_id)).result!;
+      assertEquals(r.new_to_cite, [{ idea: "A response rate test", status: "covered", note: "stub" }]);
+      assertEquals(r.subscores.new_to_cite, 1);
+      assert(r.score - plainScore >= 8 && r.score - plainScore <= 11, `score ${r.score} vs ${plainScore}`);
+    });
+
+    await t.step("topic coverage is over the brief's topics, not over what came back", async () => {
+      const draft = topPage().replace(/## Payment integrations[\s\S]*?(?=## Pricing)/, "");
+      assert(!draft.toLowerCase().includes("payment"));
+      const { draft_score_id } = await (await call(ownerToken, { tracked_query_id: tqId, source: "text", input: draft })).json();
+      const r = (await scoreRow(draft_score_id)).result!;
+      assertEquals(r.topics, [
+        { topic: "Free plans", status: "covered", note: "stub" },
+        { topic: "Conditional logic", status: "covered", note: "stub" },
+        { topic: "Payment integrations", status: "missing", note: "Not assessed; counted as missing." },
+      ], "two judgements for three topics: the third counts as missing");
+      assertEquals(r.subscores.topic_coverage, 0.667);
     });
 
     await t.step("an unrelated draft scores low and gets fixes", async () => {
@@ -232,6 +288,42 @@ Deno.test("score-draft: ownership, readiness, background scoring", async (t) => 
       assertEquals(r.fixes[0].priority, 1);
       assert(r.fixes.some((f) => f.fix.includes("Tool, Free plan, Price")), "code adds the missing table");
       assert(r.fixes.some((f) => f.fix.includes("author")), "code adds the missing byline");
+    });
+
+    await t.step("a stale running row is failed, a live one blocks the query", async () => {
+      const stale = (await db.from("draft_scores").insert({
+        tracked_query_id: tqId, report_id: reportId, source: "text", input: "old", status: "running",
+        created_at: new Date(Date.now() - 11 * 60_000).toISOString(),
+      }).select("id").single().throwOnError()).data!.id;
+      const res = await call(ownerToken, { tracked_query_id: tqId, source: "text", input: topPage() });
+      assertEquals(res.status, 200, "a row left running by a killed worker does not block");
+      assertEquals((await scoreRow(stale)).status, "failed");
+      assertEquals((await scoreRow(stale)).error, "Scoring timed out.");
+      const live = (await db.from("draft_scores").insert({ tracked_query_id: tqId, report_id: reportId, source: "text", input: "now", status: "running" })
+        .select("id").single().throwOnError()).data!.id;
+      const busy = await call(ownerToken, { tracked_query_id: tqId, source: "text", input: topPage() });
+      assertEquals(busy.status, 429);
+      assertEquals(await busy.json(), { error: "A draft for this query is already being scored. Try again in a minute." });
+      await db.from("draft_scores").update({ status: "failed", error: "test" }).eq("id", live).throwOnError();
+    });
+
+    await t.step("parallel requests score one draft and refuse the rest", async () => {
+      const draft = topPage("\n<slow>\n");
+      const results = await Promise.all(Array.from({ length: 5 }, () => call(ownerToken, { tracked_query_id: tqId, source: "text", input: draft })));
+      assertEquals(results.map((r) => r.status).sort(), [200, 429, 429, 429, 429]);
+      const ok = await (results.find((r) => r.status === 200)!).json();
+      assertEquals((await scoreRow(ok.draft_score_id)).status, "done");
+    });
+
+    await t.step("a user is capped per day", async () => {
+      const filler = Array.from({ length: 30 }, (_, i) => ({ tracked_query_id: tqId, report_id: reportId, source: "text", input: `filler ${i}`, status: "done" }));
+      await db.from("draft_scores").insert(filler).throwOnError();
+      const res = await call(ownerToken, { tracked_query_id: tqId, source: "text", input: topPage() });
+      assertEquals(res.status, 429);
+      assertEquals(await res.json(), { error: "You have scored 30 drafts in the last 24 hours. Try again later." });
+      const other = await call(otherToken, { tracked_query_id: tqId, source: "text", input: topPage() });
+      assertEquals(other.status, 404, "the cap is per user: another user is still refused for ownership, not the cap");
+      await db.from("draft_scores").delete().eq("tracked_query_id", tqId).like("input", "filler %").throwOnError();
     });
 
     await t.step("a URL is parsed and scored; an unreachable URL fails the row", async () => {

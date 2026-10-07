@@ -1,11 +1,12 @@
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { customId } from "../batch-work.ts";
 import { collectAll, submitAll } from "../batches.ts";
 import type { BriefChecks } from "../brief-render.ts";
 import { must, serviceClient } from "../db.ts";
 import type { BriefPromptInput } from "../prompts/brief.ts";
 import type { BriefOutput } from "../schemas.ts";
 import type { SeriesMetrics } from "../types.ts";
-import { briefWork } from "./brief.ts";
+import { BRIEF_MAX_TOKENS, BRIEF_MAX_TOKENS_RETRY, briefWork } from "./brief.ts";
 import { cleanup, seedSeries, seedUser, stubAnthropic, TEST_PREFIX } from "./test-helpers.ts";
 
 const db = () => serviceClient();
@@ -139,6 +140,8 @@ Deno.test({
       const submitted = must(await db().from("reports").select("brief_submitted, stage").eq("id", report.id).single(), "r") as { brief_submitted: boolean };
       assertEquals(submitted.brief_submitted, true);
       assertEquals((await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["brief"] })).counts.brief, 0);
+      // The refs are kept while the item is in flight; they are cleared once it is applied.
+      const refs = (must(await db().from("batch_items").select("refs").eq("batch_id", batchIds[0]).single(), "refs") as { refs: Record<string, string> }).refs;
 
       const col = await collectAll({ batchIds });
       assertEquals(col.batches[0].applied, 1, JSON.stringify(col));
@@ -178,7 +181,7 @@ Deno.test({
 
       // A repeated delivery changes nothing and sends no second notification.
       const req = stub.batches.get(batchIds[0])!.requests[0];
-      const refs = (must(await db().from("batch_items").select("refs").eq("batch_id", batchIds[0]).single(), "refs") as { refs: Record<string, string> }).refs;
+      assertEquals((must(await db().from("batch_items").select("refs").eq("batch_id", batchIds[0]).single(), "refs") as { refs: unknown }).refs, {});
       const message = {
         id: "msg_dup",
         type: "message",
@@ -201,35 +204,97 @@ Deno.test({
   },
 });
 
+/** A valid brief for a report without metrics: every list empty, so every check passes. */
+const EMPTY_BRIEF: BriefOutput = {
+  summary: "Nothing recurs yet.",
+  matrix: { topics: [], entities: [] },
+  common_to_all: [],
+  gaps: [],
+  page_notes: [],
+  brief: {
+    answer_first: { text: "Pick Jotform.", max_words: 60 },
+    must_cover: [],
+    entities: [],
+    format: { structure: "List", table_columns: [], list_items: null },
+    evidence_to_match: [],
+    new_to_cite: [],
+    questions: [],
+    outline: [],
+    checklist: [],
+    avoid: [],
+  },
+};
+
 Deno.test({
-  name: "brief: a refused brief moves the report to 'failed' with the error",
+  name: "brief: a truncated, refused or errored brief is resubmitted (with a higher ceiling after max_tokens); two failures fail the report; an invalid request fails it at once",
   ...opts,
   async fn() {
     const stub = stubAnthropic();
     stub.reset();
-    stub.responder = () => ({ type: "refusal" });
-    const seriesId = await seedSeries("brief-fail");
+    const seriesId = await seedSeries("brief-retry");
     const userId = await seedUser();
     const batchIds: string[] = [];
     try {
       const tq = await insert<{ id: string }>("tracked_queries", { user_id: userId, series_id: seriesId, display_keyword: "x" });
-      const report = await insert<{ id: string }>("reports", {
-        tracked_query_id: tq.id,
-        series_id: seriesId,
-        kind: "preliminary",
-        window_start: "2026-10-04T00:00:00Z",
-        window_end: "2026-10-07T00:00:00Z",
-        renders: 0,
-        metrics: null,
-        stage: "brief",
-      });
-      const sub = await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["brief"] });
-      batchIds.push(...sub.batches.map((b) => b.id));
-      await collectAll({ batchIds });
-      const r = must(await db().from("reports").select("stage, error").eq("id", report.id).single(), "r") as { stage: string; error: string };
-      assertEquals(r.stage, "failed");
-      assert(r.error.includes("refusal"));
-      assertEquals((must(await db().from("notifications").select("id").eq("tracked_query_id", tq.id), "n") as unknown[]).length, 0);
+      const report = async (kind: string) =>
+        await insert<{ id: string }>("reports", {
+          tracked_query_id: tq.id,
+          series_id: seriesId,
+          kind,
+          window_start: "2026-10-04T00:00:00Z",
+          window_end: "2026-10-07T00:00:00Z",
+          renders: 0,
+          metrics: null,
+          stage: "brief",
+        });
+      const truncated = await report("preliminary");
+      const refused = await report("full");
+      const rejected = await report("refresh");
+      const state = async (id: string) =>
+        must(await db().from("reports").select("stage, brief_submitted, error").eq("id", id).single(), "r") as {
+          stage: string;
+          brief_submitted: boolean;
+          error: string | null;
+        };
+      const maxTokensOf = (batchId: string, reportId: string) =>
+        stub.batches.get(batchId)!.requests.find((r) => r.custom_id === customId("brief", reportId))!.params.max_tokens;
+
+      // Round 1: one result stops on max_tokens, one is refused, one request is rejected.
+      stub.responder = (cid) => {
+        if (cid === customId("brief", truncated.id)) return { type: "succeeded", output: EMPTY_BRIEF, stop_reason: "max_tokens" };
+        if (cid === customId("brief", refused.id)) return { type: "refusal" };
+        return { type: "errored", error_type: "invalid_request_error", message: "prompt is too long" };
+      };
+      const s1 = await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["brief"] });
+      batchIds.push(...s1.batches.map((b) => b.id));
+      assertEquals(s1.counts.brief, 3);
+      assertEquals(maxTokensOf(s1.batches[0].id, truncated.id), BRIEF_MAX_TOKENS);
+      const c1 = await collectAll({ batchIds: s1.batches.map((b) => b.id), seriesIds: [seriesId] });
+      assertEquals(c1.batches[0].failed, 3);
+      assertEquals(c1.released?.briefs, 2, "the truncated and refused briefs are released for another attempt");
+      assertEquals(await state(truncated.id), { stage: "brief", brief_submitted: false, error: null });
+      assertEquals(await state(refused.id), { stage: "brief", brief_submitted: false, error: null });
+      const r3 = await state(rejected.id);
+      assertEquals(r3.stage, "failed");
+      assertStringIncludes(r3.error ?? "", "invalid_request_error");
+
+      // Round 2: the truncated brief gets the higher ceiling and succeeds; the refusal repeats.
+      stub.responder = (cid) => cid === customId("brief", truncated.id) ? { type: "succeeded", output: EMPTY_BRIEF } : { type: "refusal" };
+      const s2 = await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["brief"] });
+      batchIds.push(...s2.batches.map((b) => b.id));
+      assertEquals(s2.counts.brief, 2);
+      assertEquals(maxTokensOf(s2.batches[0].id, truncated.id), BRIEF_MAX_TOKENS_RETRY);
+      assertEquals(maxTokensOf(s2.batches[0].id, refused.id), BRIEF_MAX_TOKENS);
+      const c2 = await collectAll({ batchIds: s2.batches.map((b) => b.id), seriesIds: [seriesId] });
+      assertEquals([c2.batches[0].applied, c2.batches[0].failed], [1, 1]);
+      assertEquals((await state(truncated.id)).stage, "ready");
+      const r2 = await state(refused.id);
+      assertEquals([r2.stage, r2.brief_submitted], ["failed", true]);
+      assertStringIncludes(r2.error ?? "", "refusal");
+      assertEquals((await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["brief"] })).counts.brief, 0);
+
+      const notes = must(await db().from("notifications").select("kind").eq("tracked_query_id", tq.id), "n") as { kind: string }[];
+      assertEquals(notes.map((n) => n.kind), ["report_ready"]);
     } finally {
       await cleanup({ seriesIds: [seriesId], batchIds, userIds: [userId] });
     }

@@ -57,6 +57,14 @@ Deno.test({
       for (const label of ["Tally is the best free option.", "Tally Forms is the best free option.", "X is fast.", "Y is fast.", "Z is fast.", "Jotform is popular."]) {
         groups[label] = (await insert<{ id: string }>("claim_groups", { series_id: seriesId, label })).id;
       }
+      // A group merged into "Tally Forms" by an earlier consolidation follows it to the survivor.
+      const earlier = await insert<{ id: string }>("claim_groups", {
+        series_id: seriesId,
+        label: "Tally Forms app is the best free option.",
+        merged_into: groups["Tally Forms is the best free option."],
+      });
+      const s3 = await seedSnapshot(seriesId, { sentences: sentences(["Tally Forms app is the best free option.", [0]]), extraction: "done" });
+      await insert("claims", { snapshot_id: s3, group_id: earlier.id, sentence: 0, text: "Tally Forms app is the best free option.", type: "recommendation", citation_idx: [0] });
       await insert("claims", { snapshot_id: s1, group_id: groups["Tally is the best free option."], sentence: 0, text: "Tally is the best free option.", type: "recommendation", citation_idx: [0] });
       await insert("claims", { snapshot_id: s2, group_id: groups["Tally Forms is the best free option."], sentence: 0, text: "Tally Forms is the best free option.", type: "recommendation", citation_idx: [0] });
       await insert("entity_mentions", { entity_id: tally.id, snapshot_id: s1, role: "recommended", label: "best free option", sentences: [0] });
@@ -109,8 +117,10 @@ Deno.test({
       }[];
       const byLabel = Object.fromEntries(live.map((g) => [g.label, g]));
       assertEquals(byLabel["Tally Forms is the best free option."].merged_into, groups["Tally is the best free option."]);
+      assertEquals(byLabel["Tally Forms app is the best free option."].merged_into, groups["Tally is the best free option."], "no chains");
       for (const label of ["X is fast.", "Y is fast.", "Z is fast.", "Jotform is popular."]) assertEquals(byLabel[label].merged_into, null);
-      const claims = must(await db().from("claims").select("group_id").in("snapshot_id", [s1, s2]), "claims") as { group_id: string }[];
+      const claims = must(await db().from("claims").select("group_id").in("snapshot_id", [s1, s2, s3]), "claims") as { group_id: string }[];
+      assertEquals(claims.length, 3);
       assert(claims.every((c) => c.group_id === groups["Tally is the best free option."]));
 
       const series = must(await db().from("series").select("consolidated_at").eq("id", seriesId).single(), "series") as { consolidated_at: string };
@@ -118,9 +128,9 @@ Deno.test({
       // Consolidated recently: nothing is due.
       assertEquals((await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["consolidate"] })).counts.consolidate, 0);
 
-      // The same result delivered again changes nothing.
+      // The same result delivered again (with the refs the request carried) changes nothing.
       const req = stub.batches.get(batchIds[0])!.requests[0];
-      const refs = (must(await db().from("batch_items").select("refs").eq("batch_id", batchIds[0]).single(), "refs") as { refs: Record<string, string> }).refs;
+      const refs = Object.fromEntries([...inputs[0].claims.map((c) => [c.ref, groups[c.label]]), ...inputs[0].entities.map((e) => [e.ref, ents.find((x) => x.name === e.name)!.id])]);
       const message = {
         id: "msg_dup",
         type: "message",
@@ -139,6 +149,58 @@ Deno.test({
       assertEquals(mentionsAfter.length, 2);
       assertEquals(req.custom_id, customId("consolidate", seriesId));
     } finally {
+      await cleanup({ seriesIds: [seriesId], batchIds });
+    }
+  },
+});
+
+Deno.test({
+  name: "consolidate: an apply that fails (here: a lock timeout) still records the attempt",
+  ...opts,
+  async fn() {
+    const stub = stubAnthropic();
+    stub.reset();
+    stub.responder = (_cid, data: ConsolidateInput) => ({
+      type: "succeeded",
+      output: { claim_merges: [], entity_merges: [{ keep: data.entities[0].ref, merge: [data.entities[1].ref], aliases: [] }] },
+    });
+    const seriesId = await seedSeries("consolidate-apply-fails");
+    const batchIds: string[] = [];
+    // Another session holds the series' claims lock, so apply_consolidation waits and times out.
+    const holder = new Deno.Command("psql", {
+      args: [
+        Deno.env.get("DB_URL")!,
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        `select pg_advisory_lock(hashtextextended('legiit:series-claims:${seriesId}', 0)); select pg_sleep(120);`,
+      ],
+      stdout: "null",
+      stderr: "null",
+    }).spawn();
+    try {
+      await insert("entities", { series_id: seriesId, name: "A" });
+      await insert("entities", { series_id: seriesId, name: "B" });
+      await new Promise((r) => setTimeout(r, 1000));
+      const sub = await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["consolidate"] });
+      batchIds.push(...sub.batches.map((b) => b.id));
+      assertEquals(sub.counts.consolidate, 1);
+      const col = await collectAll({ batchIds });
+      assertEquals(col.batches[0].failed, 1);
+      const item = must(await db().from("batch_items").select("status, error").eq("batch_id", batchIds[0]).single(), "item") as {
+        status: string;
+        error: string;
+      };
+      assertEquals(item.status, "failed");
+      assert(/timeout/i.test(item.error), item.error);
+      const series = must(await db().from("series").select("consolidated_at").eq("id", seriesId).single(), "series") as { consolidated_at: string };
+      assert(series.consolidated_at, "the attempt is recorded");
+      const ents = must(await db().from("entities").select("merged_into").eq("series_id", seriesId), "entities") as { merged_into: string | null }[];
+      assert(ents.every((e) => e.merged_into === null), "the apply rolled back");
+      assertEquals((await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["consolidate"] })).counts.consolidate, 0);
+    } finally {
+      holder.kill("SIGTERM");
+      await holder.status;
       await cleanup({ seriesIds: [seriesId], batchIds });
     }
   },

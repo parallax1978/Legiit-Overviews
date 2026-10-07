@@ -66,13 +66,13 @@ Prompts carry short refs instead of ids: `C<n>` canonical claims, `E<n>` entitie
 
 `collect-batches` also runs `release_stuck_work()`: work whose result failed to apply goes back for another attempt (extractions to `pending` with an attempt counted, page tags to `failed`, briefs retried until two attempts fail). `consolidated_at` is set to the submission time, so groups created while a consolidation ran count as new the next night.
 
-The draft scorer is the only live request (`liveStructured` in `claude.ts`), run as a background task by `score-draft`.
+The draft scorer is the only live request (`liveStructured` in `claude.ts`), run as a background task by `score-draft`: one draft per query at a time (a partial unique index on running `draft_scores` rows makes the insert the guard), at most 30 per user per 24 hours, `running` rows older than 10 minutes failed as timed out before each request, and scoring cut off at 140 s so the row is failed before the Edge wall clock kills the worker. The score is 100 x (0.25 topic coverage + 0.10 entity coverage + 0.10 format match + 0.15 answer first + 0.15 evidence + 0.05 checklist + 0.10 new to cite + 0.10 clarity); topic and new-to-cite coverage are over the brief's own lists, and an item Claude returned no judgement for counts as missing.
 
 ## Reports
 
 `build-reports` (hourly):
 
-- Creates reports for tracked queries with status `tracking`. History starts at the series' first non-error snapshot. Windows always end at creation time: `preliminary` (3 days) once history reaches 3 days and the query has no preliminary or full report yet; `full` (7 days) once history reaches 7 days and the query has no full report; `refresh` (28 days) every 28 days after the full report.
+- Creates reports for tracked queries with status `tracking`. History starts at `series_history_start`: the first present snapshot of the current capture stretch (a gap of more than 36 hours between snapshots starts a new stretch), so a series captured again after a pause, or a `watching` query that only just saw an overview, starts from zero; `my_queries.history_days` counts from the same start. Windows always end at creation time: `preliminary` (3 days) once history reaches 3 days and the query has no preliminary or full report yet; `full` (7 days) once history reaches 7 days and the query has no full report; `refresh` (28 days) at day 28 and every 28 days after the latest refresh, never within 7 days of the latest full or refresh. A `full` or `refresh` report needs at least 10 present renders in its window (unless history is past day 28); short of that it is retried the next hour.
 - Stores `series_metrics(series, window_start, window_end)` in `reports.metrics` and `renders`.
 - Picks the 10 most-cited non-platform URLs by source survival in the window plus the own URL, writes `page_urls`, parses missing or stale pages (`pages.ts`), and writes `page_details` with Google's passages located in each page.
 - Moves a report from `pages` to `brief` once every page is parsed (or failed) and every parsed page is tagged (or failed).
@@ -89,6 +89,10 @@ All are in `public`, callable by `authenticated` users for series they track and
 | `tracking_summary(p_tracked_query_id uuid) returns jsonb` | `{ own_url, brand_names, renders_7d, present_7d, cited_7d, survival_7d, renders_28d, present_28d, cited_28d, survival_28d, brand_7d, latest: { captured_at, level, quoted_heading } or null, daily: [{ day, renders, present, cited, best_level, brand }] }` for the last 28 days; survival = cited / present |
 
 Survival buckets: `core` >= 0.8, `recurring` >= 0.4, `rotating` < 0.4. Confidence by non-error renders: `low` < 10, `medium` 10 to 20, `high` > 20.
+
+`series_metrics` denominators: claim, entity, format and answer-lead shares are over `extracted` (present renders whose extraction is `done`); presence, source and domain figures are over all present renders. `extraction_pending` counts present renders still awaiting extraction, so the app can say how many captures are still being analysed. `daily` compares whole UTC days: the first day's sets include that day's renders before `p_from`; claim and entity diffs run between days with an extracted render, citation diffs between days with a non-error render; the last day lists nothing as dropped when `p_to` is not midnight (it is still being captured).
+
+Users may update only `own_url`, `brand_names` and `status` of their tracked queries (`own_url_key` is derived from `own_url` by `set-own-page` and `build-reports`, never trusted as stored) and only `read_at` of their notifications. `pages` is a shared cache, but a user reads a page only when it is in one of their reports, cited by a series they track, or their own page (`user_can_read_page`).
 
 ## Edge Functions
 

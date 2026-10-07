@@ -2,12 +2,12 @@
 // structure in code (PageMeasures), and locate the passages Google quoted from them.
 import { contentParsing } from "./dataforseo.ts";
 import { serviceClient } from "./db.ts";
-import { hostOfUrl, regDomain, stripTextFragment } from "./normalize.ts";
+import { hostOfUrl, normalizeUrl, regDomain, stripTextFragment } from "./normalize.ts";
 import { cleanInline, locatePassage, outlineFromMarkdown } from "./passage.ts";
 import type { OutlineItem, PageMeasures, PassageLocation } from "./types.ts";
 
 const DAY_MS = 86_400_000;
-/** Failed parses are retried after this long (or maxAgeDays, if shorter). */
+/** Failed parses (and failed re-parses) are retried after this long (or maxAgeDays, if shorter). */
 const FAILED_RETRY_MS = DAY_MS;
 /** Stored markdown is capped so one pathological page cannot bloat the cache. */
 const MAX_MARKDOWN = 500_000;
@@ -20,7 +20,10 @@ const TABLE_SEPARATOR = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 const LIST_ITEM = /^(\s*)([-*+•]|\d{1,3}[.)])\s+(.*\S)\s*$/;
 const RULE = /^\s*([-*_])(\s*\1){2,}\s*$/;
 const HEADING = /^\s{0,3}#{1,6}\s/;
-const NAMED_ITEM = /^\p{Lu}[\p{L}\p{N}.&'’+]*(?:\s+(?:[\p{Lu}\p{N}][\p{L}\p{N}.&'’+]*|of|and|for|by|&)){0,4}\s*(?:[:–—]|\s-)\s*\S/u;
+/** A proper name: one to five capitalised words (joiners allowed), as a product or brand is written. */
+const NAME = "\\p{Lu}[\\p{L}\\p{N}.&'’+]*(?:\\s+(?:[\\p{Lu}\\p{N}][\\p{L}\\p{N}.&'’+]*|of|and|for|by|&)){0,4}";
+const NAMED_ITEM = new RegExp(`^${NAME}\\s*(?:[:–—]|\\s-)\\s*\\S`, "u");
+const NAME_CELL = new RegExp(`^${NAME}$`, "u");
 
 /** Visible text of a markdown page: link text kept, link targets, images, tags and markup removed. */
 export function plainText(markdown: string): string {
@@ -66,16 +69,23 @@ interface TableStats {
   tables: number;
   rows: number;
   maxColumns: number;
-  wideTables: number; // 3+ columns
+  comparisonTables: number; // 2+ columns and 2+ rows that each start with a distinct name
 }
 
 function cellsOf(row: string): string[] {
   return row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
 }
 
+/** A table compares entities when at least two of its rows lead with distinct proper names. */
+function comparesEntities(columns: number, firstCells: string[]): boolean {
+  if (columns < 2) return false;
+  const names = new Set(firstCells.map((c) => cleanInline(c).trim()).filter((c) => NAME_CELL.test(c)).map((c) => c.toLowerCase()));
+  return names.size >= 2;
+}
+
 /** Pipe tables: runs of lines starting with "|", or GFM tables found by their separator line. */
 function markdownTables(lines: Line[]): { stats: TableStats; tableLines: Set<number> } {
-  const stats: TableStats = { tables: 0, rows: 0, maxColumns: 0, wideTables: 0 };
+  const stats: TableStats = { tables: 0, rows: 0, maxColumns: 0, comparisonTables: 0 };
   const tableLines = new Set<number>();
   let i = 0;
   while (i < lines.length) {
@@ -98,12 +108,12 @@ function markdownTables(lines: Line[]): { stats: TableStats; tableLines: Set<num
     if (block.length >= 2 || gfmStart) {
       const hasHeader = block.length > 1 && TABLE_SEPARATOR.test(block[1]);
       const rows = block.filter((r) => !TABLE_SEPARATOR.test(r));
-      const dataRows = hasHeader ? rows.length - 1 : rows.length;
+      const dataRows = hasHeader ? rows.slice(1) : rows;
       const columns = Math.max(0, ...rows.map((r) => cellsOf(r).length));
       stats.tables++;
-      stats.rows += Math.max(0, dataRows);
+      stats.rows += dataRows.length;
       stats.maxColumns = Math.max(stats.maxColumns, columns);
-      if (columns >= 3) stats.wideTables++;
+      if (comparesEntities(columns, dataRows.map((r) => cellsOf(r)[0] ?? ""))) stats.comparisonTables++;
     } else {
       for (let k = i; k < j; k++) tableLines.delete(k);
     }
@@ -118,7 +128,7 @@ function topics(pageContent: any): any[] {
 
 /** Tables in DataForSEO page_content (main_topic[].table_content[]). */
 function contentTables(pageContent: any): TableStats {
-  const stats: TableStats = { tables: 0, rows: 0, maxColumns: 0, wideTables: 0 };
+  const stats: TableStats = { tables: 0, rows: 0, maxColumns: 0, comparisonTables: 0 };
   for (const topic of topics(pageContent)) {
     for (const table of Array.isArray(topic?.table_content) ? topic.table_content : []) {
       const header = Array.isArray(table?.header) ? table.header : [];
@@ -128,7 +138,7 @@ function contentTables(pageContent: any): TableStats {
       stats.tables++;
       stats.rows += body.length;
       stats.maxColumns = Math.max(stats.maxColumns, columns);
-      if (columns >= 3) stats.wideTables++;
+      if (comparesEntities(columns, body.map((r: any) => String(r?.row_cells?.[0]?.text ?? "")))) stats.comparisonTables++;
     }
   }
   return stats;
@@ -139,7 +149,7 @@ function contentTables(pageContent: any): TableStats {
 interface ListStats {
   lists: number;
   items: number;
-  namedLists: number; // lists with 3+ items that start with a capitalised name and a dash or colon
+  namedLists: number; // lists with 2+ top-level items that start with a capitalised name and a dash or colon
 }
 
 function markdownLists(lines: Line[], skip: Set<number>): ListStats {
@@ -149,7 +159,7 @@ function markdownLists(lines: Line[], skip: Set<number>): ListStats {
   let blanks = 0;
   let named = 0;
   const close = () => {
-    if (inList && named >= 3) stats.namedLists++;
+    if (inList && named >= 2) stats.namedLists++;
     inList = false;
     named = 0;
   };
@@ -394,7 +404,7 @@ export function measurePage(markdown: string, pageContent: any | null, url: stri
     max_table_columns: tables.maxColumns,
     lists: lists.lists,
     list_items: lists.items,
-    comparison_blocks: tables.wideTables + lists.namedLists,
+    comparison_blocks: tables.comparisonTables + lists.namedLists,
     numbers_per_100_words: words.length ? round((numbers / words.length) * 100) : 0,
     author: structuredAuthor(pageContent) ?? textAuthor(lines),
     published,
@@ -432,38 +442,56 @@ export interface PageState {
   url_key: string;
   parse_status: "pending" | "ok" | "failed";
   parsed_at: string | null;
+  /** The last parse attempt; later than parsed_at when a re-parse failed and the old content was kept. */
+  parse_attempted_at?: string | null;
   tag_status?: "none" | "submitted" | "done" | "failed";
 }
 
-/** True when a page is missing, never parsed, stale (older than maxAgeDays) or failed long enough ago to retry. */
+/**
+ * True when a page is missing, never parsed, stale (older than maxAgeDays) or failed long enough
+ * ago to retry. A stale page whose re-parse failed recently waits for the retry interval too.
+ */
 export function needsParse(row: PageState | null | undefined, maxAgeDays = 7, now = Date.now()): boolean {
   if (!row || row.parse_status === "pending" || !row.parsed_at) return true;
-  const age = now - Date.parse(row.parsed_at);
-  if (row.parse_status === "failed") return age >= Math.min(FAILED_RETRY_MS, maxAgeDays * DAY_MS);
-  return age >= maxAgeDays * DAY_MS;
+  const parsed = Date.parse(row.parsed_at);
+  const attempted = row.parse_attempted_at ? Math.max(parsed, Date.parse(row.parse_attempted_at)) : parsed;
+  const retryAfter = Math.min(FAILED_RETRY_MS, maxAgeDays * DAY_MS);
+  if (row.parse_status === "failed") return now - attempted >= retryAfter;
+  if (now - parsed < maxAgeDays * DAY_MS) return false;
+  return now - attempted >= retryAfter;
 }
 
 export interface EnsureResult {
   parsed: string[]; // url_keys parsed now
   failed: string[]; // url_keys whose parse failed now
   fresh: string[]; // url_keys already parsed recently enough
+  rejected: string[]; // url_keys whose URL does not normalise to them
 }
 
 /**
  * Makes sure each page has a row in `pages` and a parse no older than maxAgeDays. Missing and stale
- * pages are parsed with DataForSEO (at most `concurrency` at once); a re-parse resets the page's
- * tags so they are redone. A failed re-parse of a page that parsed before keeps the old content and
- * records the error. Never throws for one page's failure.
+ * pages are parsed with DataForSEO (at most `concurrency` at once, and none started after
+ * `deadline`); a re-parse resets the page's tags so they are redone. A failed re-parse of a page
+ * that parsed before keeps the old content and records the attempt. The cache is shared, so a page
+ * is only ever written under the key its own URL normalises to. Never throws for one page's failure.
  */
-export async function ensurePages(urlKeysWithUrls: PageRef[], maxAgeDays = 7, concurrency = 4): Promise<EnsureResult> {
+export async function ensurePages(urlKeysWithUrls: PageRef[], maxAgeDays = 7, concurrency = 4, deadline = Infinity): Promise<EnsureResult> {
   const db = serviceClient();
   const byKey = new Map<string, PageRef>();
-  for (const p of urlKeysWithUrls) if (p.url_key && p.url && !byKey.has(p.url_key)) byKey.set(p.url_key, p);
-  const result: EnsureResult = { parsed: [], failed: [], fresh: [] };
+  const result: EnsureResult = { parsed: [], failed: [], fresh: [], rejected: [] };
+  for (const p of urlKeysWithUrls) {
+    if (!p.url_key || !p.url || byKey.has(p.url_key)) continue;
+    if (normalizeUrl(p.url) !== p.url_key) {
+      console.error(`page ${p.url_key}: ${p.url} does not normalise to it; not parsed`);
+      result.rejected.push(p.url_key);
+      continue;
+    }
+    byKey.set(p.url_key, p);
+  }
   if (!byKey.size) return result;
 
   const keys = [...byKey.keys()];
-  const { data: rows, error } = await db.from("pages").select("url_key, parse_status, parsed_at").in("url_key", keys);
+  const { data: rows, error } = await db.from("pages").select("url_key, parse_status, parsed_at, parse_attempted_at").in("url_key", keys);
   if (error) throw new Error(`pages: ${error.message}`);
   const existing = new Map<string, PageState>((rows ?? []).map((r: PageState) => [r.url_key, r]));
 
@@ -481,7 +509,7 @@ export async function ensurePages(urlKeysWithUrls: PageRef[], maxAgeDays = 7, co
 
   let next = 0;
   const worker = async () => {
-    while (next < todo.length) {
+    while (next < todo.length && Date.now() < deadline) {
       const key = todo[next++];
       const ok = await parseOne(byKey.get(key)!, existing.get(key));
       (ok ? result.parsed : result.failed).push(key);
@@ -505,6 +533,7 @@ async function parseOne(ref: PageRef, previous: PageState | undefined): Promise<
       url,
       parse_status: "ok",
       parsed_at: now,
+      parse_attempted_at: now,
       parse_error: null,
       markdown,
       outline: pageOutline(markdown, page.page_content),
@@ -512,15 +541,17 @@ async function parseOne(ref: PageRef, previous: PageState | undefined): Promise<
       tags: null,
       tag_status: "none",
       tagged_at: null,
+      tag_attempts: 0,
     }).eq("url_key", ref.url_key);
     if (error) throw new Error(`saving the page: ${error.message}`);
     return true;
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error(`parse ${url}: ${message}`);
+    // A page that parsed before keeps its content, tags and parsed_at; only the attempt is recorded.
     const update = previous?.parse_status === "ok"
-      ? { parsed_at: now, parse_error: message }
-      : { parse_status: "failed", parsed_at: now, parse_error: message };
+      ? { parse_attempted_at: now, parse_error: message }
+      : { parse_status: "failed", parsed_at: now, parse_attempted_at: now, parse_error: message };
     const { error } = await db.from("pages").update(update).eq("url_key", ref.url_key);
     if (error) console.error(`pages ${ref.url_key}: ${error.message}`);
     return false;

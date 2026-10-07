@@ -133,8 +133,12 @@ Deno.test({
   },
 });
 
+async function sameAsOf(id: string): Promise<string | null> {
+  return (must(await db().from("snapshots").select("same_as").eq("id", id).single(), "s") as { same_as: string | null }).same_as;
+}
+
 Deno.test({
-  name: "collectAll: reused snapshots copy a done original and reset when the original failed",
+  name: "collectAll: reused snapshots copy a done original; the copies of a failed original are promoted, not all re-extracted",
   ...opts,
   async fn() {
     stubAnthropic().reset();
@@ -144,22 +148,130 @@ Deno.test({
       const group = must(await db().from("claim_groups").insert({ series_id: seriesId, label: "Tally is free." }).select("id").single(), "group") as { id: string };
       must(await db().from("claims").insert({ snapshot_id: done, group_id: group.id, sentence: 0, text: "Tally is free.", type: "fact", citation_idx: [0] }), "claim");
       const copy = await seedSnapshot(seriesId, { sentences: sentences(["Tally is free.", [4]]), extraction: "reused", same_as: done });
-      const failed = await seedSnapshot(seriesId, { sentences: sentences(["Gone.", []]), extraction: "failed" });
-      const orphan = await seedSnapshot(seriesId, { sentences: sentences(["Gone.", []]), extraction: "reused", same_as: failed });
+      const hash = crypto.randomUUID();
+      const failed = await seedSnapshot(seriesId, { sentences: sentences(["Gone.", []]), extraction: "failed", content_hash: hash });
+      const first = await seedSnapshot(seriesId, { sentences: sentences(["Gone.", []]), extraction: "reused", same_as: failed, content_hash: hash });
+      const second = await seedSnapshot(seriesId, { sentences: sentences(["Gone.", []]), extraction: "reused", same_as: failed, content_hash: hash });
 
       const res = await collectAll({ batchIds: [], seriesIds: [seriesId] });
-      assertEquals(res.reused, { copied: 1, reset: 1 });
+      assertEquals(res.reused, { copied: 1, reset: 2 });
       assertEquals((await extraction(copy)).extraction, "done");
       const claims = must(await db().from("claims").select("group_id, citation_idx").eq("snapshot_id", copy), "claims") as {
         group_id: string;
         citation_idx: number[];
       }[];
       assertEquals(claims, [{ group_id: group.id, citation_idx: [4] }]);
-      assertEquals((await extraction(orphan)).extraction, "pending");
-      const sameAs = must(await db().from("snapshots").select("same_as").eq("id", orphan).single(), "s") as { same_as: string };
-      assertEquals(sameAs.same_as, failed);
+      // The earliest copy becomes the original; the other copy now reuses it.
+      assertEquals(await extraction(first), { extraction: "pending", extraction_attempts: 0 });
+      assertEquals(await sameAsOf(first), null);
+      assertEquals((await extraction(second)).extraction, "reused");
+      assertEquals(await sameAsOf(second), first);
+
+      // Once two originals of the same content have failed, the remaining copies fail too.
+      must(await db().from("snapshots").update({ extraction: "failed" }).eq("id", first), "fail first");
+      const third = await seedSnapshot(seriesId, { sentences: sentences(["Gone.", []]), extraction: "reused", same_as: first, content_hash: hash });
+      const again = await collectAll({ batchIds: [], seriesIds: [seriesId] });
+      assertEquals(again.reused, { copied: 0, reset: 2 });
+      assertEquals((await extraction(second)).extraction, "failed");
+      assertEquals((await extraction(third)).extraction, "failed");
     } finally {
       await cleanup({ seriesIds: [seriesId] });
+    }
+  },
+});
+
+Deno.test({
+  name: "submitAll: a lost creation response is not retried; the unrecorded batch is cancelled and the work stays pending",
+  ...opts,
+  async fn() {
+    const stub = stubAnthropic();
+    stub.reset();
+    stub.loseCreateResponse = true;
+    const seriesId = await seedSeries("runner-orphan");
+    try {
+      const a = await seedSnapshot(seriesId, { sentences: sentences(["Tally is free.", [0]]) });
+      const b = await seedSnapshot(seriesId, { sentences: sentences(["Jotform is popular.", [0]]) });
+      const before = new Set(stub.batches.keys());
+      const sub = await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["extract"] });
+      assertEquals(sub.counts.extract, 0);
+      assertEquals(sub.errors.map((e) => e.kind), ["extract"]);
+      const orphans = [...stub.batches.keys()].filter((id) => !before.has(id));
+      assertEquals(orphans.length, 1, "the batch was created once, not once per retry");
+      assert(stub.canceled.has(orphans[0]), "the orphan was cancelled");
+      assertEquals((await extraction(a)).extraction, "pending");
+      assertEquals((await extraction(b)).extraction, "pending");
+      const recorded = must(await db().from("batches").select("id").in("id", orphans), "batches") as unknown[];
+      assertEquals(recorded.length, 0);
+    } finally {
+      await cleanup({ seriesIds: [seriesId] });
+    }
+  },
+});
+
+Deno.test({
+  name: "submitAll: pages through pending work, one batch per full page",
+  ...opts,
+  async fn() {
+    const stub = stubAnthropic();
+    stub.reset();
+    stub.responder = (_cid, data) => ({ type: "succeeded", output: extractEcho(data) });
+    const seriesId = await seedSeries("runner-pages");
+    const batchIds: string[] = [];
+    try {
+      for (const text of ["A is fast.", "B is slow.", "C is free.", "D is paid.", "E is new."]) {
+        await seedSnapshot(seriesId, { sentences: sentences([text, [0]]) });
+      }
+      const sub = await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["extract"], limits: { extract: 2 } });
+      batchIds.push(...sub.batches.map((b) => b.id));
+      assertEquals(sub.errors, []);
+      assertEquals(sub.counts.extract, 5);
+      assertEquals(sub.batches.map((b) => b.requests), [2, 2, 1]);
+      assertEquals((await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["extract"], limits: { extract: 2 } })).counts.extract, 0);
+    } finally {
+      await cleanup({ seriesIds: [seriesId], batchIds });
+    }
+  },
+});
+
+Deno.test({
+  name: "collectAll: applied and failed items drop their refs; old batches are purged; a failed consolidation records the attempt",
+  ...opts,
+  async fn() {
+    const stub = stubAnthropic();
+    stub.reset();
+    stub.responder = (cid, data) => cid.endsWith("-bad") ? { type: "expired" } : { type: "succeeded", output: extractEcho(data) };
+    const seriesId = await seedSeries("runner-refs");
+    const oldId = `msgbatch_old_${crypto.randomUUID().replaceAll("-", "")}`;
+    const consolidateId = `msgbatch_cons_${crypto.randomUUID().replaceAll("-", "")}`;
+    const batchIds: string[] = [oldId, consolidateId];
+    try {
+      const group = must(await db().from("claim_groups").insert({ series_id: seriesId, label: "Tally is free." }).select("id").single(), "group") as { id: string };
+      const snap = await seedSnapshot(seriesId, { sentences: sentences(["Tally is free.", [0]]) });
+      const sub = await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["extract"] });
+      batchIds.push(...sub.batches.map((b) => b.id));
+      const refsBefore = (must(await db().from("batch_items").select("refs").eq("batch_id", sub.batches[0].id).single(), "refs") as { refs: Record<string, string> }).refs;
+      assertEquals(refsBefore, { C1: group.id });
+
+      const old = new Date(Date.now() - 40 * 86_400_000).toISOString();
+      must(await db().from("batches").insert({ id: oldId, kind: "extract", item_count: 0, status: "collected", created_at: old, collected_at: old }), "old batch");
+      must(await db().from("batches").insert({ id: consolidateId, kind: "consolidate", item_count: 1, status: "collected", collected_at: new Date().toISOString() }), "cons batch");
+      must(
+        await db().from("batch_items").insert({ batch_id: consolidateId, custom_id: customId("consolidate", seriesId), kind: "consolidate", target_id: seriesId, status: "failed", error: "timeout" }),
+        "cons item",
+      );
+
+      const res = await collectAll({ batchIds: [...sub.batches.map((b) => b.id), oldId, consolidateId], seriesIds: [seriesId] });
+      assertEquals((await extraction(snap)).extraction, "done");
+      const refsAfter = (must(await db().from("batch_items").select("refs").eq("batch_id", sub.batches[0].id).single(), "refs") as { refs: Record<string, string> }).refs;
+      assertEquals(refsAfter, {});
+      assert((res.purged ?? 0) >= 1);
+      assertEquals((must(await db().from("batches").select("id").eq("id", oldId), "old") as unknown[]).length, 0);
+      assertEquals(res.released?.series, 1);
+      const series = must(await db().from("series").select("consolidated_at").eq("id", seriesId).single(), "series") as { consolidated_at: string | null };
+      const batch = must(await db().from("batches").select("created_at").eq("id", consolidateId).single(), "batch") as { created_at: string };
+      assertEquals(Date.parse(series.consolidated_at!), Date.parse(batch.created_at));
+    } finally {
+      await cleanup({ seriesIds: [seriesId], batchIds });
     }
   },
 });

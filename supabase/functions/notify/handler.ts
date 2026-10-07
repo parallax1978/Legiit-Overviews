@@ -3,6 +3,7 @@
 import { must, serviceClient } from "../_shared/db.ts";
 import { env } from "../_shared/env.ts";
 import { json, requireCron } from "../_shared/http.ts";
+import { selectAll } from "../_shared/tracking.ts";
 import type { SeriesMetrics } from "../_shared/types.ts";
 
 const HOUR_MS = 3_600_000;
@@ -103,9 +104,12 @@ function startOfDay(d: Date): Date {
 
 async function writeDigests(now: Date, userScope: string[] | null, started: number): Promise<number> {
   const db = serviceClient();
-  let q = db.from("tracked_queries").select("id, user_id, series_id, display_keyword, series(device)").neq("status", "paused");
-  if (userScope) q = q.in("user_id", userScope);
-  const queries = must(await q.order("created_at"), "load tracked queries") as unknown as QueryRow[];
+  // Paged: PostgREST caps a response at 1000 rows, which would leave later users without a digest.
+  const queries = await selectAll<QueryRow>((from, to) => {
+    let q = db.from("tracked_queries").select("id, user_id, series_id, display_keyword, series(device)").neq("status", "paused");
+    if (userScope) q = q.in("user_id", userScope);
+    return q.order("created_at").order("id").range(from, to);
+  });
   if (!queries.length) return 0;
 
   const byUser = new Map<string, QueryRow[]>();

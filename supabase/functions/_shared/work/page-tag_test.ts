@@ -57,6 +57,7 @@ Deno.test({
     const tag = crypto.randomUUID().slice(0, 8);
     const good = `${TEST_PREFIX}-${tag}.example/best-form-builder`;
     const bad = `${TEST_PREFIX}-${tag}.example/broken`;
+    const rejected = `${TEST_PREFIX}-${tag}.example/rejected`;
     const unrelated = `${TEST_PREFIX}-${tag}.example/not-in-a-report`;
     const batchIds: string[] = [];
     try {
@@ -72,6 +73,7 @@ Deno.test({
         await db().from("pages").insert([
           { url_key: good, url: `https://${good}`, reg_domain: "example", parse_status: "ok", parsed_at: now, markdown: PAGE, outline: null, measures: { word_count: 60 } },
           { url_key: bad, url: `https://${bad}`, reg_domain: "example", parse_status: "ok", parsed_at: now, markdown: "Oops", outline: [] },
+          { url_key: rejected, url: `https://${rejected}`, reg_domain: "example", parse_status: "ok", parsed_at: now, markdown: "Nope", outline: [] },
           { url_key: unrelated, url: `https://${unrelated}`, reg_domain: "example", parse_status: "ok", parsed_at: now, markdown: "x" },
         ]).select("id, url_key"),
         "pages",
@@ -89,7 +91,7 @@ Deno.test({
           window_start: "2026-09-30T00:00:00Z",
           window_end: "2026-10-07T00:00:00Z",
           renders: 10,
-          page_urls: [good, bad],
+          page_urls: [good, bad, rejected],
           stage: "pages",
         }),
         "report",
@@ -98,6 +100,7 @@ Deno.test({
       stub.responder = (cid, data: PageTagInput) => {
         seen.push(data);
         if (cid === customId("page_tag", id[bad])) return { type: "errored", error_type: "api_error", message: "boom" };
+        if (cid === customId("page_tag", id[rejected])) return { type: "errored", error_type: "invalid_request_error", message: "too long" };
         return {
           type: "succeeded",
           output: {
@@ -113,19 +116,20 @@ Deno.test({
 
       const sub = await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["page_tag"] });
       assertEquals(sub.errors, []);
-      assertEquals(sub.counts.page_tag, 2);
+      assertEquals(sub.counts.page_tag, 3);
       batchIds.push(...sub.batches.map((b) => b.id));
       const status = async (key: string) =>
-        (must(await db().from("pages").select("tag_status, tags, measures, tagged_at").eq("url_key", key).single(), "page") as {
+        (must(await db().from("pages").select("tag_status, tags, measures, tagged_at, tag_attempts").eq("url_key", key).single(), "page") as {
           tag_status: string;
           tags: PageTagOutput | null;
           measures: Record<string, unknown> | null;
           tagged_at: string | null;
+          tag_attempts: number;
         });
       assertEquals((await status(good)).tag_status, "submitted");
       assertEquals((await status(unrelated)).tag_status, "none");
 
-      await collectAll({ batchIds });
+      await collectAll({ batchIds: sub.batches.map((b) => b.id) });
       const input = seen.find((s) => s.url.endsWith("best-form-builder"))!;
       assertEquals(input.keyword, (must(await db().from("series").select("keyword").eq("id", seriesId).single(), "s") as { keyword: string }).keyword);
       assertEquals(input.google_passages, ["Tally lets you create unlimited forms"]);
@@ -139,14 +143,30 @@ Deno.test({
       const expected = wordsBefore(PAGE, ANSWER);
       assert(expected !== null && expected > 0);
       assertEquals(g.measures?.words_before_answer, expected);
-      const b = await status(bad);
-      assertEquals(b.tag_status, "failed");
+      assertEquals(g.tag_attempts, 0);
+      // A transient error puts the page back to 'none' so the report keeps waiting; an invalid
+      // request fails it at once.
+      let b = await status(bad);
+      assertEquals([b.tag_status, b.tag_attempts, b.tagged_at], ["none", 1, null]);
+      const rej = await status(rejected);
+      assertEquals([rej.tag_status, rej.tag_attempts], ["failed", 1]);
+      assert(rej.tagged_at);
+
+      // Only the transient failure is submitted again; the third failure fails the page.
+      for (let attempt = 2; attempt <= 3; attempt++) {
+        const again = await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["page_tag"] });
+        assertEquals(again.counts.page_tag, 1);
+        batchIds.push(...again.batches.map((x) => x.id));
+        await collectAll({ batchIds: again.batches.map((x) => x.id) });
+        b = await status(bad);
+        assertEquals([b.tag_status, b.tag_attempts], [attempt < 3 ? "none" : "failed", attempt]);
+      }
       assert(b.tagged_at);
 
       // Tagged pages are not submitted again; neither is a page that failed.
       assertEquals((await submitAll({ scope: { seriesIds: [seriesId] }, kinds: ["page_tag"] })).counts.page_tag, 0);
     } finally {
-      await cleanup({ seriesIds: [seriesId], batchIds, pageKeys: [good, bad, unrelated], userIds: [userId] });
+      await cleanup({ seriesIds: [seriesId], batchIds, pageKeys: [good, bad, rejected, unrelated], userIds: [userId] });
     }
   },
 });

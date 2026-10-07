@@ -3,7 +3,7 @@
 begin;
 set local client_min_messages = warning;
 create extension if not exists pgtap with schema extensions;
-select plan(113);
+select plan(154);
 
 -- The service role may read any series.
 set local request.jwt.claims to '{"role":"service_role"}';
@@ -432,14 +432,15 @@ select is((select j->'daily'->1->'claims_dropped' from mp),
   '[{"group_id":"a0000000-0000-4000-8000-000000000206","label":"Wufoo is discontinued"}]'::jsonb, 'day 2 claim diffs unchanged');
 
 -- A window starting at 02:00 on 01-05: S1 (00:00) is outside it but completes day 1 for the diffs,
--- so G6 (only in S1) is still dropped on day 2; counts and shares are in-window only.
+-- so G6 (only in S1) is still dropped on day 2; counts and shares are in-window only
+-- (S2..S12 and S14: renders 11, present 10, extracted 9; G1 in S2 S4 S6 S7 S8 S9 S10 = 7/9).
 create temp table ml as
 select public.series_metrics('a0000000-0000-4000-8000-000000000001', '2026-01-05 02:00Z', '2026-01-07 00:00Z') as j;
 select is((select (j->>'renders')::int from ml), 11, 'S1 is outside the window');
 select is((select (j->>'present')::int from ml), 10, 'present without S1');
 select is((select (j->'daily'->0->>'renders')::int from ml), 4, 'day 1 counts only in-window renders');
 select is((select (j->'daily'->0->>'present')::int from ml), 3, 'day 1 present in-window');
-select is((select (j->'claims'->0->>'share')::numeric from ml), 0.7, 'G1 7/10 without S1');
+select is((select (j->'claims'->0->>'share')::numeric from ml), 0.7778, 'G1 7/9 without S1');
 select is((select j->'daily'->1->'claims_dropped' from ml),
   '[{"group_id":"a0000000-0000-4000-8000-000000000206","label":"Wufoo is discontinued"}]'::jsonb,
   'G6 seen at 00:00 before the window still counts as dropped on day 2');

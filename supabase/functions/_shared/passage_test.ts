@@ -36,6 +36,27 @@ Deno.test("paraphrased passage with punctuation and case changes is still found"
   assertEquals(r.heading, "Our top pick");
 });
 
+Deno.test("a passage with a prefix the page lacks is placed at its first matched word", () => {
+  const page = `# Form builder reviews
+
+## Jotform
+
+Jotform is the best form builder for most teams because it has a generous free plan.
+
+## Typeform
+
+Reviewers rate Typeform highly for its design and conversational forms.
+`;
+  const passage = "Sep 18, 2026 — Reviewers rate Typeform highly for its design and conversational forms.";
+  const r = locatePassage(page, passage);
+  assert(r.found);
+  // Aligning the whole passage would start three words early, inside the Jotform section.
+  assertEquals(r.heading, "Typeform");
+  assertEquals(r.token_index, 21);
+  assert(r.position! > page.indexOf("## Typeform") / page.length);
+  assertEquals(wordsBefore(page, passage), 16);
+});
+
 Deno.test("unrelated passage is not found", () => {
   const r = locatePassage(PAGE, "Salesforce is the leading CRM for enterprise sales teams worldwide.");
   assertEquals(r.found, false);

@@ -66,12 +66,14 @@ export function locatePassage(markdown: string | null | undefined, passage: stri
 
   const shingles = Math.max(1, p.length - n + 1);
   const votes = new Map<number, number>();
+  const firstHit = new Map<number, number>(); // per alignment, the first passage word found at it
   for (let j = 0; j + n <= p.length; j++) {
     const hits = index.get(key(p, j));
     if (!hits) continue;
     for (const i of hits) {
       const start = i - j;
       votes.set(start, (votes.get(start) ?? 0) + 1);
+      if (!firstHit.has(start)) firstHit.set(start, j);
     }
   }
   let best = -1;
@@ -83,9 +85,11 @@ export function locatePassage(markdown: string | null | undefined, passage: stri
     }
   }
   const score = bestVotes / shingles;
-  if (best < -p.length || score < minScore) return { ...NOT_FOUND, match_score: round(score) };
+  if (!bestVotes || score < minScore) return { ...NOT_FOUND, match_score: round(score) };
 
-  const ti = Math.max(0, Math.min(best, page.length - 1));
+  // The passage may open with words the page lacks (a date Google prefixes, a cut-off word), so the
+  // match starts at the first passage word found at the alignment, not at the alignment itself.
+  const ti = best + firstHit.get(best)!;
   const offset = page[ti].at;
   return {
     found: true,

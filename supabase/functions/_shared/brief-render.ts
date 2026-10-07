@@ -19,6 +19,8 @@ export interface EntityFact {
   name: string;
   share: number;
   renders: number;
+  /** Other names the entity goes by; an entity_ref is accepted only for a name it covers. */
+  aliases?: string[];
 }
 
 export interface BriefContext {
@@ -131,12 +133,26 @@ export function renderBrief(output: BriefOutput, ctx: BriefContext): RenderedBri
       return p ? [{ ...c, page_ref: p }] : [];
     });
 
+  // Entities by name, and by ref only when the ref stands for the entity the model named: with
+  // dozens of opaque refs a mix-up would otherwise print one entity's figures under another's name.
+  const byName = new Map<string, string>();
+  for (const [t, f] of facts.entities) {
+    for (const n of [f.name, ...(f.aliases ?? [])]) if (!byName.has(norm(n))) byName.set(norm(n), t);
+  }
+  const entityRef = (raw: string | null, name: string): string | null => {
+    const typed = raw ? r.one(raw, "entity") : null;
+    if (!typed) return null;
+    const fact = facts.entities.get(typed);
+    if (!fact) return typed;
+    const n = norm(name);
+    if (norm(fact.name) === n || (fact.aliases ?? []).some((a) => norm(a) === n)) return typed;
+    r.dropped.add(String(raw).trim());
+    return null;
+  };
+  const entityFor = (raw: string | null, name: string): string | null => entityRef(raw, name) ?? byName.get(norm(name)) ?? null;
+
   o.matrix.topics = o.matrix.topics.map((t) => ({ ...t, claim_refs: r.list(t.claim_refs, "claim"), cells: cells(t.cells) }));
-  o.matrix.entities = o.matrix.entities.map((e) => ({
-    ...e,
-    entity_ref: e.entity_ref ? r.one(e.entity_ref, "entity") : null,
-    cells: cells(e.cells),
-  }));
+  o.matrix.entities = o.matrix.entities.map((e) => ({ ...e, entity_ref: entityFor(e.entity_ref, e.entity), cells: cells(e.cells) }));
   o.gaps = o.gaps.map((g) => ({ ...g, claim_refs: r.list(g.claim_refs, "claim") }));
   o.page_notes = o.page_notes.flatMap((n) => {
     const p = r.one(n.page_ref, "page");
@@ -161,12 +177,10 @@ export function renderBrief(output: BriefOutput, ctx: BriefContext): RenderedBri
   b.must_cover = mustKept;
 
   // Check 2: every entity appears in at least 2 renders. An entity without a usable ref is matched by name.
-  const byName = new Map<string, string>();
-  for (const [t, f] of facts.entities) if (!byName.has(norm(f.name))) byName.set(norm(f.name), t);
   const entKept: BriefOutput["brief"]["entities"] = [];
   const entDropped: string[] = [];
   for (const e of b.entities) {
-    const typed = (e.entity_ref ? r.one(e.entity_ref, "entity") : null) ?? byName.get(norm(e.name)) ?? null;
+    const typed = entityFor(e.entity_ref, e.name);
     const fact = typed ? facts.entities.get(typed) : undefined;
     if (typed && fact && fact.renders >= ENTITY_MIN_RENDERS) entKept.push({ ...e, entity_ref: typed });
     else entDropped.push(`${e.name} (${fact ? `${fact.renders} render${fact.renders === 1 ? "" : "s"}` : "not in the data"})`);
