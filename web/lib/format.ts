@@ -133,7 +133,13 @@ export function formatRelative(value: string | number | Date | null | undefined,
   if (!d) return DASH;
   let delta = (d.getTime() - now) / 1000;
   if (Math.abs(delta) < 45) return "just now";
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  let rtf: Intl.RelativeTimeFormat;
+  try {
+    rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  } catch {
+    // Invalid tags (e.g. "en-US@posix" from some browsers) fall back to English.
+    rtf = new Intl.RelativeTimeFormat("en-US", { numeric: "auto" });
+  }
   for (const [unit, size] of RELATIVE_STEPS) {
     if (Math.abs(delta) < size) return rtf.format(Math.round(delta), unit);
     delta /= size;

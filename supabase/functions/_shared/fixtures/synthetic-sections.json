@@ -1,0 +1,337 @@
+{
+ "version": "0.1.20250526",
+ "status_code": 20000,
+ "status_message": "Ok.",
+ "time": "6.1 sec.",
+ "cost": 0.0012,
+ "tasks_count": 1,
+ "tasks_error": 0,
+ "tasks": [
+  {
+   "id": "10071200-0000-0066-0000-000000000001",
+   "status_code": 20000,
+   "status_message": "Ok.",
+   "time": "6.0 sec.",
+   "cost": 0.0012,
+   "result_count": 1,
+   "path": [
+    "v3",
+    "serp",
+    "google",
+    "organic",
+    "task_get",
+    "advanced"
+   ],
+   "data": {
+    "api": "serp",
+    "function": "task_get",
+    "se": "google",
+    "se_type": "organic",
+    "keyword": "how to build a form",
+    "location_code": 2840,
+    "language_code": "en",
+    "device": "desktop",
+    "os": "windows",
+    "depth": 20,
+    "load_async_ai_overview": true,
+    "tag": "synthetic"
+   },
+   "result": [
+    {
+     "keyword": "how to build a form",
+     "type": "organic",
+     "se_domain": "google.com",
+     "location_code": 2840,
+     "language_code": "en",
+     "check_url": "https://www.google.com/search?q=how+to+build+a+form",
+     "datetime": "2026-10-07 12:00:00 +00:00",
+     "spell": null,
+     "refinement_chips": null,
+     "se_results_count": 2000000,
+     "pages_count": 1,
+     "items": [
+      {
+       "type": "organic",
+       "rank_group": 1,
+       "rank_absolute": 2,
+       "page": 1,
+       "position": "left",
+       "xpath": "/html[1]/body[1]/div[1]",
+       "domain": "zapier.com",
+       "title": "The 9 best online form builders in 2026 | Zapier",
+       "url": "https://zapier.com/blog/best-online-form-builder-software/",
+       "breadcrumb": "https://zapier.com/blog/best-online-form-builder-software/",
+       "website_name": "The",
+       "is_image": false,
+       "is_video": false,
+       "is_featured_snippet": false,
+       "is_malicious": false,
+       "is_web_story": false,
+       "description": "",
+       "pre_snippet": null,
+       "extended_snippet": null,
+       "images": null,
+       "amp_version": false,
+       "rating": null,
+       "price": null,
+       "highlighted": null,
+       "links": null,
+       "faq": null,
+       "extended_people_also_search": null,
+       "about_this_result": null,
+       "related_result": null,
+       "timestamp": null,
+       "rectangle": null
+      },
+      {
+       "type": "organic",
+       "rank_group": 2,
+       "rank_absolute": 3,
+       "page": 1,
+       "position": "left",
+       "xpath": "/html[1]/body[1]/div[2]",
+       "domain": "www.forbes.com",
+       "title": "Best Form Builders Of 2026 – Forbes Advisor",
+       "url": "https://www.forbes.com/advisor/business/software/best-form-builder/",
+       "breadcrumb": "https://www.forbes.com/advisor/business/software/best-form-builder/",
+       "website_name": "Best",
+       "is_image": false,
+       "is_video": false,
+       "is_featured_snippet": false,
+       "is_malicious": false,
+       "is_web_story": false,
+       "description": "",
+       "pre_snippet": null,
+       "extended_snippet": null,
+       "images": null,
+       "amp_version": false,
+       "rating": null,
+       "price": null,
+       "highlighted": null,
+       "links": null,
+       "faq": null,
+       "extended_people_also_search": null,
+       "about_this_result": null,
+       "related_result": null,
+       "timestamp": null,
+       "rectangle": null
+      },
+      {
+       "type": "ai_overview",
+       "rank_group": 1,
+       "rank_absolute": 1,
+       "page": 1,
+       "position": "left",
+       "asynchronous_ai_overview": false,
+       "markdown": "Building a form takes a few minutes in most tools, and the free plans differ mainly in limits.\n\n![chart](https://encrypted-tbn0.gstatic.com/images?q=tbn:abc)",
+       "items": [
+        {
+         "type": "ai_overview_element",
+         "position": "left",
+         "title": null,
+         "text": "Building a form takes a few minutes in most tools, and the free plans differ mainly in limits.",
+         "markdown": null,
+         "links": null,
+         "images": null,
+         "references": [
+          {
+           "type": "ai_overview_reference",
+           "rank_group": 3,
+           "rank_absolute": 3,
+           "page": 1,
+           "position": "right",
+           "source": "G2",
+           "domain": "www.g2.com",
+           "url": "https://www.g2.com/categories/online-form-builder",
+           "title": "Best Online Form Builder Software",
+           "text": "Jotform's free plan includes 5 forms, Typeform's includes 10 responses per month."
+          }
+         ]
+        },
+        {
+         "type": "ai_overview_expanded_element",
+         "position": "left",
+         "title": "How to build a form in Jotform",
+         "text": "Follow these steps to publish your first form.",
+         "components": [
+          {
+           "type": "ai_overview_expanded_component",
+           "title": "Step 1: Create an account",
+           "text": "Sign up for a free account and click Create Form.",
+           "markdown": "Sign up for a **free account** and click *Create Form*.",
+           "images": null,
+           "links": null,
+           "references": [
+            {
+             "type": "ai_overview_reference",
+             "rank_group": 1,
+             "rank_absolute": 1,
+             "page": 1,
+             "position": "right",
+             "source": "Jotform",
+             "domain": "www.jotform.com",
+             "url": "https://www.jotform.com/help/how-to-create-a-form/",
+             "title": "How to create a form",
+             "text": "Sign up for a free Jotform account and click Create Form."
+            }
+           ]
+          },
+          {
+           "type": "ai_overview_expanded_component",
+           "title": "Step 2: Add fields",
+           "text": "Drag fields onto the canvas. Publish the form and share the link.",
+           "markdown": "- Drag fields onto the canvas.\n- Publish the form and share the link.",
+           "images": null,
+           "links": null,
+           "references": [
+            {
+             "type": "ai_overview_reference",
+             "rank_group": 2,
+             "rank_absolute": 2,
+             "page": 1,
+             "position": "right",
+             "source": "Jotform",
+             "domain": "www.jotform.com",
+             "url": "https://www.jotform.com/help/form-builder/#:~:text=Drag",
+             "title": "Form Builder guide",
+             "text": "Drag fields from the left panel onto the canvas."
+            }
+           ]
+          }
+         ],
+         "references": null
+        },
+        {
+         "type": "ai_overview_table_element",
+         "position": "left",
+         "title": "Free plans compared",
+         "markdown": "| Tool | Free plan | Paid from |\n|---|---|---|\n| Jotform | 5 forms | $34/mo |\n| Typeform | 10 responses/mo | $25/mo |",
+         "table": {
+          "table_header": [
+           "Tool",
+           "Free plan",
+           "Paid from"
+          ],
+          "table_content": [
+           [
+            "Jotform",
+            "5 forms",
+            "$34/mo"
+           ],
+           [
+            "Typeform",
+            "10 responses/mo",
+            "$25/mo"
+           ]
+          ]
+         },
+         "references": [
+          {
+           "type": "ai_overview_reference",
+           "rank_group": 3,
+           "rank_absolute": 3,
+           "page": 1,
+           "position": "right",
+           "source": "G2",
+           "domain": "www.g2.com",
+           "url": "https://www.g2.com/categories/online-form-builder",
+           "title": "Best Online Form Builder Software",
+           "text": "Jotform's free plan includes 5 forms, Typeform's includes 10 responses per month."
+          }
+         ]
+        },
+        {
+         "type": "ai_overview_video_element",
+         "position": "left",
+         "title": "Jotform Tutorial for Beginners",
+         "snippet": "Start time is 2 minutes. Segment duration is 45 seconds",
+         "url": "https://www.youtube.com/watch?v=abc123XYZ",
+         "domain": "www.youtube.com",
+         "image_url": "https://i.ytimg.com/vi/abc123XYZ/mqdefault.jpg",
+         "source": "YouTube",
+         "date": "Mar 3, 2026",
+         "timestamp": "2026-03-03 00:00:00 +00:00"
+        },
+        {
+         "type": "ai_overview_carousel_element",
+         "position": "left",
+         "title": "Other tools to consider",
+         "items": [
+          {
+           "type": "ai_overview_carousel_item",
+           "title": "Fillout",
+           "text": "Fillout offers unlimited forms and 1,000 responses per month for free.",
+           "references": [
+            {
+             "type": "ai_overview_reference",
+             "rank_group": 4,
+             "rank_absolute": 4,
+             "page": 1,
+             "position": "right",
+             "source": "Fillout",
+             "domain": "fillout.com",
+             "url": "https://fillout.com/pricing",
+             "title": "Fillout pricing",
+             "text": "Fillout's free plan includes unlimited forms and 1,000 responses per month."
+            }
+           ]
+          },
+          {
+           "type": "ai_overview_carousel_item",
+           "title": "Paperform",
+           "snippet": "Paperform plans start at $24 per month."
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ai_overview_reference",
+         "rank_group": 1,
+         "rank_absolute": 1,
+         "page": 1,
+         "position": "right",
+         "source": "Jotform",
+         "domain": "www.jotform.com",
+         "url": "https://www.jotform.com/help/how-to-create-a-form/",
+         "title": "How to create a form",
+         "text": "Sign up for a free Jotform account and click Create Form."
+        },
+        {
+         "type": "ai_overview_reference",
+         "rank_group": 2,
+         "rank_absolute": 2,
+         "page": 1,
+         "position": "right",
+         "source": "Jotform",
+         "domain": "www.jotform.com",
+         "url": "https://www.jotform.com/help/form-builder/#:~:text=Drag",
+         "title": "Form Builder guide",
+         "text": "Drag fields from the left panel onto the canvas."
+        },
+        {
+         "type": "ai_overview_reference",
+         "rank_group": 3,
+         "rank_absolute": 3,
+         "page": 1,
+         "position": "right",
+         "source": "G2",
+         "domain": "www.g2.com",
+         "url": "https://www.g2.com/categories/online-form-builder",
+         "title": "Best Online Form Builder Software",
+         "text": "Jotform's free plan includes 5 forms, Typeform's includes 10 responses per month."
+        }
+       ],
+       "rectangle": null
+      }
+     ],
+     "items_count": 3,
+     "item_types": [
+      "ai_overview",
+      "organic"
+     ]
+    }
+   ]
+  }
+ ]
+}

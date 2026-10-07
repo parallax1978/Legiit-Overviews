@@ -72,10 +72,12 @@ export interface BrowserCardProps extends HTMLAttributes<HTMLDivElement> {
   label: string;
   /** Classes for the body under the bar. */
   bodyClassName?: string;
+  /** No body padding (for content with its own sections). */
+  flush?: boolean;
 }
 
 /** Marketing "browser frame": a 36px surface-alt bar with three dots and a page-name pill. */
-export function BrowserCard({ label, bodyClassName, className, children, ...props }: BrowserCardProps) {
+export function BrowserCard({ label, bodyClassName, flush = false, className, children, ...props }: BrowserCardProps) {
   return (
     <div className={cn("overflow-hidden rounded-card border border-line bg-white shadow-card", className)} {...props}>
       <div className="flex items-center gap-2 border-b border-line bg-surface-alt px-3 py-2">
@@ -88,7 +90,7 @@ export function BrowserCard({ label, bodyClassName, className, children, ...prop
           {label}
         </span>
       </div>
-      <div className={cn("p-4 sm:p-5", bodyClassName)}>{children}</div>
+      <div className={cn(!flush && "p-4 sm:p-5", bodyClassName)}>{children}</div>
     </div>
   );
 }

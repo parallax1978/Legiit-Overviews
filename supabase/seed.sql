@@ -17,3 +17,8 @@ insert into public.platform_domains (reg_domain) values
   ('medium.com'), ('linkedin.com'), ('instagram.com'), ('tiktok.com'), ('x.com'),
   ('twitter.com'), ('pinterest.com'), ('substack.com'), ('github.com')
 on conflict do nothing;
+
+-- Local Vault secrets for pg_cron -> Edge Functions (production values are created once by hand).
+-- The database container reaches the local API gateway by its Docker network name.
+select vault.create_secret('http://supabase_kong_legiit-overviews:8000/functions/v1', 'functions_url');
+select vault.create_secret('local-cron-secret', 'cron_secret');

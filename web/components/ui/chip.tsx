@@ -97,15 +97,15 @@ export interface LevelChipProps extends Omit<ChipProps, "tone" | "dot" | "childr
   /** Own-page match level; null shows "Not cited". */
   level: string | null | undefined;
   /** Prefix the label with "Cited: ". Default true. */
-  prefix?: boolean;
+  withPrefix?: boolean;
 }
 
 /** Own-page citation level: exact URL and same section in green, wider matches in brand, none in grey. */
-export function LevelChip({ level, prefix = true, ...props }: LevelChipProps) {
+export function LevelChip({ level, withPrefix = true, ...props }: LevelChipProps) {
   const tone: ChipTone = !level ? "grey" : level === "exact_url" || level === "path_prefix" ? "good" : "brand";
   return (
     <Chip tone={tone} dot {...props}>
-      {level && prefix ? `Cited: ${matchLevelLabel(level)}` : matchLevelLabel(level)}
+      {level && withPrefix ? `Cited: ${matchLevelLabel(level)}` : matchLevelLabel(level)}
     </Chip>
   );
 }

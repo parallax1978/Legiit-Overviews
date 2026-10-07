@@ -393,7 +393,7 @@ begin
     ), '[]'::jsonb),
     'daily', coalesce((
       select jsonb_agg(jsonb_build_object(
-          'day', to_char(d.day, 'YYYY-MM-DD'),
+          'day', to_char(d.day::timestamp, 'YYYY-MM-DD'),
           'renders', d.renders,
           'present', d.present,
           'claims_added', d.claims_added,
@@ -487,7 +487,9 @@ begin
   elsif p_kind = 'entity' then
     with hits as (
       select s.id, s.captured_at, s.sentences,
-             array(select distinct u from unnest(array_agg(m.sentences)) u) as idx,
+             (select coalesce(array_agg(distinct x), '{}') from public.entity_mentions m2
+               cross join lateral unnest(m2.sentences) x
+               where m2.snapshot_id = s.id and m2.entity_id = v_id) as idx,
              string_agg(distinct m.role || coalesce(': ' || nullif(btrim(m.label), ''), ''), ' / ') as note
       from public.entity_mentions m
       join public.snapshots s on s.id = m.snapshot_id
@@ -713,7 +715,7 @@ begin
     ),
     'daily', coalesce((
       select jsonb_agg(jsonb_build_object(
-          'day', to_char(d.day, 'YYYY-MM-DD'), 'renders', d.renders, 'present', d.present,
+          'day', to_char(d.day::timestamp, 'YYYY-MM-DD'), 'renders', d.renders, 'present', d.present,
           'cited', d.cited, 'best_level', d.best_level, 'brand', d.brand
         ) order by d.day)
       from daily d
@@ -743,9 +745,6 @@ as $$
 declare
   v_created jsonb;
 begin
-  if coalesce(auth.role(), '') <> 'service_role' and current_user not in ('postgres', 'supabase_admin') then
-    raise exception 'not allowed' using errcode = '42501';
-  end if;
   perform pg_advisory_xact_lock(hashtext('public.create_due_reports'));
 
   with tq as (

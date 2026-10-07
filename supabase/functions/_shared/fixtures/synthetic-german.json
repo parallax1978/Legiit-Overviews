@@ -1,0 +1,193 @@
+{
+ "version": "0.1.20250526",
+ "status_code": 20000,
+ "status_message": "Ok.",
+ "time": "6.1 sec.",
+ "cost": 0.0012,
+ "tasks_count": 1,
+ "tasks_error": 0,
+ "tasks": [
+  {
+   "id": "10071200-0000-0066-0000-000000000001",
+   "status_code": 20000,
+   "status_message": "Ok.",
+   "time": "6.0 sec.",
+   "cost": 0.0012,
+   "result_count": 1,
+   "path": [
+    "v3",
+    "serp",
+    "google",
+    "organic",
+    "task_get",
+    "advanced"
+   ],
+   "data": {
+    "api": "serp",
+    "function": "task_get",
+    "se": "google",
+    "se_type": "organic",
+    "keyword": "bestes formular tool",
+    "location_code": 2276,
+    "language_code": "de",
+    "device": "desktop",
+    "os": "windows",
+    "depth": 20,
+    "load_async_ai_overview": true,
+    "tag": "synthetic"
+   },
+   "result": [
+    {
+     "keyword": "bestes formular tool",
+     "type": "organic",
+     "se_domain": "google.com",
+     "location_code": 2276,
+     "language_code": "de",
+     "check_url": "https://www.google.com/search?q=bestes+formular+tool",
+     "datetime": "2026-10-07 12:00:00 +00:00",
+     "spell": null,
+     "refinement_chips": null,
+     "se_results_count": 120000,
+     "pages_count": 1,
+     "items": [
+      {
+       "type": "ai_overview",
+       "rank_group": 1,
+       "rank_absolute": 1,
+       "page": 1,
+       "position": "left",
+       "asynchronous_ai_overview": false,
+       "markdown": "Die besten Formular-Tools sind z. B. Jotform und Typeform.[[1]](https://www.example.de/formular-tools/#:~:text=Jotform%20und%20Typeform)\n\n- **Jotform:** Kostet ca. 34,99 € pro Monat und bietet 5 Formulare gratis.[[2]](https://www.jotform.com/de/pricing/)\n- **Tally:** Seit dem 1. Januar 2024 gibt es unbegrenzte Formulare. Die Nr. 1 für Notion-Nutzer.[[3]](https://tally.so/de)\n\nLaut Dr. Müller sparen Teams ca. 3,5 Std. pro Woche.",
+       "items": [
+        {
+         "type": "ai_overview_element",
+         "position": "left",
+         "title": null,
+         "text": "Die besten Formular-Tools sind z. B. Jotform und Typeform.\nJotform: Kostet ca. 34,99 € pro Monat und bietet 5 Formulare gratis.\nTally: Seit dem 1. Januar 2024 gibt es unbegrenzte Formulare. Die Nr. 1 für Notion-Nutzer.\nLaut Dr. Müller sparen Teams ca. 3,5 Std. pro Woche.",
+         "markdown": null,
+         "links": null,
+         "images": null,
+         "references": [
+          {
+           "type": "ai_overview_reference",
+           "rank_group": 1,
+           "rank_absolute": 1,
+           "page": 1,
+           "position": "right",
+           "source": "Example",
+           "domain": "www.example.de",
+           "url": "https://www.example.de/formular-tools/#:~:text=Jotform%20und%20Typeform",
+           "title": "Die besten Formular-Tools 2026",
+           "text": "Zu den besten Formular-Tools zählen z. B. Jotform und Typeform."
+          },
+          {
+           "type": "ai_overview_reference",
+           "rank_group": 2,
+           "rank_absolute": 2,
+           "page": 1,
+           "position": "right",
+           "source": "Jotform",
+           "domain": "www.jotform.com",
+           "url": "https://www.jotform.com/de/pricing/",
+           "title": "Jotform Preise",
+           "text": "Der Bronze-Tarif kostet ca. 34,99 € pro Monat."
+          },
+          {
+           "type": "ai_overview_reference",
+           "rank_group": 3,
+           "rank_absolute": 3,
+           "page": 1,
+           "position": "right",
+           "source": "Tally",
+           "domain": "tally.so",
+           "url": "https://tally.so/de",
+           "title": "Tally – Formulare",
+           "text": "Unbegrenzte Formulare, kostenlos."
+          }
+         ]
+        }
+       ],
+       "references": [
+        {
+         "type": "ai_overview_reference",
+         "rank_group": 1,
+         "rank_absolute": 1,
+         "page": 1,
+         "position": "right",
+         "source": "Example",
+         "domain": "www.example.de",
+         "url": "https://www.example.de/formular-tools/#:~:text=Jotform%20und%20Typeform",
+         "title": "Die besten Formular-Tools 2026",
+         "text": "Zu den besten Formular-Tools zählen z. B. Jotform und Typeform."
+        },
+        {
+         "type": "ai_overview_reference",
+         "rank_group": 2,
+         "rank_absolute": 2,
+         "page": 1,
+         "position": "right",
+         "source": "Jotform",
+         "domain": "www.jotform.com",
+         "url": "https://www.jotform.com/de/pricing/",
+         "title": "Jotform Preise",
+         "text": "Der Bronze-Tarif kostet ca. 34,99 € pro Monat."
+        },
+        {
+         "type": "ai_overview_reference",
+         "rank_group": 3,
+         "rank_absolute": 3,
+         "page": 1,
+         "position": "right",
+         "source": "Tally",
+         "domain": "tally.so",
+         "url": "https://tally.so/de",
+         "title": "Tally – Formulare",
+         "text": "Unbegrenzte Formulare, kostenlos."
+        }
+       ],
+       "rectangle": null
+      },
+      {
+       "type": "organic",
+       "rank_group": 1,
+       "rank_absolute": 2,
+       "page": 1,
+       "position": "left",
+       "xpath": "/html[1]/body[1]/div[1]",
+       "domain": "www.example.de",
+       "title": "Die besten Formular-Tools 2026",
+       "url": "https://www.example.de/formular-tools/",
+       "breadcrumb": "https://www.example.de/formular-tools/",
+       "website_name": "Die",
+       "is_image": false,
+       "is_video": false,
+       "is_featured_snippet": false,
+       "is_malicious": false,
+       "is_web_story": false,
+       "description": "",
+       "pre_snippet": null,
+       "extended_snippet": null,
+       "images": null,
+       "amp_version": false,
+       "rating": null,
+       "price": null,
+       "highlighted": null,
+       "links": null,
+       "faq": null,
+       "extended_people_also_search": null,
+       "about_this_result": null,
+       "related_result": null,
+       "timestamp": null,
+       "rectangle": null
+      }
+     ],
+     "items_count": 2,
+     "item_types": [
+      "ai_overview",
+      "organic"
+     ]
+    }
+   ]
+  }
+ ]
+}
