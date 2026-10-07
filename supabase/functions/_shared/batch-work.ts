@@ -16,6 +16,10 @@ export type WorkKind = "extract" | "consolidate" | "page_tag" | "brief";
 export type BatchRequest = {
   custom_id: string;
   params: Anthropic.Messages.MessageCreateParamsNonStreaming;
+  /** Row the result belongs to; stored in batch_items.target_id. Not sent to Anthropic. */
+  target_id: string;
+  /** Short refs used in the prompt mapped to the ids they stand for; stored in batch_items.refs. Not sent. */
+  refs: Record<string, string>;
 };
 
 export type BatchItemResult =
@@ -30,8 +34,11 @@ export interface BatchWork {
   collect(limit: number): Promise<BatchRequest[]>;
   /** Called after the batch is created, with the custom_ids it contains. */
   markSubmitted(customIds: string[], batchId: string): Promise<void>;
-  /** Applies one result. Must be idempotent: a result may be delivered twice. */
-  handleResult(customId: string, result: BatchItemResult): Promise<void>;
+  /**
+   * Applies one result. `refs` is the map stored with the request. Must be idempotent: a result
+   * may be delivered twice. Throwing marks the batch item failed; the runner carries on.
+   */
+  handleResult(customId: string, result: BatchItemResult, refs: Record<string, string>): Promise<void>;
 }
 
 /** Splits `${kind}-${id}`. Kinds contain no dash, so the first dash separates them. */
