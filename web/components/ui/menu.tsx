@@ -25,7 +25,11 @@ export interface MenuProps {
   items: (MenuItem | "separator")[];
   /** Non-interactive block at the top (e.g. the signed-in email). */
   header?: ReactNode;
-  align?: "left" | "right";
+  /**
+   * Which edge of the trigger the menu lines up with. "start-end" opens to the right of a trigger on the
+   * left of a phone screen and lines up with the right edge from sm, for triggers that move sides.
+   */
+  align?: "left" | "right" | "start-end";
   triggerClassName?: string;
   className?: string;
 }
@@ -108,8 +112,8 @@ export function Menu({ trigger, label, items, header, align = "right", triggerCl
           role="menu"
           aria-label={label}
           className={cn(
-            "absolute top-full z-40 mt-2 w-56 animate-fade-in rounded-xl border border-line bg-white p-1.5 shadow-pop",
-            align === "right" ? "right-0" : "left-0",
+            "absolute top-full z-40 mt-2 w-56 max-w-[calc(100vw-2rem)] animate-fade-in rounded-xl border border-line bg-white p-1.5 shadow-pop",
+            align === "right" ? "right-0" : align === "left" ? "left-0" : "left-0 sm:left-auto sm:right-0",
           )}
         >
           {header && <div className="border-b border-line px-2.5 pb-2 pt-1.5 text-xs text-ink-muted">{header}</div>}

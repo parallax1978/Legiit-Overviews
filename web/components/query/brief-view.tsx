@@ -1,6 +1,7 @@
 // A ready brief: answer first, must-cover topics with their claims, entities, format, outline, evidence
 // to match, new-to-cite ideas, questions, checklist and what to avoid. Every claim and entity shows its
-// share and n from the report's metrics and opens the captures behind it.
+// share and n from series_metrics over the report window and opens the captures behind it. Claude's
+// reasons and notes are shown without any percentage they restate: the numbers come from SQL.
 import type { ReactNode } from "react";
 import { EntityChip, PageChip, RefChips, type RefContext } from "@/components/query/brief-refs";
 import { Card } from "@/components/ui/card";
@@ -8,7 +9,8 @@ import { Chip, Tag } from "@/components/ui/chip";
 import { CheckList } from "@/components/ui/feedback";
 import { NumberedList, NumberedRow } from "@/components/ui/number-badge";
 import { SectionHeading, SectionLabel } from "@/components/ui/typography";
-import { formatCount, formatPercent, plural } from "@/lib/format";
+import { formatCount, formatShare, plural } from "@/lib/format";
+import { withoutFigures } from "@/lib/query/prose";
 import { parseRef, type HowToProduce, type StoredBrief } from "@/lib/query/report";
 
 export const HOW_TO_LABELS: Record<HowToProduce, string> = {
@@ -54,11 +56,14 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
           description={`Topics the overview keeps stating. Each claim shows how many of the ${formatCount(ctx.present)} overviews contained it; click one for the captures.`}
         >
           <NumberedList>
-            {b.must_cover.map((m, i) => (
-              <NumberedRow key={i} n={i + 1} title={m.topic} meta={<span className="text-sm leading-6">{m.why}</span>}>
-                <RefChips refs={m.claim_refs} ctx={ctx} className="mt-2.5" />
-              </NumberedRow>
-            ))}
+            {b.must_cover.map((m, i) => {
+              const why = withoutFigures(m.why);
+              return (
+                <NumberedRow key={i} n={i + 1} title={m.topic} meta={why ? <span className="text-sm leading-6">{why}</span> : undefined}>
+                  <RefChips refs={m.claim_refs} ctx={ctx} heading={m.topic} className="mt-2" />
+                </NumberedRow>
+              );
+            })}
           </NumberedList>
         </Section>
       )}
@@ -70,6 +75,7 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
               {b.entities.map((e, i) => {
                 const ref = parseRef(e.entity_ref);
                 const metric = ref?.kind === "entity" ? ctx.entities.get(ref.id) : undefined;
+                const note = withoutFigures(e.note);
                 return (
                   <li key={i} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-start sm:gap-4 sm:px-5">
                     <div className="min-w-0 flex-1">
@@ -79,16 +85,16 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
                           {e.role === "recommended" ? "Recommended" : "Mentioned"}
                         </Chip>
                       </div>
-                      {e.note && <p className="mt-1 text-sm leading-6 text-ink-muted">{e.note}</p>}
+                      {note && <p className="mt-1 text-sm leading-6 text-ink-muted">{note}</p>}
                     </div>
                     <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
                       {ref?.kind === "entity" ? (
                         <EntityChip id={ref.id} ctx={ctx} name={e.name} showName={false} />
                       ) : (
-                        <span className="text-xs text-ink-soft">No share recorded</span>
+                        <span className="text-xs text-ink-muted">No share recorded</span>
                       )}
                       {metric && metric.recommended_renders > 0 && (
-                        <span className="text-xs text-ink-muted">Recommended in {formatPercent(metric.recommended_share)}</span>
+                        <span className="text-xs text-ink-muted">Recommended in {formatShare(metric.recommended_share, ctx.present)}</span>
                       )}
                     </div>
                   </li>
@@ -210,14 +216,16 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
                     {HOW_TO_LABELS[n.how_to_produce] ?? n.how_to_produce}
                   </Chip>
                 </div>
-                <p className="mt-1.5 text-sm leading-6 text-ink-muted">
-                  <span className="font-medium text-ink">Why Google lacks it: </span>
-                  {n.why_google_lacks_it}
-                </p>
+                {withoutFigures(n.why_google_lacks_it) && (
+                  <p className="mt-1.5 text-sm leading-6 text-ink-muted">
+                    <span className="font-medium text-ink">Why Google lacks it: </span>
+                    {withoutFigures(n.why_google_lacks_it)}
+                  </p>
+                )}
                 {n.evidence_refs.length > 0 && (
                   <div className="mt-2.5">
                     <SectionLabel>Evidence</SectionLabel>
-                    <RefChips refs={n.evidence_refs} ctx={ctx} className="mt-1.5" />
+                    <RefChips refs={n.evidence_refs} ctx={ctx} heading={n.idea} className="mt-1.5" />
                   </div>
                 )}
               </NumberedRow>

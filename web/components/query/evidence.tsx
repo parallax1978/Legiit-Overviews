@@ -4,7 +4,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Alert, Button, Chip, Drawer, LocalTime, RefreshIcon, Skeleton } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { formatCount, humanize, plural } from "@/lib/format";
+import { formatCount, formatShare, humanize, plural } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import type { EvidenceItem, MetricEvidence } from "@/lib/types";
 
@@ -22,6 +22,11 @@ export interface EvidenceTriggerProps {
   title: string;
   /** Drawer subtitle, usually the number itself ("82% · n=56"). */
   subtitle?: string;
+  /**
+   * Overviews in the window. When set, the subtitle is recomputed from the evidence total once it loads
+   * ("Share of overviews: 56% · n=48"), so the drawer never shows a number its own list contradicts.
+   */
+  n?: number;
   className?: string;
   children: ReactNode;
 }
@@ -48,7 +53,7 @@ const NOTE_LABELS: Record<EvidenceKind, string> = {
 };
 
 /** The number as a link-style button; click opens the captures behind it. */
-export function EvidenceTrigger({ seriesId, kind, evidenceKey, from, to, title, subtitle, className, children }: EvidenceTriggerProps) {
+export function EvidenceTrigger({ seriesId, kind, evidenceKey, from, to, title, subtitle, n, className, children }: EvidenceTriggerProps) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<MetricEvidence | null>(null);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
@@ -93,6 +98,7 @@ export function EvidenceTrigger({ seriesId, kind, evidenceKey, from, to, title, 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const canLoadMore = !!data && total > items.length && limit < MAX_LIMIT;
+  const description = data && typeof n === "number" && n > 0 ? `Share of overviews: ${formatShare(total / n, n)}` : subtitle;
 
   return (
     <>
@@ -113,7 +119,7 @@ export function EvidenceTrigger({ seriesId, kind, evidenceKey, from, to, title, 
         onClose={() => setOpen(false)}
         eyebrow={KIND_EYEBROWS[kind]}
         title={<span className="[overflow-wrap:anywhere]">{title}</span>}
-        description={subtitle}
+        description={description}
         footer={
           canLoadMore ? (
             <div className="flex items-center justify-between gap-3">
@@ -121,7 +127,7 @@ export function EvidenceTrigger({ seriesId, kind, evidenceKey, from, to, title, 
                 Showing {formatCount(items.length)} of {formatCount(total)}
               </p>
               <Button variant="secondary" size="sm" loading={loading} onClick={() => void load(Math.min(limit + PAGE, MAX_LIMIT))}>
-                Load more
+                Load More
               </Button>
             </div>
           ) : undefined

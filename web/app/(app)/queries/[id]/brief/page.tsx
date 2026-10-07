@@ -26,10 +26,21 @@ import {
   getReportDetail,
   getReports,
   type ReportSummary,
+  type StoredBrief,
 } from "@/lib/query/report";
-import type { ClaimMetric, EntityMetric } from "@/lib/types";
+import { getRefMetrics } from "@/lib/query/ref-metrics";
 
 export const metadata = { title: "Brief" };
+
+/** Every typed ref in a stored brief, for resolving merged claims and entities. */
+function briefRefs(brief: StoredBrief): (string | null)[] {
+  const b = brief.brief;
+  return [
+    ...b.must_cover.flatMap((m) => m.claim_refs),
+    ...b.entities.map((e) => e.entity_ref),
+    ...b.new_to_cite.flatMap((n) => n.evidence_refs),
+  ];
+}
 
 function optionLabel(r: ReportSummary): string {
   const state = r.stage === "ready" ? "" : r.stage === "failed" ? " · failed" : " · in progress";
@@ -127,15 +138,18 @@ export default async function BriefTab({
   const diff = firstBrief?.data ? compareBriefs(firstBrief.data, brief) : null;
   const newerRefresh = report.kind !== "refresh" ? list.find((r) => r.kind === "refresh" && r.stage === "ready") : undefined;
 
-  const metrics = report.metrics;
+  // Chips read series_metrics over the report window at view time, so their share always matches the
+  // evidence drawer they open, even after claims or entities were merged since the brief was written.
+  const refMetrics = await getRefMetrics(q.series_id, report.window_start, report.window_end, report.metrics, briefRefs(brief));
+  const metrics = refMetrics?.metrics ?? null;
   const ctx: RefContext = {
     queryId: q.id,
     seriesId: q.series_id,
     from: report.window_start,
     to: report.window_end,
     present: metrics?.present ?? 0,
-    claims: new Map((metrics?.claims ?? []).map((c: ClaimMetric) => [c.group_id, c])),
-    entities: new Map((metrics?.entities ?? []).map((e: EntityMetric) => [e.entity_id, e])),
+    claims: refMetrics?.claims ?? new Map(),
+    entities: refMetrics?.entities ?? new Map(),
   };
   const b = brief.brief;
   const totalWords = b.outline.reduce((sum, s) => sum + (Number.isFinite(s.target_words) ? s.target_words : 0), 0);

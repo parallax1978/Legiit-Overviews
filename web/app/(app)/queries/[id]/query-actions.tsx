@@ -54,6 +54,7 @@ export function QueryActions({ id, keyword, status, resumeStatus }: QueryActions
     <div className="flex flex-col items-start gap-2 sm:items-end">
       <Menu
         label="Query actions"
+        align="start-end"
         triggerClassName={buttonClasses({ variant: "secondary", size: "sm", className: "gap-1.5" })}
         trigger={
           <>
