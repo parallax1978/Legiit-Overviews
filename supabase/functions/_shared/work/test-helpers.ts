@@ -26,6 +26,10 @@ export interface StubAnthropic {
   responder: Responder;
   /** When non-zero, batch creation fails with this HTTP status. */
   failCreate: number;
+  /** The batch is created but the response is lost: the next creation gets a 502. */
+  loseCreateResponse: boolean;
+  /** Batch ids that were cancelled. */
+  canceled: Set<string>;
   processing: "in_progress" | "ended";
   /** Emit every result line twice. */
   duplicateLines: boolean;
