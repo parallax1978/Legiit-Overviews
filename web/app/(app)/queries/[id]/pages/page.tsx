@@ -7,6 +7,7 @@ import { CoverageMatrix, MatrixLegend, type CellState, type MatrixColumn, type M
 import { displayUrl, pageAnchorId } from "@/components/query/page-anchor";
 import { HashScroll } from "@/components/query/hash-scroll";
 import { PageCard } from "@/components/query/page-card";
+import { extractedOf } from "@/components/query/patterns-sections";
 import { SectionCard, SectionEmpty } from "@/components/query/section-card";
 import {
   Alert,
@@ -343,7 +344,7 @@ async function MatrixSection({
     seriesId,
     from: report.window_start,
     to: report.window_end,
-    present: refMetrics?.metrics.present ?? 0,
+    extracted: refMetrics ? extractedOf(refMetrics.metrics) : 0,
     claims: refMetrics?.claims ?? new Map(),
     entities: refMetrics?.entities ?? new Map(),
   };

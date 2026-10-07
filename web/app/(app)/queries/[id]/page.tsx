@@ -4,8 +4,11 @@
 import type { ReactNode } from "react";
 import { CaptureStatusChip } from "@/components/query/capture-status";
 import { DayDiff, completeDays, dayHasChanges } from "@/components/query/day-diff";
+import { EvidenceStatCard } from "@/components/query/evidence";
 import { OrganicList } from "@/components/query/organic-list";
 import { OverviewText, SourceList } from "@/components/query/overview";
+import { presenceEvidence, type WindowRef } from "@/components/query/patterns-sections";
+import { ExtractionPendingNote } from "@/components/query/pending-note";
 import { ShareValue } from "@/components/query/share-value";
 import { CaptureTimeline } from "@/components/query/timeline";
 import {
@@ -105,7 +108,10 @@ export default async function LiveTab({ params }: { params: Promise<{ id: string
       {!metricsRes.data ? (
         <ErrorCard title="The 7-day numbers didn't load" detail={metricsRes.error} action={<RetryButton />} />
       ) : (
-        <StatRow m={metricsRes.data} />
+        <div className="space-y-3">
+          <StatRow m={metricsRes.data} w={{ seriesId, from: week.from, to: week.to }} />
+          <ExtractionPendingNote n={metricsRes.data.extraction_pending} />
+        </div>
       )}
 
       <LatestCard latest={latest} shown={shown} />
@@ -125,15 +131,16 @@ function earliest(...values: (string | null | undefined)[]): string | null {
   return times.length ? new Date(Math.min(...times)).toISOString() : null;
 }
 
-function StatRow({ m }: { m: SeriesMetrics }) {
+function StatRow({ m, w }: { m: SeriesMetrics; w: WindowRef }) {
   return (
     <StatGrid>
-      <StatCard
+      <EvidenceStatCard
         label="Overview shown"
         icon={<OverviewGlyph className="text-brand" />}
         tone="brand"
         value={<ShareValue share={m.presence_rate} n={m.renders} />}
         caption="Renders with an AI Overview, last 7 days"
+        {...presenceEvidence(w, m, "last 7 days")}
       />
       <StatCard
         label="Change rate"

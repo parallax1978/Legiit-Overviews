@@ -16,8 +16,8 @@ export interface RefContext {
   seriesId: string;
   from: string;
   to: string;
-  /** Renders with an AI Overview in the report window: the n of every share. */
-  present: number;
+  /** Overviews analysed (extraction done) in the report window: the n of every claim and entity share. */
+  extracted: number;
   claims: Map<string, ClaimMetric>;
   entities: Map<string, EntityMetric>;
 }
@@ -31,7 +31,7 @@ const CHIP =
  */
 export function ClaimChip({ id, ctx, showName = true }: { id: string; ctx: RefContext; showName?: boolean }) {
   const m = ctx.claims.get(id);
-  const share = formatShare(m?.share, ctx.present);
+  const share = formatShare(m?.share, ctx.extracted);
   const label = m?.label ?? "Claim not counted in this window";
   return (
     <EvidenceTrigger
@@ -42,7 +42,7 @@ export function ClaimChip({ id, ctx, showName = true }: { id: string; ctx: RefCo
       to={ctx.to}
       title={label}
       subtitle={m ? share : undefined}
-      n={ctx.present}
+      n={ctx.extracted}
     >
       {showName ? (
         <span className={cn(CHIP, "bg-brand-faint/60 ring-brand-soft hover:bg-brand-faint hover:ring-brand/40")}>
@@ -64,10 +64,10 @@ export function ClaimChip({ id, ctx, showName = true }: { id: string; ctx: RefCo
  */
 export function EntityChip({ id, ctx, name, showName = true }: { id: string; ctx: RefContext; name?: string; showName?: boolean }) {
   const m = ctx.entities.get(id);
-  const share = formatShare(m?.share, ctx.present);
+  const share = formatShare(m?.share, ctx.extracted);
   const label = m?.name ?? name ?? "Entity";
   return (
-    <EvidenceTrigger seriesId={ctx.seriesId} kind="entity" evidenceKey={id} from={ctx.from} to={ctx.to} title={label} subtitle={m ? share : undefined} n={ctx.present}>
+    <EvidenceTrigger seriesId={ctx.seriesId} kind="entity" evidenceKey={id} from={ctx.from} to={ctx.to} title={label} subtitle={m ? share : undefined} n={ctx.extracted}>
       <span className={cn(CHIP, "bg-white ring-line hover:bg-surface-alt hover:ring-line-strong")}>
         {showName && <span className="min-w-0 font-medium text-ink">{label}</span>}
         <span className={cn("shrink-0 whitespace-nowrap tabular-nums", showName ? "text-ink-muted" : "font-semibold text-brand-strong")}>

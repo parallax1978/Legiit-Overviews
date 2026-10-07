@@ -53,7 +53,7 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
         <Section
           id="brief-must-cover"
           title="Must cover"
-          description={`Topics the overview keeps stating. Each claim shows how many of the ${formatCount(ctx.present)} overviews contained it; click one for the captures.`}
+          description={`Topics the overview keeps stating. Each claim shows how many of the ${formatCount(ctx.extracted)} overviews analysed contained it; click one for the captures.`}
         >
           <NumberedList>
             {b.must_cover.map((m, i) => {
@@ -94,7 +94,7 @@ export function BriefView({ brief, ctx }: { brief: StoredBrief; ctx: RefContext 
                         <span className="text-xs text-ink-muted">No share recorded</span>
                       )}
                       {metric && metric.recommended_renders > 0 && (
-                        <span className="text-xs text-ink-muted">Recommended in {formatShare(metric.recommended_share, ctx.present)}</span>
+                        <span className="text-xs text-ink-muted">Recommended in {formatShare(metric.recommended_share, ctx.extracted)}</span>
                       )}
                     </div>
                   </li>

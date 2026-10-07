@@ -10,6 +10,7 @@ import type { RefContext } from "@/components/query/brief-refs";
 import { BriefReportSelect } from "@/components/query/brief-report-select";
 import { BriefFailed, BriefLocked, BriefProgress, historyDays, reportWindow } from "@/components/query/brief-status";
 import { BriefView } from "@/components/query/brief-view";
+import { extractedOf } from "@/components/query/patterns-sections";
 import { ConfidenceChip } from "@/components/ui/chip";
 import { Alert, ErrorCard } from "@/components/ui/feedback";
 import { FileTextIcon, LayersIcon, SparklesIcon, TargetIcon } from "@/components/ui/icons";
@@ -147,7 +148,7 @@ export default async function BriefTab({
     seriesId: q.series_id,
     from: report.window_start,
     to: report.window_end,
-    present: metrics?.present ?? 0,
+    extracted: metrics ? extractedOf(metrics) : 0,
     claims: refMetrics?.claims ?? new Map(),
     entities: refMetrics?.entities ?? new Map(),
   };

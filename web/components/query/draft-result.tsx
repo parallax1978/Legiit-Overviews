@@ -1,5 +1,6 @@
-// A draft score: the 0 to 100 ring with a verdict, six subscores, the fix list, topic, entity and
-// new-to-cite coverage, and the draft's measurements against the cited pages' medians.
+// A draft score: the 0 to 100 ring with a verdict, the subscores (eight, or six on scores made before
+// new-to-cite and clarity were scored), the fix list, topic, entity and new-to-cite coverage, and the
+// draft's measurements against the cited pages' medians.
 import { Card, CardHeader } from "@/components/ui/card";
 import { Chip, type ChipTone } from "@/components/ui/chip";
 import { CheckIcon, ExternalLinkIcon, XIcon } from "@/components/ui/icons";
@@ -19,15 +20,55 @@ const STATUS: Record<Status, { label: string; tone: ChipTone }> = {
   missing: { label: "Missing", tone: "bad" },
 };
 
-/** Subscores in the order and with the weights score-draft uses. */
-const SUBSCORES: { key: keyof DraftScoreResult["subscores"]; label: string; weight: number; what: string }[] = [
-  { key: "topic_coverage", label: "Topic coverage", weight: 30, what: "Must-cover topics from the brief" },
-  { key: "entity_coverage", label: "Entity coverage", weight: 15, what: "Products and names the overview keeps citing" },
-  { key: "format_match", label: "Format match", weight: 15, what: "Table, list length, sections and length" },
-  { key: "answer_first", label: "Answer first", weight: 15, what: "How soon the direct answer comes" },
-  { key: "evidence", label: "Evidence", weight: 15, what: "Numbers and proof like the cited pages" },
-  { key: "checklist", label: "Checklist", weight: 10, what: "Indexable, author, date, schema" },
+type SubscoreKey = keyof DraftScoreResult["subscores"];
+
+/** Subscores in the order score-draft weighs them, with what each measures. */
+const SUBSCORES: { key: SubscoreKey; label: string; what: string }[] = [
+  { key: "topic_coverage", label: "Topic coverage", what: "Must-cover topics from the brief" },
+  { key: "entity_coverage", label: "Entity coverage", what: "Products and names the overview keeps citing" },
+  { key: "format_match", label: "Format match", what: "Table, list length, sections and length" },
+  { key: "answer_first", label: "Answer first", what: "How soon the direct answer comes" },
+  { key: "evidence", label: "Evidence", what: "Numbers and proof like the cited pages" },
+  { key: "checklist", label: "Checklist", what: "Indexable, author, date, schema" },
+  { key: "new_to_cite", label: "New to cite", what: "Ideas from the brief no cited page has" },
+  { key: "clarity", label: "Clarity", what: "How clearly and concretely it reads, judged by Claude" },
 ];
+
+/** Weights in percent: score-draft's current ones, and the ones scores made before new-to-cite and clarity used. */
+const WEIGHTS: Record<SubscoreKey, number> = {
+  topic_coverage: 25,
+  entity_coverage: 10,
+  format_match: 10,
+  answer_first: 15,
+  evidence: 15,
+  checklist: 5,
+  new_to_cite: 10,
+  clarity: 10,
+};
+const LEGACY_WEIGHTS: Partial<Record<SubscoreKey, number>> = {
+  topic_coverage: 30,
+  entity_coverage: 15,
+  format_match: 15,
+  answer_first: 15,
+  evidence: 15,
+  checklist: 10,
+};
+
+function isNum(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+
+/** The subscores this result has, with the weights it was scored with. */
+function subscoreRows(r: DraftScoreResult) {
+  const sub = r.subscores ?? ({} as DraftScoreResult["subscores"]);
+  const current = isNum(sub.new_to_cite) || isNum(sub.clarity);
+  return SUBSCORES.filter((s) => (current ? true : LEGACY_WEIGHTS[s.key] !== undefined)).map((s) => ({
+    ...s,
+    value: sub[s.key],
+    weight: (current ? WEIGHTS : LEGACY_WEIGHTS)[s.key] ?? 0,
+    note: s.key === "clarity" && r.clarity?.note ? r.clarity.note : null,
+  }));
+}
 
 function verdict(score: number): string {
   if (score >= 85) return "Strong: this draft matches what Google cites for this search.";
@@ -131,21 +172,21 @@ export function DraftResult({ row, faq }: DraftResultProps) {
           </div>
         </div>
         <div className="mt-6 grid gap-x-8 gap-y-4 border-t border-line pt-5 sm:grid-cols-2">
-          {SUBSCORES.map((s) => {
-            const v = r.subscores?.[s.key];
-            return (
-              <div key={s.key}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-sm font-medium text-ink">
-                    {s.label} <span className="text-xs font-normal text-ink-muted">{s.weight}% of score</span>
-                  </p>
-                  <p className="text-sm font-semibold tabular-nums text-ink">{formatPercent(v)}</p>
-                </div>
-                <ProgressBar className="mt-1.5" value={v} label={s.label} valueText={formatPercent(v)} />
-                <p className="mt-1 text-xs text-ink-muted">{s.what}</p>
+          {subscoreRows(r).map((s) => (
+            <div key={s.key}>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-sm font-medium text-ink">
+                  {s.label} <span className="text-xs font-normal text-ink-muted">{s.weight}% of score</span>
+                </p>
+                <p className="text-sm font-semibold tabular-nums text-ink">
+                  {s.key === "clarity" && isNum(r.clarity?.score) ? `${formatCount(r.clarity.score)}/10` : formatPercent(s.value)}
+                </p>
               </div>
-            );
-          })}
+              <ProgressBar className="mt-1.5" value={s.value} label={s.label} valueText={formatPercent(s.value)} />
+              <p className="mt-1 text-xs text-ink-muted">{s.what}</p>
+              {s.note && <p className="mt-1.5 text-xs leading-5 text-ink">&ldquo;{s.note}&rdquo;</p>}
+            </div>
+          ))}
         </div>
       </Card>
 

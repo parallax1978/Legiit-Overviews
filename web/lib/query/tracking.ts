@@ -12,10 +12,13 @@ export interface TrackingSummaryData {
   renders_7d: number;
   present_7d: number;
   cited_7d: number;
+  /** Renders citing the exact own URL; missing from a database older than the field. */
+  cited_exact_7d?: number;
   survival_7d: number | null;
   renders_28d: number;
   present_28d: number;
   cited_28d: number;
+  cited_exact_28d?: number;
   survival_28d: number | null;
   brand_7d: number;
   latest: { captured_at: string; level: MatchLevel | null; quoted_heading: string | null } | null;
@@ -48,7 +51,10 @@ function utcDayAgo(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 }
 
-/** Counts own_matches at exact_url on present renders since `since` (counted in SQL). */
+/**
+ * Counts own_matches at exact_url on present renders since `since` (counted in SQL): the fallback for
+ * a tracking_summary without cited_exact_*.
+ */
 async function exactCount(supabase: Awaited<ReturnType<typeof createClient>>, trackedQueryId: string, since: string) {
   return supabase
     .from("own_matches")
@@ -63,7 +69,7 @@ async function exactCount(supabase: Awaited<ReturnType<typeof createClient>>, tr
 export const getTrackingData = cache(async (trackedQueryId: string): Promise<TrackingResult> => {
   const supabase = await createClient();
   const now = Date.now();
-  const [summary, events, ownPage, platform, exact7, exact28] = await Promise.all([
+  const [summary, events, ownPage, platform] = await Promise.all([
     supabase.rpc("tracking_summary", { p_tracked_query_id: trackedQueryId }),
     supabase
       .from("citation_events")
@@ -77,17 +83,27 @@ export const getTrackingData = cache(async (trackedQueryId: string): Promise<Tra
       .select("id, day")
       .gte("day", utcDayAgo(PLATFORM_EVENT_DAYS))
       .order("day", { ascending: false }),
-    // Same rolling windows as tracking_summary (now - 7 days, now - 28 days).
-    exactCount(supabase, trackedQueryId, new Date(now - 7 * 86_400_000).toISOString()),
-    exactCount(supabase, trackedQueryId, new Date(now - 28 * 86_400_000).toISOString()),
   ]);
   const error = summary.error ?? events.error ?? ownPage.error ?? platform.error;
   if (error) return { data: null, error: error.message };
   const raw = summary.data as TrackingSummaryData | null;
+
+  let exact: ExactCited | null = null;
+  if (raw && typeof raw.cited_exact_7d === "number" && typeof raw.cited_exact_28d === "number") {
+    exact = { cited_7d: raw.cited_exact_7d, cited_28d: raw.cited_exact_28d };
+  } else if (raw) {
+    // Same rolling windows as tracking_summary (now - 7 days, now - 28 days).
+    const [exact7, exact28] = await Promise.all([
+      exactCount(supabase, trackedQueryId, new Date(now - 7 * 86_400_000).toISOString()),
+      exactCount(supabase, trackedQueryId, new Date(now - 28 * 86_400_000).toISOString()),
+    ]);
+    if (!exact7.error && !exact28.error) exact = { cited_7d: exact7.count ?? 0, cited_28d: exact28.count ?? 0 };
+  }
+
   return {
     data: {
       summary: raw ? { ...raw, brand_names: raw.brand_names ?? [], daily: Array.isArray(raw.daily) ? raw.daily : [] } : null,
-      exact: exact7.error || exact28.error ? null : { cited_7d: exact7.count ?? 0, cited_28d: exact28.count ?? 0 },
+      exact,
       events: (events.data ?? []) as CitationEventRow[],
       ownPage: (ownPage.data as TrackingData["ownPage"]) ?? null,
       platformEvents: (platform.data ?? []) as TrackingData["platformEvents"],
