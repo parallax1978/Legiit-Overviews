@@ -207,7 +207,13 @@ interface PassageGroup {
   passage: PassageLocation;
   /** Distinct quotes Google took from this place. */
   count: number;
+  /** Captures quoting it, summed over the variants merged into it; null on reports stored before the count. */
+  renders: number | null;
+  /** True when one passage text stands behind it, so `renders` counts distinct captures exactly. */
+  single: boolean;
 }
+
+type Quote = PassageLocation & { variants: number };
 
 /** Google's "Sep 18, 2026 — " prefix on some passages. */
 const DATE_PREFIX = /^[A-Z][a-z]{2,8}\.? \d{1,2}, \d{4}\s*[—–-]\s*/;
@@ -222,7 +228,7 @@ function quoteKey(text: string): string {
  * so variants whose text is a prefix of another are merged. The variant without a date prefix gives the
  * location (a date prefix shifts the passage locator back into the previous section).
  */
-function distinctQuotes(passages: PassageLocation[]): PassageLocation[] {
+function distinctQuotes(passages: PassageLocation[]): Quote[] {
   const sorted = [...passages].sort((a, b) => quoteKey(b.passage).length - quoteKey(a.passage).length);
   const quotes: { key: string; variants: PassageLocation[] }[] = [];
   for (const p of sorted) {
@@ -235,23 +241,38 @@ function distinctQuotes(passages: PassageLocation[]): PassageLocation[] {
     const clean = variants.filter((v) => !DATE_PREFIX.test(v.passage));
     const located = clean.find((v) => v.found) ?? variants.find((v) => v.found) ?? variants[0];
     const text = (clean[0] ?? variants[0]).passage.replace(DATE_PREFIX, "");
-    return { ...located, passage: text };
+    const counted = variants.every((v) => typeof v.renders === "number");
+    return { ...located, passage: text, renders: counted ? variants.reduce((sum, v) => sum + (v.renders ?? 0), 0) : null, variants: variants.length };
   });
 }
 
 /** Distinct quotes grouped by where they sit (heading and position), most quoted place first. */
-function groupPassages(quotes: PassageLocation[]): PassageGroup[] {
+function groupPassages(quotes: Quote[]): PassageGroup[] {
   const groups = new Map<string, PassageGroup>();
   for (const p of quotes) {
     const key = p.found ? `f|${p.heading ?? ""}|${Math.round((p.position ?? 0) * 50)}` : `n|${p.passage.slice(0, 60)}`;
+    const renders = typeof p.renders === "number" ? p.renders : null;
     const g = groups.get(key);
-    if (!g) groups.set(key, { passage: p, count: 1 });
+    if (!g) groups.set(key, { passage: p, count: 1, renders, single: p.variants === 1 });
     else {
       g.count++;
+      g.renders = g.renders === null || renders === null ? null : g.renders + renders;
+      g.single = false;
       if (p.passage.length > g.passage.passage.length) g.passage = p;
     }
   }
-  return [...groups.values()].sort((a, b) => b.count - a.count || (a.passage.position ?? 2) - (b.passage.position ?? 2));
+  return [...groups.values()].sort(
+    (a, b) => (b.renders ?? 0) - (a.renders ?? 0) || b.count - a.count || (a.passage.position ?? 2) - (b.passage.position ?? 2),
+  );
+}
+
+/**
+ * "quoted in 12 captures" when one passage text is behind the place; "quoted 14 times" when several
+ * are (a capture can quote two of them, so their captures can't simply be added up).
+ */
+function quotedText(g: PassageGroup): string | null {
+  if (g.renders === null || g.renders <= 0) return null;
+  return g.single ? `quoted in ${plural(g.renders, "capture")}` : `quoted ${g.renders === 1 ? "once" : `${formatCount(g.renders)} times`}`;
 }
 
 const SHOWN_PASSAGES = 4;
@@ -293,23 +314,22 @@ function Passages({ passages }: { passages: PassageLocation[] }) {
 function PassageItem({ group }: { group: PassageGroup }) {
   const { passage, count } = group;
   const pos = passage.found && typeof passage.position === "number" ? Math.min(1, Math.max(0, passage.position)) : null;
+  const quoted = quotedText(group);
+  const meta = [pos !== null ? `${formatPercent(pos)} down the page` : null, count > 1 ? `${count} different quotes` : null, quoted].filter(Boolean);
   return (
     <li>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <p className="min-w-0 text-sm font-semibold text-ink">
           {passage.found ? passage.heading || "Before the first heading" : "Not found in the page"}
         </p>
-        {passage.found ? (
-          pos !== null && (
-            <span className="text-xs tabular-nums text-ink-muted">
-              {formatPercent(pos)} down the page{count > 1 ? ` · ${count} different quotes` : ""}
-            </span>
-          )
-        ) : (
-          <Chip tone="grey" size="sm">
-            Not found
-          </Chip>
-        )}
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {meta.length > 0 && <span className="text-xs tabular-nums text-ink-muted">{meta.join(" · ")}</span>}
+          {!passage.found && (
+            <Chip tone="grey" size="sm">
+              Not found
+            </Chip>
+          )}
+        </span>
       </div>
       {pos !== null && <PositionBar position={pos} />}
       <p className={cn("mt-2 break-words text-xs leading-5", passage.found ? "text-ink-muted" : "italic text-ink-muted")}>

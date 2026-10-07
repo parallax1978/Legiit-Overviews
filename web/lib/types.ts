@@ -90,6 +90,8 @@ export interface PassageLocation {
   heading: string | null;
   position: number | null;
   match_score: number;
+  /** In reports.page_details: distinct captures in the window that quoted this passage; null or missing on older reports. */
+  renders?: number | null;
 }
 
 export type Confidence = "low" | "medium" | "high";

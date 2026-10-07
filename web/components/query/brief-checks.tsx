@@ -12,6 +12,7 @@ const CHECK_TITLES: Record<string, string> = {
   entity_recurrence: "Entities appear in at least 2 renders",
   outline_covers_must_cover: "The outline covers every must-cover topic",
   refs_resolve: "Every evidence link points to real data",
+  no_figures_in_prose: "Claude's wording states no figures; every count comes from the database",
 };
 
 const REMOVED_LABELS: Record<string, string> = {
