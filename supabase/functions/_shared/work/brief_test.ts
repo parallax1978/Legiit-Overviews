@@ -51,6 +51,44 @@ function respond(input: BriefPromptInput): BriefOutput {
   };
 }
 
+/**
+ * 56 renders over the report window, 48 of them with an extracted overview: g1 (cited) in 36, g2
+ * (cited) in 10, g3 (never cited) in 20; Jotform in 39 (recommended in 30), Formstack in 1; the
+ * page `sourceKey` cited in 40; YouTube in 14 through two videos.
+ */
+async function seedWindow(seriesId: string, ids: Record<"g1" | "g2" | "g3" | "e1" | "e2", string>, sourceKey: string, host: string) {
+  const start = Date.parse("2026-09-30T01:00:00Z");
+  const rows = Array.from({ length: 56 }, (_, n) => ({
+    series_id: seriesId,
+    captured_at: new Date(start + n * 3 * 3_600_000).toISOString(),
+    status: n < 48 ? "present" : "absent",
+    content_hash: n < 48 ? `brief-${n}` : null,
+    sentences: [],
+    formats: n < 48 ? { word_count: 180, labels: n < 40 ? ["ranked_list"] : [] } : {},
+    extraction: n < 48 ? "done" : "none",
+  }));
+  const snaps = must(await db().from("snapshots").insert(rows).select("id, captured_at").order("captured_at"), "snapshots") as { id: string }[];
+  const claims: Record<string, unknown>[] = [];
+  const mentions: Record<string, unknown>[] = [];
+  const citations: Record<string, unknown>[] = [];
+  const yt = (v: number) => ({ url: `https://youtube.com/watch?v=${v}`, url_key: `youtube.com/watch?v=${v}`, host: "youtube.com", reg_domain: "youtube.com" });
+  snaps.slice(0, 48).forEach((s, n) => {
+    const claim = (group: string, text: string, cited: boolean) =>
+      claims.push({ snapshot_id: s.id, group_id: group, sentence: 0, text, type: "fact", citation_idx: cited ? [0] : [] });
+    if (n < 36) claim(ids.g1, "Jotform is the best form builder.", true);
+    if (n < 10) claim(ids.g2, "Typeform suits surveys.", true);
+    if (n < 20) claim(ids.g3, "Most form builders have a free plan.", false);
+    if (n < 39) mentions.push({ entity_id: ids.e1, snapshot_id: s.id, role: n < 30 ? "recommended" : "mentioned", label: n < 30 ? "best overall" : null, sentences: [0] });
+    if (n === 0) mentions.push({ entity_id: ids.e2, snapshot_id: s.id, role: "mentioned", label: null, sentences: [0] });
+    if (n < 40) citations.push({ snapshot_id: s.id, idx: 0, url: `https://${sourceKey}`, url_key: sourceKey, host, reg_domain: host });
+    if (n < 10) citations.push({ snapshot_id: s.id, idx: 1, ...yt(1) });
+    if (n >= 9 && n < 14) citations.push({ snapshot_id: s.id, idx: 2, ...yt(2) });
+  });
+  must(await db().from("claims").insert(claims), "claims");
+  must(await db().from("entity_mentions").insert(mentions), "mentions");
+  must(await db().from("citations").insert(citations), "citations");
+}
+
 Deno.test({
   name: "brief: a report at stage 'brief' gets typed refs, checks, Markdown, stage 'ready' and a notification",
   ...opts,
@@ -92,28 +130,20 @@ Deno.test({
         own_url: `https://${keys[3]}`,
         own_url_key: keys[3],
       });
+      const g3 = await insert<{ id: string }>("claim_groups", { series_id: seriesId, label: "Most form builders have a free plan." });
+      await seedWindow(seriesId, { g1: g1.id, g2: g2.id, g3: g3.id, e1: e1.id, e2: e2.id }, keys[0], host);
+      // Metrics stored when the report was created, before a consolidation merged a duplicate group
+      // into g1: they put g1 under the must-cover floor. The brief is built on recomputed metrics.
       const metrics: Partial<SeriesMetrics> = {
         window: { from: "2026-09-30T00:00:00Z", to: "2026-10-07T00:00:00Z" },
         renders: 56,
         present: 48,
         errors: 0,
-        median_word_count: 180,
         claims: [
-          { group_id: g1.id, label: "Jotform is the best form builder.", renders: 36, share: 0.75, bucket: "recurring", first_seen: "", last_seen: "", cited_share: 0.9, types: ["recommendation"] },
-          { group_id: g2.id, label: "Typeform suits surveys.", renders: 10, share: 0.208, bucket: "rotating", first_seen: "", last_seen: "", cited_share: 0, types: ["fact"] },
+          { group_id: g1.id, label: "Jotform is the best form builder.", renders: 14, share: 0.3, bucket: "rotating", first_seen: "", last_seen: "", cited_share: 1, types: ["recommendation"] },
         ],
-        entities: [
-          { entity_id: e1.id, name: "Jotform", renders: 39, share: 0.81, recommended_renders: 30, recommended_share: 0.62, labels: ["best overall"], bucket: "core" },
-          { entity_id: e2.id, name: "Formstack", renders: 1, share: 0.02, recommended_renders: 0, recommended_share: 0, labels: [], bucket: "rotating" },
-        ],
-        sources: [
-          { url_key: keys[0], url: `https://${keys[0]}`, reg_domain: host, title: null, renders: 40, share: 0.83, bucket: "core", platform: false, organic_top10_share: 1 },
-          { url_key: "youtube.com/watch?v=1", url: "https://youtube.com/watch?v=1", reg_domain: "youtube.com", title: null, renders: 10, share: 0.2, bucket: "rotating", platform: true, organic_top10_share: 0 },
-          { url_key: "youtube.com/watch?v=2", url: "https://youtube.com/watch?v=2", reg_domain: "youtube.com", title: null, renders: 5, share: 0.1, bucket: "rotating", platform: true, organic_top10_share: 0 },
-        ],
-        domains: [{ reg_domain: "youtube.com", renders: 14, share: 0.29, bucket: "rotating", platform: true }],
-        formats: [{ label: "ranked_list", renders: 40, share: 0.83 }],
-        unsupported_claims: [{ group_id: g2.id, label: "Typeform suits surveys.", share: 0.208 }],
+        entities: [],
+        sources: [],
         daily: [],
       };
       const report = await insert<{ id: string }>("reports", {
@@ -151,7 +181,18 @@ Deno.test({
       assertEquals(input.pages[0].passages, [{ passage: "Jotform is the best.", heading: "Top pick", position: 0.1 }]);
       assertEquals(input.answer_word_budget, 50); // median of 40 and 60; the own page doesn't count
       assertEquals(input.own_domain, `own-${host}`);
-      assertEquals(input.platform_sources, [{ reg_domain: "youtube.com", share: 0.29 }]);
+      assertEquals(input.platform_sources, [{ reg_domain: "youtube.com", share: 0.292 }]);
+      assertEquals(input.claims.map((c) => [c.label, c.share]), [
+        ["Jotform is the best form builder.", 0.75],
+        ["Most form builders have a free plan.", 0.417],
+        ["Typeform suits surveys.", 0.208],
+      ]);
+      const stored = must(await db().from("reports").select("metrics, renders").eq("id", report.id).single(), "metrics") as {
+        metrics: SeriesMetrics;
+        renders: number;
+      };
+      assertEquals(stored.metrics.claims.find((c) => c.group_id === g1.id)?.share, 0.75, "the recomputed metrics are stored");
+      assertEquals([stored.renders, stored.metrics.present, stored.metrics.daily.length > 0], [56, 48, true]);
       assertEquals(input.unsupported_claims.map((u) => u.ref), [input.claims[1].ref]);
 
       const r = must(

@@ -461,6 +461,14 @@ export function needsParse(row: PageState | null | undefined, maxAgeDays = 7, no
   return now - attempted >= retryAfter;
 }
 
+/**
+ * True when a cached page's URL does not normalise to its key: a row written before keys were
+ * checked, or under an older normalisation. Such a row is parsed again from a URL that does.
+ */
+export function foreignUrl(row: { url_key: string; url?: string | null } | null | undefined): boolean {
+  return !!row?.url && normalizeUrl(row.url) !== row.url_key;
+}
+
 export interface EnsureResult {
   parsed: string[]; // url_keys parsed now
   failed: string[]; // url_keys whose parse failed now
@@ -473,7 +481,8 @@ export interface EnsureResult {
  * pages are parsed with DataForSEO (at most `concurrency` at once, and none started after
  * `deadline`); a re-parse resets the page's tags so they are redone. A failed re-parse of a page
  * that parsed before keeps the old content and records the attempt. The cache is shared, so a page
- * is only ever written under the key its own URL normalises to. Never throws for one page's failure.
+ * is only ever written under the key its own URL normalises to, and a row whose stored URL does not
+ * (foreignUrl) is parsed again at once. Never throws for one page's failure.
  */
 export async function ensurePages(urlKeysWithUrls: PageRef[], maxAgeDays = 7, concurrency = 4, deadline = Infinity): Promise<EnsureResult> {
   const db = serviceClient();
@@ -491,9 +500,9 @@ export async function ensurePages(urlKeysWithUrls: PageRef[], maxAgeDays = 7, co
   if (!byKey.size) return result;
 
   const keys = [...byKey.keys()];
-  const { data: rows, error } = await db.from("pages").select("url_key, parse_status, parsed_at, parse_attempted_at").in("url_key", keys);
+  const { data: rows, error } = await db.from("pages").select("url_key, url, parse_status, parsed_at, parse_attempted_at").in("url_key", keys);
   if (error) throw new Error(`pages: ${error.message}`);
-  const existing = new Map<string, PageState>((rows ?? []).map((r: PageState) => [r.url_key, r]));
+  const existing = new Map<string, PageState & { url: string }>((rows ?? []).map((r: PageState & { url: string }) => [r.url_key, r]));
 
   const missing = keys.filter((k) => !existing.has(k)).map((k) => {
     const url = stripTextFragment(byKey.get(k)!.url);
@@ -504,14 +513,16 @@ export async function ensurePages(urlKeysWithUrls: PageRef[], maxAgeDays = 7, co
     if (ins.error) throw new Error(`pages insert: ${ins.error.message}`);
   }
 
-  const todo = keys.filter((k) => needsParse(existing.get(k), maxAgeDays));
+  const todo = keys.filter((k) => foreignUrl(existing.get(k)) || needsParse(existing.get(k), maxAgeDays));
   result.fresh = keys.filter((k) => !todo.includes(k));
 
   let next = 0;
   const worker = async () => {
     while (next < todo.length && Date.now() < deadline) {
       const key = todo[next++];
-      const ok = await parseOne(byKey.get(key)!, existing.get(key));
+      // A row under someone else's URL has no content worth keeping if this parse fails.
+      const previous = existing.get(key);
+      const ok = await parseOne(byKey.get(key)!, foreignUrl(previous) ? undefined : previous);
       (ok ? result.parsed : result.failed).push(key);
     }
   };
@@ -549,9 +560,22 @@ async function parseOne(ref: PageRef, previous: PageState | undefined): Promise<
     const message = e instanceof Error ? e.message : String(e);
     console.error(`parse ${url}: ${message}`);
     // A page that parsed before keeps its content, tags and parsed_at; only the attempt is recorded.
+    // Otherwise the row holds nothing usable: it is failed under this URL, with any content cleared.
     const update = previous?.parse_status === "ok"
       ? { parse_attempted_at: now, parse_error: message }
-      : { parse_status: "failed", parsed_at: now, parse_attempted_at: now, parse_error: message };
+      : {
+        url,
+        parse_status: "failed",
+        parsed_at: now,
+        parse_attempted_at: now,
+        parse_error: message,
+        markdown: null,
+        outline: null,
+        measures: null,
+        tags: null,
+        tag_status: "none",
+        tagged_at: null,
+      };
     const { error } = await db.from("pages").update(update).eq("url_key", ref.url_key);
     if (error) console.error(`pages ${ref.url_key}: ${error.message}`);
     return false;

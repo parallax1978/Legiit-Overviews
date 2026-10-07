@@ -4,14 +4,17 @@
 import { must, serviceClient } from "../_shared/db.ts";
 import { json, requireCron } from "../_shared/http.ts";
 import { normalizeUrl } from "../_shared/normalize.ts";
-import { ensurePages, locatePassages, needsParse, type PageRef, type PageState } from "../_shared/pages.ts";
+import { ensurePages, foreignUrl, locatePassages, needsParse, type PageRef, type PageState } from "../_shared/pages.ts";
 import type { PassageLocation, SeriesMetrics, SourceMetric } from "../_shared/types.ts";
 
 /** Cited pages analysed per report (plus the user's own page). */
 export const TOP_PAGES = 10;
 /** Metrics wait this long for the window's last captures to be extracted before being computed anyway. */
 export const EXTRACTION_WAIT_MS = 3 * 3_600_000;
-/** A report whose pages were all attempted but have not settled after this long goes to the brief anyway. */
+/**
+ * A report whose pages have all been attempted but have not settled goes to the brief anyway this
+ * long after the later of its creation and its pages' last parse attempt.
+ */
 export const SETTLE_TIMEOUT_MS = 6 * 3_600_000;
 /** A report whose metrics could not be computed for this long is marked failed. */
 const METRICS_TIMEOUT_MS = 6 * 3_600_000;
@@ -93,7 +96,7 @@ export function selectPages(sources: SourceMetric[], own: { url: string | null }
 
 /** A page is settled when its parse is current and, if it parsed, its tags are done or failed. */
 export function pageSettled(page: PageRow | undefined, now: number): boolean {
-  if (!page || needsParse(page, 7, now)) return false;
+  if (!page || foreignUrl(page) || needsParse(page, 7, now)) return false;
   if (page.parse_status === "failed") return true;
   return page.tag_status === "done" || page.tag_status === "failed";
 }
@@ -101,6 +104,16 @@ export function pageSettled(page: PageRow | undefined, now: number): boolean {
 /** A page has been attempted once its row exists and a parse has run, whatever the outcome. */
 function pageAttempted(page: PageRow | undefined): boolean {
   return !!page && page.parse_status !== "pending";
+}
+
+/**
+ * The URL to parse a page from: the first of its stored URL, the URL Google cited and the key
+ * itself that normalises to the key, so a page is never fetched from a URL another key stands for.
+ * Null when none does (the key came from an older normalisation); such a page is skipped.
+ */
+export function pageUrl(key: string, page: { url?: string | null } | undefined, cited: string | undefined): string | null {
+  for (const u of [page?.url, cited, `https://${key}`]) if (u && normalizeUrl(u) === key) return u;
+  return null;
 }
 
 export async function buildReports(opts: BuildOptions = {}): Promise<BuildSummary> {
@@ -197,11 +210,17 @@ async function processReport(report: ReportRow, now: Date, budget: number, deadl
   const keys = report.page_urls;
   const urlOf = new Map(refs.map((r) => [r.url_key, r.url]));
 
-  // Parse what is missing or stale, within the run's time budget (and the test cap).
+  // Parse what is missing, stale or stored under a URL that is not the key's, within the run's time
+  // budget (and the test cap).
   let pages = await loadPages(keys);
-  const toParse = keys.filter((k) => needsParse(pages.get(k), 7, now.getTime())).slice(0, Math.max(0, budget));
+  const urls = new Map(keys.map((k) => [k, pageUrl(k, pages.get(k), urlOf.get(k))]));
+  const skipped = new Set(keys.filter((k) => !urls.get(k)));
+  if (skipped.size) console.warn(`report ${report.id}: no URL normalises to ${[...skipped].join(", ")}; not parsed`);
+  const toParse = keys
+    .filter((k) => !skipped.has(k) && (foreignUrl(pages.get(k)) || needsParse(pages.get(k), 7, now.getTime())))
+    .slice(0, Math.max(0, budget));
   if (toParse.length && Date.now() < deadline) {
-    const r = await ensurePages(toParse.map((k) => ({ url_key: k, url: pages.get(k)?.url ?? urlOf.get(k) ?? `https://${k}` })), 7, 4, deadline);
+    const r = await ensurePages(toParse.map((k) => ({ url_key: k, url: urls.get(k)! })), 7, 4, deadline);
     summary.parsed += r.parsed.length;
     summary.parse_failed += r.failed.length;
     pages = await loadPages(keys);
@@ -211,18 +230,21 @@ async function processReport(report: ReportRow, now: Date, budget: number, deadl
   const passages = await windowPassages(report, keys);
   const details: PageDetail[] = keys.map((k, i) => {
     const page = pages.get(k);
-    const markdown = page?.parse_status === "ok" ? page.markdown : null;
+    const markdown = page?.parse_status === "ok" && !foreignUrl(page) ? page.markdown : null;
     return { url_key: k, ref: `P${i + 1}`, share: shares.get(k) ?? 0, passages: locatePassages(markdown, passages.get(k) ?? [], k) };
   });
 
   // The escape covers slow tagging, not parse starvation: it needs every page to have been parsed
-  // (or to have failed) at least once.
-  const settled = keys.every((k) => pageSettled(pages.get(k), now.getTime()));
-  const forced = !settled && age > SETTLE_TIMEOUT_MS && keys.every((k) => pageAttempted(pages.get(k)));
-  if (forced) {
-    const open = keys.filter((k) => !pageSettled(pages.get(k), now.getTime()));
-    console.warn(`report ${report.id}: pages not settled after 6 hours (${open.join(", ")}); moving to the brief anyway`);
-  }
+  // (or to have failed) at least once, and its clock starts at the latest parse attempt.
+  const open = keys.filter((k) => !skipped.has(k) && !pageSettled(pages.get(k), now.getTime()));
+  const settled = open.length === 0;
+  const attempted = keys.every((k) => skipped.has(k) || pageAttempted(pages.get(k)));
+  const lastAttempt = Math.max(
+    Date.parse(report.created_at),
+    ...keys.map((k) => pages.get(k)).map((p) => Date.parse(p?.parse_attempted_at ?? p?.parsed_at ?? "")).filter(Number.isFinite),
+  );
+  const forced = !settled && attempted && now.getTime() - lastAttempt > SETTLE_TIMEOUT_MS;
+  if (forced) console.warn(`report ${report.id}: pages not settled after 6 hours (${open.join(", ")}); moving to the brief anyway`);
   const update: Record<string, unknown> = { page_urls: keys, page_details: details, updated_at: now.toISOString() };
   if (settled || forced) Object.assign(update, { stage: "brief", brief_submitted: false });
   must(await db.from("reports").update(update).eq("id", report.id).eq("stage", "pages"), "save report pages");

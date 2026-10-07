@@ -239,7 +239,7 @@ export async function detectPlatformEvents(opts: DetectOptions = {}): Promise<De
           tracked_query_id: c.tracked_query_id,
           kind: "lost",
           title: `Your page dropped out of the AI Overview for “${c.display_keyword}”`,
-          body: `None of the ${c.present_renders} AI Overviews captured in the last 2 days cited your page. We'll tell you if it comes back.`,
+          body: `${lostLead(c.present_renders)} We'll tell you if it comes back.`,
           link: `/queries/${c.tracked_query_id}/tracking`,
         }),
         "insert lost notification",
@@ -249,6 +249,12 @@ export async function detectPlatformEvents(opts: DetectOptions = {}): Promise<De
   }
 
   return summary;
+}
+
+function lostLead(renders: number): string {
+  return renders === 1
+    ? "The AI Overview captured in the last 2 days did not cite your page."
+    : `None of the ${renders} AI Overviews captured in the last 2 days cited your page.`;
 }
 
 /** One notification per user with a non-paused query, written in SQL so no row cap can skip users. */
