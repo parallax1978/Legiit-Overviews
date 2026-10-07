@@ -270,14 +270,15 @@ export async function runReports(d: Demo, trackedQueryId: string, seriesId: stri
   };
   console.log(`build-reports: ${brief(await d.cron("build-reports"))}`);
   let list = await reports();
-  for (let round = 1; round <= 20; round++) {
-    if (list.length && list.every((r) => r.stage === "ready" || r.stage === "failed")) break;
+  // Reports are created from history alone, so none now means none after more rounds either.
+  for (let round = 1; round <= 20 && list.length; round++) {
+    if (list.every((r) => r.stage === "ready" || r.stage === "failed")) break;
     await d.cron("submit-batches");
     await sleep(500);
     await d.cron("collect-batches");
     await d.cron("build-reports");
     list = await reports();
-    console.log(`round ${round}: ${list.map((r) => `${r.kind}=${r.stage}`).join(", ") || "no report yet"}`);
+    console.log(`round ${round}: ${list.map((r) => `${r.kind}=${r.stage}`).join(", ")}`);
   }
   if (!list.length) {
     const { data } = await d.admin.from("snapshots").select("captured_at").eq("series_id", seriesId).neq("status", "error").order("captured_at").limit(1);

@@ -591,6 +591,18 @@ export function scenarioFor(keyword: string): Scenario {
       const pk = pageKey(source.url);
       if (!byPage.has(pk)) byPage.set(pk, { scenario: scn, source });
     }
+    // Vendor homepages that are not cited sources still parse as the vendor's own page.
+    for (const tool of scn.tools) {
+      const pk = pageKey(tool.vendorUrl);
+      if (byPage.has(pk)) continue;
+      byPage.set(pk, {
+        scenario: scn,
+        source: {
+          key: `home-${slugify(tool.name)}`, url: tool.vendorUrl, title: `${tool.name} | ${cap(tool.label)}`, source: tool.name,
+          kind: "vendor_home", p: 0, tool: tool.name, style: 0, author: tool.name, rank: null, description: tool.tagline,
+        },
+      });
+    }
   }
   return scn;
 }

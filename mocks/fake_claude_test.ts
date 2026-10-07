@@ -271,3 +271,15 @@ Deno.test("tasks are detected from the SDK's JSON schemas; unknown schemas still
   });
   assertEquals(viaParams?.task, "consolidate");
 });
+
+Deno.test("every fake accepts minimal inputs", () => {
+  ExtractOutput.parse(fakeExtract({ keyword: "k", language: "en", sentences: [], known_claims: [], known_entities: [] }));
+  ConsolidateOutput.parse(fakeConsolidate({ keyword: "k", language: "en", claims: [], entities: [] }));
+  PageTagOutput.parse(fakePageTag({ keyword: "k", language: "en", url: "https://x.test/", outline: [], markdown: "", google_passages: [] }));
+  const brief = BriefOutput.parse(fakeBrief({
+    keyword: "k", language: "en", own_domain: null, window: { from: "", to: "", renders: 0, present: 0 }, claims: [], entities: [], formats: [],
+    median_word_count: null, unsupported_claims: [], platform_sources: [], pages: [],
+  }));
+  DraftScoreOutput.parse(fakeDraftScore({ keyword: "k", language: "en", brief: brief.brief, draft_markdown: "" }));
+  DraftScoreOutput.parse(fakeDraftScore({ keyword: "k", language: "en", brief: null, draft_markdown: "" }));
+});
